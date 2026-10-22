@@ -76,6 +76,11 @@ fix(workloom): keep the selected workspace mode highlighted
    and opens the GitHub Release with the packed `dsh-workloom-<version>.tgz`
    attached, which is the same package npm received.
 
+The Release body is the matching `CHANGELOG.md` section, followed by a
+`Full Changelog` link, so user-facing feature notes reach the Release page by
+being written in the changelog. A version without a matching section falls back
+to GitHub's auto-generated notes.
+
 A release is therefore: bump `version` in `package.json`, add the matching
 `CHANGELOG.md` entry, commit and push to `main`.
 

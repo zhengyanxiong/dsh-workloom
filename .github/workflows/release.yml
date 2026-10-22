@@ -85,6 +85,38 @@ jobs:
           git tag "v${{ steps.release.outputs.version }}"
           git push origin "v${{ steps.release.outputs.version }}"
 
+      # The Release body is the matching CHANGELOG.md section, so a feature
+      # lands on the Release page when its changelog entry does.
+      - name: Build the release notes
+        if: steps.release.outputs.tag == 'true'
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          previous=$(git tag --sort=-v:refname | grep -v "^v${VERSION}$" | head -1 || true)
+          export PREVIOUS_TAG="$previous"
+          node - <<'NODE'
+          const fs = require('node:fs')
+
+          const version = process.env.VERSION
+          const tag = `v${version}`
+          const changelog = fs.readFileSync('CHANGELOG.md', 'utf8')
+          const heading = `## [${version}]`
+          const start = changelog.indexOf(heading)
+          let body
+          if (start === -1) {
+            body = `See CHANGELOG.md for the changes in ${tag}.`
+          } else {
+            const next = changelog.indexOf('\n## [', start + heading.length)
+            const section = changelog.slice(start, next === -1 ? undefined : next).trim()
+            body = section.slice(section.indexOf('\n')).trim()
+          }
+          const repository = process.env.GITHUB_REPOSITORY
+          const link = process.env.PREVIOUS_TAG
+            ? `**Full Changelog**: https://github.com/${repository}/compare/${process.env.PREVIOUS_TAG}...${tag}`
+            : `**Full Changelog**: https://github.com/${repository}/commits/${tag}`
+          fs.writeFileSync('release-notes.md', `${body}\n\n${link}\n`)
+          NODE
+
       # Idempotent: a retried run, or a push that already released this version,
       # only confirms the Release exists.
       - name: Create the GitHub Release
@@ -98,11 +130,18 @@ jobs:
           fi
           shopt -s nullglob
           assets=(release-assets/*.tgz)
+          notes=(--generate-notes)
+          if [ -f release-notes.md ]; then
+            notes=(--notes-file release-notes.md)
+          fi
           if gh release view "$tag" >/dev/null 2>&1; then
             echo "::notice::Release $tag already exists."
+            if [ -f release-notes.md ]; then
+              gh release edit "$tag" --notes-file release-notes.md
+            fi
             if [ ${#assets[@]} -gt 0 ]; then
               gh release upload "$tag" "${assets[@]}" --clobber
             fi
             exit 0
           fi
-          gh release create "$tag" --generate-notes --verify-tag "${assets[@]}"
+          gh release create "$tag" "${notes[@]}" --verify-tag "${assets[@]}"
