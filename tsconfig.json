@@ -1,0 +1,11 @@
+{
+  // Editor solution file: Face programs stay in their own leaves, and tests
+  // outside the covered set are not part of any program yet.
+  "extends": "./tsconfig.base.json",
+  "files": [],
+  "references": [
+    { "path": "./tsconfig.host.json" },
+    { "path": "./tsconfig.client.json" },
+    { "path": "./tsconfig.domain.json" }
+  ]
+}

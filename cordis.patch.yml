@@ -1,0 +1,7 @@
+# Workloom bundle patch: add the project workbench without replacing native conversation.
+- insert:
+    - id: loom
+      name: dsh-workloom
+      config:
+        catalogFile: !!js dshHomePath('loom/catalog.json')
+        workspacesDir: !!js dshHomePath('loom/workspaces')

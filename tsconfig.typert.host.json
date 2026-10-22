@@ -1,0 +1,10 @@
+{
+  // Upstream-only: the Typert generator analyzes a DeepSeek Harness source
+  // checkout, so this face pair is unused in the standalone repository.
+  "extends": "../tsconfig.base.json",
+  "files": [],
+  "references": [
+    { "path": "../packages/typert/protocol" },
+    { "path": "./tsconfig.face.host.json" }
+  ]
+}

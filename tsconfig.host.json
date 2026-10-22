@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.domain.json",
+  "include": [
+    "src/index.ts",
+    "src/host/**/*.ts",
+    "src/git/**/*.ts",
+    "src/storage/**/*.ts",
+    "tests/catalog.spec.ts",
+    "tests/json-store.spec.ts",
+    "tests/git-workspace.spec.ts",
+    "tests/service.spec.ts",
+    "src/types.ts"
+  ]
+}

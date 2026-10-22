@@ -1,0 +1,231 @@
+import { execFile } from 'node:child_process'
+import { promisify } from 'node:util'
+import { mkdtemp, mkdir, readFile, realpath, rm, writeFile, access } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { delimiter, join, resolve } from 'node:path'
+import { afterEach, expect, it } from 'vitest'
+import { prepareWorkspace, repositoryBranches, resolveCommit, workingTreeStatus, WorkspacePreparationError } from '../src/git/workspace.ts'
+
+const exec = promisify(execFile)
+const roots: string[] = []
+async function fixture(format: 'sha1' | 'sha256' = 'sha1') {
+  const base = await mkdtemp(join(tmpdir(), 'loom-git-test-'))
+  roots.push(base)
+  const repos: string[] = []
+  for (const name of ['first', 'second']) {
+    const repo = join(base, name)
+    await mkdir(repo)
+    await exec('git', ['init', '--quiet', `--object-format=${format}`, repo])
+    await exec('git', ['-C', repo, 'config', 'user.name', 'Loom Test'])
+    await exec('git', ['-C', repo, 'config', 'user.email', 'loom@example.invalid'])
+    await writeFile(join(repo, 'file.txt'), name)
+    await exec('git', ['-C', repo, 'add', 'file.txt'])
+    await exec('git', ['-C', repo, 'commit', '--quiet', '-m', 'initial'])
+    repos.push(repo)
+  }
+  return { base, first: repos[0]!, second: repos[1]!, root: join(base, 'workspace') }
+}
+afterEach(async () => {
+  for (const base of roots.splice(0)) {
+    if (!resolve(base).startsWith(join(tmpdir(), 'loom-git-test-'))) throw new Error('unsafe test cleanup')
+    await rm(base, { recursive: true, force: true })
+  }
+})
+it('prepares two detached worktrees under nested directories and reports changes', async () => {
+  const f = await fixture()
+  const one = await resolveCommit(f.first, 'HEAD')
+  const two = await resolveCommit(f.second, 'HEAD')
+  const result = await prepareWorkspace(f.root, [
+    { repo: f.first, path: 'apps/frontend', commit: one },
+    { repo: f.second, path: 'services/backend', commit: two },
+  ])
+  expect(result.worktrees).toHaveLength(2)
+  expect(await readFile(join(f.root, 'apps/frontend/file.txt'), 'utf8')).toBe('first')
+  expect(await workingTreeStatus(join(f.root, 'apps/frontend'))).toBe('')
+  await writeFile(join(f.root, 'apps/frontend/file.txt'), 'user change')
+  expect(await workingTreeStatus(join(f.root, 'apps/frontend'))).toContain(' M file.txt')
+  expect(await resolveCommit(join(f.root, 'services/backend'), 'HEAD')).toBe(two)
+})
+it('prepares a workspace from a SHA-256 repository', async () => {
+  const f = await fixture('sha256')
+  const commit = await resolveCommit(f.first, 'HEAD')
+  expect(commit).toHaveLength(64)
+  await prepareWorkspace(f.root, [{ repo: f.first, path: 'app', commit }])
+  expect(await resolveCommit(join(f.root, 'app'), 'HEAD')).toBe(commit)
+})
+it('uses the requested commit even when the caller mutates input after invocation', async () => {
+  const f = await fixture()
+  const commit = await resolveCommit(f.first, 'HEAD')
+  const repositories = [{ repo: f.first, path: 'app', commit }]
+  const pending = prepareWorkspace(f.root, repositories)
+  repositories[0]!.commit = 'f'.repeat(40)
+  repositories[0]!.path = '../escape'
+  await pending
+  expect(await resolveCommit(join(f.root, 'app'), 'HEAD')).toBe(commit)
+})
+it('rolls back only worktrees created in a failed preparation', async () => {
+  const f = await fixture()
+  const commit = await resolveCommit(f.first, 'HEAD')
+  let failure: unknown
+  try {
+    await prepareWorkspace(f.root, [{ repo: f.first, path: 'nested/first', commit }, { repo: f.second, path: 'nested/second', commit: 'f'.repeat(40) }])
+  } catch (error) { failure = error }
+  expect(failure).toBeInstanceOf(WorkspacePreparationError)
+  expect((failure as WorkspacePreparationError).rollbackErrors).toEqual([])
+  await expect(access(f.root)).rejects.toThrow()
+  const listing = await exec('git', ['-C', f.first, 'worktree', 'list', '--porcelain'])
+  expect(listing.stdout).not.toContain(f.root)
+  expect(await readFile(join(f.first, 'file.txt'), 'utf8')).toBe('first')
+})
+it('creates a real branch for each worktree instead of a detached HEAD', async () => {
+  const f = await fixture()
+  const commit = await resolveCommit(f.first, 'HEAD')
+  const branch = 'loom/v1/first-1a2b3c4d'
+  await prepareWorkspace(f.root, [{ repo: f.first, path: 'app', commit, branch }])
+  expect((await exec('git', ['-C', join(f.root, 'app'), 'symbolic-ref', '--short', 'HEAD'])).stdout.trim()).toBe(branch)
+  expect((await exec('git', ['-C', f.first, 'branch', '--list', branch])).stdout).toContain(branch)
+  expect(await resolveCommit(join(f.root, 'app'), 'HEAD')).toBe(commit)
+})
+it('prepares one repository directly at the workspace root', async () => {
+  const f = await fixture()
+  const commit = await resolveCommit(f.first, 'HEAD')
+  await prepareWorkspace(f.root, [{ repo: f.first, path: '.', commit }])
+  expect(await resolveCommit(f.root, 'HEAD')).toBe(commit)
+  expect((await exec('git', ['-C', f.root, 'status', '--porcelain'])).stdout.trim()).toBe('')
+})
+it('checks out an existing branch when its tip is the Lock commit', async () => {
+  const f = await fixture()
+  const commit = await resolveCommit(f.first, 'HEAD')
+  await exec('git', ['-C', f.first, 'branch', 'feature/shared', commit])
+  await prepareWorkspace(f.root, [{ repo: f.first, path: 'app', commit, branch: 'feature/shared' }])
+  expect((await exec('git', ['-C', join(f.root, 'app'), 'symbolic-ref', '--short', 'HEAD'])).stdout.trim()).toBe('feature/shared')
+  expect((await exec('git', ['-C', f.first, 'branch', '--list', 'feature/shared'])).stdout).toContain('feature/shared')
+})
+it('refuses an existing branch already checked out in another worktree', async () => {
+  const f = await fixture()
+  const commit = await resolveCommit(f.first, 'HEAD')
+  const current = (await repositoryBranches(f.first)).current
+  expect(current).toBeDefined()
+  await expect(prepareWorkspace(f.root, [{ repo: f.first, path: 'app', commit, branch: current! }])).rejects.toThrow('branch_checked_out')
+})
+it('refuses an existing branch that does not point at the Lock commit', async () => {
+  const f = await fixture()
+  const commit = await resolveCommit(f.first, 'HEAD')
+  await writeFile(join(f.first, 'file.txt'), 'moved')
+  await exec('git', ['-C', f.first, 'commit', '-qam', 'moved'])
+  await exec('git', ['-C', f.first, 'branch', 'feature/moved'])
+  await expect(prepareWorkspace(f.root, [{ repo: f.first, path: 'app', commit, branch: 'feature/moved' }])).rejects.toThrow('branch_mismatch')
+  expect((await exec('git', ['-C', f.first, 'branch', '--list', 'feature/moved'])).stdout).toContain('feature/moved')
+})
+it('deletes branches created by a workspace that fails to prepare', async () => {
+  const f = await fixture()
+  const commit = await resolveCommit(f.first, 'HEAD')
+  const branch = 'loom/v1/first-abcd1234'
+  await expect(prepareWorkspace(f.root, [
+    { repo: f.first, path: 'first', commit, branch },
+    { repo: f.second, path: 'second', commit: 'f'.repeat(40) },
+  ])).rejects.toThrow()
+  expect((await exec('git', ['-C', f.first, 'branch', '--list', branch])).stdout.trim()).toBe('')
+  await expect(access(f.root)).rejects.toThrow()
+})
+it('refuses an existing root without deleting or overwriting user files', async () => {
+  const f = await fixture()
+  await mkdir(f.root)
+  await writeFile(join(f.root, 'keep.txt'), 'keep')
+  await expect(prepareWorkspace(f.root, [{ repo: f.first, path: 'first', commit: await resolveCommit(f.first, 'HEAD') }])).rejects.toThrow()
+  expect(await readFile(join(f.root, 'keep.txt'), 'utf8')).toBe('keep')
+})
+it.each(['../escape', '/absolute', 'a/../../escape', 'a\\escape', '.git', ''])('rejects unsafe destination %s before creating root', async path => {
+  const f = await fixture()
+  await expect(prepareWorkspace(f.root, [{ repo: f.first, path, commit: await resolveCommit(f.first, 'HEAD') }])).rejects.toThrow('invalid_path')
+  await expect(access(f.root)).rejects.toThrow()
+})
+it('rejects overlapping paths before creating anything', async () => {
+  const f = await fixture()
+  const commit = await resolveCommit(f.first, 'HEAD')
+  await expect(prepareWorkspace(f.root, [{ repo: f.first, path: 'a', commit }, { repo: f.first, path: 'a/b', commit }])).rejects.toThrow('overlapping_paths')
+  await expect(access(f.root)).rejects.toThrow()
+})
+it('reports a missing Git executable distinctly from an unreadable repository', async () => {
+  const f = await fixture()
+  const path = process.env.PATH
+  process.env.PATH = ''
+  try {
+    await expect(resolveCommit(f.first, 'HEAD')).rejects.toMatchObject({ code: 'git_not_found' })
+  } finally {
+    process.env.PATH = path
+  }
+})
+
+it('reports the repository path and Git diagnostic for an unreadable repository', async () => {
+  const f = await fixture()
+  const plain = join(f.base, 'plain')
+  await mkdir(plain)
+  const failure = await resolveCommit(plain, 'HEAD').catch((error: unknown) => error)
+  expect(failure).toBeInstanceOf(WorkspacePreparationError)
+  expect((failure as WorkspacePreparationError).code).toBe('invalid_repository')
+  expect((failure as WorkspacePreparationError).message).toContain(plain)
+  expect((failure as WorkspacePreparationError).message).toMatch(/not a git repository|dubious ownership|spawn git/iu)
+})
+
+it('rejects Git option-shaped refs and nonlocal repository sources', async () => {
+  const f = await fixture()
+  await expect(resolveCommit(f.first, '--help')).rejects.toThrow()
+  await expect(resolveCommit('https://example.invalid/repo', 'HEAD')).rejects.toThrow('local_repository_required')
+})
+
+it.skipIf(process.platform === 'win32')('scopes Git safe.directory to the repository each invocation targets', async () => {
+  const f = await fixture()
+  const bin = join(f.base, 'bin')
+  const argsFile = join(f.base, 'git-args.log')
+  const realGit = (await exec('sh', ['-c', 'command -v git'])).stdout.trim()
+  await mkdir(bin)
+  await writeFile(join(bin, 'git'), `#!/bin/sh\nprintf '%s\\n' "$@" > '${argsFile}'\nexec '${realGit}' "$@"\n`, { mode: 0o755 })
+  const path = process.env.PATH
+  process.env.PATH = `${bin}${delimiter}${path ?? ''}`
+  try {
+    await resolveCommit(f.first, 'HEAD')
+  } finally {
+    process.env.PATH = path
+  }
+  const args = (await readFile(argsFile, 'utf8')).split('\n')
+  expect(args).toContain(`safe.directory=${await realpath(f.first)}`)
+})
+
+it.skipIf(process.platform === 'win32')('reports a dubious-ownership rejection separately from a missing repository', async () => {
+  const f = await fixture()
+  const bin = join(f.base, 'bin')
+  await mkdir(bin)
+  await writeFile(join(bin, 'git'), `#!/bin/sh\necho "fatal: detected dubious ownership in repository at '${f.first}'" >&2\nexit 128\n`, { mode: 0o755 })
+  const path = process.env.PATH
+  process.env.PATH = `${bin}${delimiter}${path ?? ''}`
+  try {
+    const failure = await resolveCommit(f.first, 'HEAD').catch((error: unknown) => error)
+    expect(failure).toBeInstanceOf(WorkspacePreparationError)
+    expect((failure as WorkspacePreparationError).code).toBe('dubious_ownership')
+    expect((failure as WorkspacePreparationError).message).toContain('dubious ownership')
+  } finally {
+    process.env.PATH = path
+  }
+})
+
+it('lists local branches and the checked-out branch without changing the worktree', async () => {
+  const f = await fixture()
+  await exec('git', ['-C', f.first, 'branch', 'feature/alpha'])
+  await exec('git', ['-C', f.first, 'switch', '-q', '-c', 'feature/beta'])
+  const branches = await repositoryBranches(f.first)
+  expect(branches.topLevel).toBe(await realpath(f.first))
+  expect(branches.current).toBe('feature/beta')
+  expect(branches.branches).toEqual(['feature/alpha', 'feature/beta', 'master'].sort((a, b) => a.localeCompare(b)))
+  expect((await exec('git', ['-C', f.first, 'symbolic-ref', '--short', 'HEAD'])).stdout.trim()).toBe('feature/beta')
+})
+
+it('fetches a missing branch from the default remote before resolving a Lock', async () => {
+  const f = await fixture()
+  const remote = join(f.base, 'remote.git')
+  await exec('git', ['init', '--quiet', '--bare', remote])
+  await exec('git', ['-C', f.first, 'remote', 'add', 'origin', remote])
+  await exec('git', ['-C', f.first, 'push', '--quiet', 'origin', 'HEAD:refs/heads/release'])
+  const head = (await exec('git', ['-C', f.first, 'rev-parse', 'HEAD'])).stdout.trim()
+  expect(await resolveCommit(f.first, 'release')).toBe(head)
+})

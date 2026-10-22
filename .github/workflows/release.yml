@@ -1,0 +1,97 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+
+concurrency:
+  group: release-main
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      # A push to main releases only when package.json names a version that has
+      # no tag yet. The npm lookup keeps a retried run from failing on E409.
+      - name: Resolve the release version
+        id: release
+        run: |
+          version=$(node -p "require('./package.json').version")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if git ls-remote --exit-code --tags origin "refs/tags/v$version" >/dev/null 2>&1; then
+            echo "::notice::v$version is already tagged; nothing to publish."
+            echo "tag=false" >> "$GITHUB_OUTPUT"
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "tag=true" >> "$GITHUB_OUTPUT"
+          published=$(npm view "dsh-workloom@$version" version 2>/dev/null || true)
+          if [ "$published" = "$version" ]; then
+            echo "::notice::dsh-workloom@$version is already on npm; tagging only."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - run: pnpm install --frozen-lockfile
+        if: steps.release.outputs.publish == 'true'
+      - run: pnpm run typecheck
+        if: steps.release.outputs.publish == 'true'
+      - run: pnpm test
+        if: steps.release.outputs.publish == 'true'
+      - run: pnpm run build
+        if: steps.release.outputs.publish == 'true'
+
+      # Trusted publishing needs npm >= 11.5.1; a token publish works either way.
+      - name: Install the latest npm
+        if: steps.release.outputs.publish == 'true'
+        run: npm install -g npm@latest
+
+      # Trusted publishing: the OIDC identity configured on npmjs.com is the
+      # credential, so no token is read here.
+      - name: Publish to npm
+        if: steps.release.outputs.publish == 'true'
+        run: npm publish --provenance
+
+      - name: Tag the release
+        if: steps.release.outputs.tag == 'true'
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git tag "v${{ steps.release.outputs.version }}"
+          git push origin "v${{ steps.release.outputs.version }}"
+
+      # Idempotent: a retried run, or a push that already released this version,
+      # only confirms the Release exists.
+      - name: Create the GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag="v${{ steps.release.outputs.version }}"
+          if ! git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null 2>&1; then
+            echo "::notice::Tag $tag does not exist yet; skipping the GitHub Release."
+            exit 0
+          fi
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "::notice::Release $tag already exists."
+            exit 0
+          fi
+          gh release create "$tag" --generate-notes --verify-tag
