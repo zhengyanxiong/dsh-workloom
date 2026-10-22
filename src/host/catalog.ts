@@ -540,16 +540,20 @@ export async function createCatalog(file: string, resolveCommit: (repo: string, 
     },
     workspaceDirty: workspaceId => workingTreeDirty(workspaceWorktrees(state, workspaceId).map(worktree => worktree.directory)),
     cleanupWorkspace: async (workspaceId, discardChanges) => {
-      const worktrees = workspaceWorktrees(state, workspaceId)
       const workspace = workspaceIn(state, workspaceId)
       if (state.executions.some(execution => execution.workspaceId === workspaceId && execution.owner !== null)) throw new CatalogError('workspace_busy')
-      if (!discardChanges) {
+      const mode = workspace.mode ?? (workspace.managed === true ? 'managed' : 'direct')
+      // Only managed cleanup deletes versioned worktrees. Direct and linked
+      // workspaces keep the real repositories, so uncommitted work must not
+      // block unregistering them; those checks also fail for legacy records
+      // whose target points at a parent directory rather than a Git root.
+      const worktrees = mode === 'managed' ? workspaceWorktrees(state, workspaceId) : []
+      if (!discardChanges && mode === 'managed') {
         for (const worktree of worktrees) if (await commitsSince(worktree.directory, worktree.commit) > 0) throw new CatalogError('workspace_unpushed')
         const changes = await workingTreeChanges(worktrees)
         if (changes.some(repository => repository.files.length > 0)) throw new CatalogError('workspace_changes')
       }
       const root = workspace.rootPath ?? workspace.path
-      const mode = workspace.mode ?? (workspace.managed === true ? 'managed' : 'direct')
       let failures: string[] = []
       if (mode === 'managed') {
         failures = await removeWorkspace(root, worktrees.map(({ repo, directory, branch }) => ({ repo, directory, ...(branch === undefined ? {} : { branch }) })))

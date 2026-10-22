@@ -3,7 +3,7 @@ import { act, createElement } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, expect, it } from 'vitest'
 import { brandString } from '@deepseek-ai/dsh-brand'
-import { ProjectForm, TaskForm, VersionForm } from '../src/client/LoomForms.tsx'
+import { ProjectForm, projectRequest, sourcePathsOverlap, TaskForm, VersionForm } from '../src/client/LoomForms.tsx'
 import { en, type LoomKey } from '../src/client/locales.ts'
 import type { ProjectRecord, TaskRecord, VersionRecord } from 'dsh-workloom/types'
 
@@ -16,6 +16,13 @@ afterEach(async () => {
   container?.remove()
   root = undefined
   container = undefined
+})
+
+it('rejects multiple repositories that claim the workspace root', () => {
+  const rooted = [{ repo: '/repo/a', path: '.' }, { repo: '/repo/b', path: 'b' }]
+  expect(sourcePathsOverlap(rooted)).toBe(true)
+  expect(projectRequest('Shop', rooted, [])).toBeUndefined()
+  expect(projectRequest('Shop', [{ repo: '/repo/a', path: 'a' }, { repo: '/repo/b', path: 'b' }], [])).toBeDefined()
 })
 
 it('advances from the name step with only a name before repositories are filled', async () => {

@@ -426,6 +426,22 @@ it('records a direct single-repository workspace and keeps the real folder after
   expect(catalog.snapshot().workspaces).toEqual([])
 })
 
+it('unregisters a direct workspace without reading Git from an invalid target', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'loom-catalog-')); dirs.push(dir)
+  const root = join(dir, 'container'); await mkdir(root)
+  const catalog = await createCatalog(join(dir, 'state.json'), async () => 'a'.repeat(40))
+  const project = await catalog.createProject({ name: 'Shop', sources: [{ id: 'web', repo: '/repos/web', path: 'web' }], modules: [] })
+  const version = await catalog.createVersion(project.id, 'v', [{ sourceId: project.config.sources[0]!.id, ref: 'HEAD' }])
+  const lock = await catalog.generateLock(version.id)
+  const workspace = await catalog.registerPreparedWorkspace({
+    path: root, versionId: version.id, lockId: lock.id, mode: 'direct', rootOwner: 'user',
+    repositories: [{ sourceId: project.config.sources[0]!.id, path: 'web', targetPath: root }],
+  })
+  await expect(catalog.cleanupWorkspace(workspace.id, false)).resolves.toBeUndefined()
+  expect(catalog.snapshot().workspaces).toEqual([])
+  expect((await lstat(root)).isDirectory()).toBe(true)
+})
+
 it('links direct multi-repository skills into the workspace root and removes only those links', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'loom-catalog-')); dirs.push(dir)
   const repo = async (name: string): Promise<string> => {

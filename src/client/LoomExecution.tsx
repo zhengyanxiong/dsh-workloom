@@ -100,7 +100,12 @@ export function ExecutionPanel({ t, task, snapshot, selectedSession, actions, lo
     if (workspace === undefined) return
     setBusy(true); setFailed(false)
     try {
-      const result = await actions.cleanupWorkspace({ workspaceId: workspace.id, discardChanges: discard })
+      // Only managed cleanup deletes worktrees, so direct and linked
+      // workspaces never need a dirty/unpushed guard to be unregistered.
+      // The explicit discard also keeps older Hosts from failing a safe
+      // unregister on a stale or non-Git target with `diff_failed`.
+      const managed = workspace.mode === 'managed' || (workspace.mode === undefined && workspace.managed === true)
+      const result = await actions.cleanupWorkspace({ workspaceId: workspace.id, discardChanges: discard || !managed })
       if (!result.ok) {
         setCleanFailure(result.error.message)
         const key = failureKey(result.error.message)

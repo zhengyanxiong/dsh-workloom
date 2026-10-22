@@ -123,6 +123,25 @@ function moduleIds(modules: readonly ModuleDraft[], ids: readonly string[]): str
 }
 
 /**
+ * Report whether repository rows cannot share one workspace layout.
+ * A multi-repository project cannot claim `.` because it contains every other path.
+ * @param sources - Repository rows in submission order.
+ * @returns true when two non-empty workspace paths are equal, nested, or one is the root.
+ */
+export function sourcePathsOverlap(sources: readonly SourceDraft[]): boolean {
+  const paths = sources.map(source => source.path.trim()).filter(path => path !== '')
+  for (let index = 0; index < paths.length; index += 1) {
+    const path = paths[index]!.toLowerCase()
+    if (path === '.' && paths.length > 1) return true
+    for (const other of paths.slice(index + 1)) {
+      const candidate = other.toLowerCase()
+      if (path === candidate || path.startsWith(`${candidate}/`) || candidate.startsWith(`${path}/`)) return true
+    }
+  }
+  return false
+}
+
+/**
  * Validate the project form and derive repository and module ids.
  * @param name - Admitted project name.
  * @param sources - Repository rows in submission order.
@@ -140,12 +159,7 @@ export function projectRequest(name: string, sources: readonly SourceDraft[], mo
     repo: source.repo,
     path: source.path,
   }))
-  const paths = new Set<string>()
-  for (const source of admittedSources) {
-    const path = source.path.toLowerCase()
-    if ([...paths].some(other => path === other || path.startsWith(`${other}/`) || other.startsWith(`${path}/`))) return undefined
-    paths.add(path)
-  }
+  if (sourcePathsOverlap(admittedSources)) return undefined
   const draftedModules = modules.filter(module => module.source !== '' || module.path.trim() !== '')
   if (draftedModules.some(module => module.source === '' || !ids.includes(module.source) || module.path.trim() === '')) return undefined
   const moduleIdList = moduleIds(draftedModules, ids)
@@ -418,6 +432,7 @@ export function ProjectForm({ t, create, update, project, agentPresets = [], pic
       </label>
       <p style={hint}>{t('project.agentPresetHint')}</p>
     </section>;
+  const sourcePathConflict = sourcePathsOverlap(sources)
   const sourceFields = <section style={stack}>
       <p style={hint}>{t('source.hint')}</p>
       {sources.map((source, index) => <div key={index} style={card}>
@@ -442,6 +457,7 @@ export function ProjectForm({ t, create, update, project, agentPresets = [], pic
           <p style={hint}>{t('source.pathHint')}</p>
         </label>
       </div>)}
+      {sourcePathConflict && <p role="alert" style={{ ...hint, color: COLORS.error }}>{t('source.rootConflict')}</p>}
       <Button type="button" variant="outline" icon={<IconPlusOutlineRegular />} style={{ alignSelf: 'flex-start' }} onClick={() => setSources(current => [...current, emptySourceRow()])}>{t('source.add')}</Button>
     </section>;
   const moduleFields = <section style={stack}>

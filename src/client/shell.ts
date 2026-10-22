@@ -86,6 +86,7 @@ export const ERROR_LABEL: Readonly<Record<string, LoomKey>> = {
   invalid_path: 'error.invalidPath',
   invalid_workspace_path: 'error.invalidWorkspacePath',
   invalid_form: 'error.invalidForm',
+  overlapping_paths: 'error.overlappingPaths',
   workspace_path_registered: 'error.pathRegistered',
   local_repository_required: 'error.repositoryRequired',
   invalid_repository: 'error.invalidRepository',
