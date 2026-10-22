@@ -47,6 +47,12 @@ dsh plugin --profile desktop add dsh-workloom@0.1.8
 > npm_config_registry=https://registry.npmjs.org dsh plugin --profile web add dsh-workloom@0.1.8
 > ```
 
+如果 npm 不可用，也可以从 [Releases](https://github.com/zhengyanxiong/dsh-workloom/releases) 下载 `dsh-workloom-<版本>.tgz` 离线安装（就是 npm 上发布的同一个包）：
+
+```bash
+dsh plugin --profile web add file:/path/to/dsh-workloom-0.1.8.tgz
+```
+
 ## 快速开始
 
 1. **新建项目**：填写项目名，添加一个或多个本地 Git 仓库；仓库使用绝对路径，工作区相对目录不能重叠。
@@ -121,6 +127,13 @@ Requirements: DSH `>=0.2.1-rc.2 <0.3.0`, Node.js `>=22.19`.
 ```bash
 dsh plugin --profile web add dsh-workloom@0.1.8
 dsh --profile web
+```
+
+When the registry is unavailable, install the same package from the tarball
+attached to a GitHub Release:
+
+```bash
+dsh plugin --profile web add file:/path/to/dsh-workloom-0.1.8.tgz
 ```
 
 Development:

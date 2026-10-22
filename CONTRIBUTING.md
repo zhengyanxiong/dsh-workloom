@@ -73,7 +73,8 @@ fix(workloom): keep the selected workspace mode highlighted
    run stops, so a push that does not change the version releases nothing.
 2. Otherwise it installs, typechecks, tests and builds, publishes
    `dsh-workloom@<version>` to npm with provenance, pushes the `v<version>` tag
-   and opens the GitHub Release.
+   and opens the GitHub Release with the packed `dsh-workloom-<version>.tgz`
+   attached, which is the same package npm received.
 
 A release is therefore: bump `version` in `package.json`, add the matching
 `CHANGELOG.md` entry, commit and push to `main`.

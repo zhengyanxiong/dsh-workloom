@@ -52,13 +52,13 @@ jobs:
           fi
 
       - run: pnpm install --frozen-lockfile
-        if: steps.release.outputs.publish == 'true'
+        if: steps.release.outputs.tag == 'true'
       - run: pnpm run typecheck
-        if: steps.release.outputs.publish == 'true'
+        if: steps.release.outputs.tag == 'true'
       - run: pnpm test
-        if: steps.release.outputs.publish == 'true'
+        if: steps.release.outputs.tag == 'true'
       - run: pnpm run build
-        if: steps.release.outputs.publish == 'true'
+        if: steps.release.outputs.tag == 'true'
 
       # Trusted publishing needs npm >= 11.5.1; a token publish works either way.
       - name: Install the latest npm
@@ -70,6 +70,12 @@ jobs:
       - name: Publish to npm
         if: steps.release.outputs.publish == 'true'
         run: npm publish --provenance
+
+      - name: Pack the npm tarball
+        if: steps.release.outputs.tag == 'true'
+        run: |
+          mkdir -p release-assets
+          npm pack --ignore-scripts --pack-destination release-assets
 
       - name: Tag the release
         if: steps.release.outputs.tag == 'true'
@@ -90,8 +96,13 @@ jobs:
             echo "::notice::Tag $tag does not exist yet; skipping the GitHub Release."
             exit 0
           fi
+          shopt -s nullglob
+          assets=(release-assets/*.tgz)
           if gh release view "$tag" >/dev/null 2>&1; then
             echo "::notice::Release $tag already exists."
+            if [ ${#assets[@]} -gt 0 ]; then
+              gh release upload "$tag" "${assets[@]}" --clobber
+            fi
             exit 0
           fi
-          gh release create "$tag" --generate-notes --verify-tag
+          gh release create "$tag" --generate-notes --verify-tag "${assets[@]}"

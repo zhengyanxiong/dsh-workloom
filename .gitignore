@@ -14,3 +14,4 @@ lib/*
 !lib/typert.remote-client.d.ts
 !lib/typert.remote-client.d.ts.map
 tmp/
+release-assets/
