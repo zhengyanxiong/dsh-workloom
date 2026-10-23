@@ -6,7 +6,7 @@ import { dirname, join, resolve } from 'node:path'
 /** Persistence failures retain their original cause for diagnostics. */
 export class JsonStoreError extends Error {
   constructor(readonly code: 'missing' | 'read_failed' | 'corrupt' | 'write_failed', readonly file: string, cause: unknown) {
-    super(`${code}: ${file}`, { cause })
+    super(`${code}: ${file}${cause instanceof Error && cause.message !== '' ? ` (${cause.message})` : ''}`, { cause })
     this.name = 'JsonStoreError'
   }
 }

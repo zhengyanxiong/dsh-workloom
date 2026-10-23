@@ -858,11 +858,15 @@ export async function createCatalog(file: string, resolveCommit: (repo: string, 
       const task = taskIn(draft, taskId)
       if (task.status === 'running') throw new CatalogError('task_busy')
       const workspaceIds = new Set<TaskRecord['attempts'][number]['workspaceId']>(task.attempts.map(attempt => attempt.workspaceId))
-      if (draft.executions.some(execution => workspaceIds.has(execution.workspaceId) && (execution.owner !== null || execution.waiting.length > 0))) throw new CatalogError('task_busy')
-      if (draft.workspaces.some(workspace => workspaceIds.has(workspace.id) && workspace.cleaned !== true)) throw new CatalogError('task_workspace_uncleaned')
+      // A workspace can be shared by attempts of several tasks, so only the
+      // records no remaining task references may disappear with this task.
+      const remaining = new Set(draft.tasks.filter(candidate => candidate !== task).flatMap(candidate => candidate.attempts.map(attempt => attempt.workspaceId)))
+      const removed = new Set([...workspaceIds].filter(workspaceId => !remaining.has(workspaceId)))
+      if (draft.executions.some(execution => removed.has(execution.workspaceId) && (execution.owner !== null || execution.waiting.length > 0))) throw new CatalogError('task_busy')
+      if (draft.workspaces.some(workspace => removed.has(workspace.id) && workspace.cleaned !== true)) throw new CatalogError('task_workspace_uncleaned')
       draft.tasks.splice(draft.tasks.indexOf(task), 1)
-      draft.workspaces = draft.workspaces.filter(workspace => !workspaceIds.has(workspace.id))
-      draft.executions = draft.executions.filter(execution => !workspaceIds.has(execution.workspaceId))
+      draft.workspaces = draft.workspaces.filter(workspace => !removed.has(workspace.id))
+      draft.executions = draft.executions.filter(execution => !removed.has(execution.workspaceId))
       recordAudit(draft, 'task.deleted', 'human', { taskId, detail: task.title })
     }),
   }

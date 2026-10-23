@@ -6,6 +6,15 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Workloom is
 an early preview, so minor versions may still change the catalog format.
 Releases start at 0.1.8 in this repository.
 
+## [Unreleased]
+
+### Fixed
+
+- Deleting a task no longer drops a workspace that another task still
+  references; only records no remaining task uses are removed with it.
+- A catalog write failure now names its cause next to the file path, so an
+  internal validation failure is readable instead of a bare `write_failed`.
+
 ## [0.1.8] - 2026-10-22
 
 ### Added

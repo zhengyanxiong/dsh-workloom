@@ -62,7 +62,9 @@ it('does not publish a failed write and accepts later writes', async () => {
   } })
   await store.write({ count: 1 })
   fail = true
-  await expect(store.write({ count: 2 })).rejects.toBeInstanceOf(JsonStoreError)
+  const failed = store.write({ count: 2 })
+  await expect(failed).rejects.toBeInstanceOf(JsonStoreError)
+  await expect(failed).rejects.toMatchObject({ code: 'write_failed', message: expect.stringContaining('serialization failed') })
   expect(store.snapshot()).toEqual({ count: 1 })
   expect(JSON.parse(await readFile(file, 'utf8')).data).toEqual({ count: 1 })
   fail = false
