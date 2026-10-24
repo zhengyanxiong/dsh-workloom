@@ -49,6 +49,46 @@ it('edits projects, versions and tasks while preserving referenced ids', async (
   expect(catalog.snapshot().audit.map(entry => entry.event)).toEqual(expect.arrayContaining(['project.updated', 'version.updated', 'task.updated']))
 })
 
+it('keeps historical Locks readable when a version gains a repository', async () => {
+  const web = brandString<Branded<'loom.source'>>('web'); const api = brandString<Branded<'loom.source'>>('api')
+  const { file, catalog } = await fixture()
+  const project = await catalog.createProject({ name: 'Shop', sources: [{ id: web, repo: '/repos/web', path: 'web' }, { id: api, repo: '/repos/api', path: 'api' }], modules: [] })
+  const version = await catalog.createVersion(project.id, 'Release', [{ sourceId: web, ref: 'main' }])
+  await catalog.generateLock(version.id)
+  const updated = await catalog.updateVersion(version.id, 'Release 2', [{ sourceId: web, ref: 'release' }, { sourceId: api, ref: 'main' }])
+  expect(updated.sources).toHaveLength(2)
+  const reopened = await createCatalog(file, async () => 'b'.repeat(40))
+  expect(reopened.snapshot().versions[0]?.sources).toHaveLength(2)
+  expect(reopened.snapshot().locks).toHaveLength(1)
+})
+
+it('checks a direct workspace for changes without a Lock pin for every binding', async () => {
+  const web = brandString<Branded<'loom.source'>>('web'); const api = brandString<Branded<'loom.source'>>('api')
+  const root = await mkdtemp(join(tmpdir(), 'loom-catalog-')); dirs.push(root)
+  const webPath = join(root, 'web'); const apiPath = join(root, 'api')
+  for (const repo of [webPath, apiPath]) {
+    await mkdir(repo)
+    await writeFile(join(repo, 'README.md'), 'clean\n')
+    await exec('git', ['init', repo])
+    await exec('git', ['-C', repo, 'add', '.'])
+    await exec('git', ['-C', repo, '-c', 'user.email=test@example.com', '-c', 'user.name=Test', 'commit', '-m', 'init'])
+  }
+  const { catalog } = await fixture()
+  const project = await catalog.createProject({ name: 'Shop', sources: [{ id: web, repo: webPath, path: 'web' }, { id: api, repo: apiPath, path: 'api' }], modules: [] })
+  const version = await catalog.createVersion(project.id, 'Release', [{ sourceId: web, ref: 'main' }])
+  const lock = await catalog.generateLock(version.id)
+  const workspace = await catalog.registerPreparedWorkspace({
+    path: root,
+    rootPath: root,
+    versionId: version.id,
+    lockId: lock.id,
+    mode: 'direct',
+    rootOwner: 'user',
+    repositories: [{ sourceId: web, path: 'web', targetPath: webPath }, { sourceId: api, path: 'api', targetPath: apiPath }],
+  })
+  await expect(catalog.workspaceDirty(workspace.id)).resolves.toBe(false)
+})
+
 it('rejects edits that would orphan versions or tasks', async () => {
   const { catalog } = await fixture()
   const project = await catalog.createProject({ name: 'Shop', sources: [{ id: 'web', repo: '/repos/web', path: 'web' }, { id: 'api', repo: '/repos/api', path: 'api' }], modules: [{ id: 'core', sourceId: 'api', path: 'src/core' }] })

@@ -223,7 +223,9 @@ export function parseCatalog(value: unknown): CatalogSnapshot {
   }
   for (const lock of data.locks) {
     const version = data.versions.find(v => v.id === lock.versionId)
-    if (!version || !distinct(lock.repositories.map(r => r.sourceId)) || version.sources.some(s => !lock.repositories.some(r => r.sourceId === s.sourceId))) fail()
+    // Locks are historical baselines: adding a source to a version must not
+    // invalidate Locks created before that source existed.
+    if (!version || !distinct(lock.repositories.map(r => r.sourceId))) fail()
   }
   const attempts: string[] = []
   for (const workspace of data.workspaces) {
@@ -538,7 +540,13 @@ export async function createCatalog(file: string, resolveCommit: (repo: string, 
       if (attemptId !== undefined && lockId === undefined) throw new CatalogError('missing_task')
       return { running, repositories: await workingTreeChanges(workspaceWorktrees(state, workspaceId, lockId)) }
     },
-    workspaceDirty: workspaceId => workingTreeDirty(workspaceWorktrees(state, workspaceId).map(worktree => worktree.directory)),
+    workspaceDirty: workspaceId => {
+      const workspace = workspaceIn(state, workspaceId)
+      // A dirtiness check reads working trees, not the Lock baseline. Requiring
+      // a pin for every binding rejects valid direct workspaces whose Lock was
+      // created before the project gained a repository.
+      return workingTreeDirty(workspaceBindings(state, workspace).map(binding => binding.targetPath))
+    },
     cleanupWorkspace: async (workspaceId, discardChanges) => {
       const workspace = workspaceIn(state, workspaceId)
       if (state.executions.some(execution => execution.workspaceId === workspaceId && execution.owner !== null)) throw new CatalogError('workspace_busy')
