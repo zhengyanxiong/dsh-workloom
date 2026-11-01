@@ -300,11 +300,24 @@ it('claims a free workspace as soon as its bound Session starts running', async 
     current = await owner()
   }
   expect(current).toBe('session-live')
+  // Execution rights are Session-scoped: idling between turns keeps the owner.
+  ctx.emit('agent/status', { agent: { session: { id: 'session-live' } }, status: 'idle' } as never)
+  await new Promise(resolve => setTimeout(resolve, 60))
+  expect(await owner()).toBe('session-live')
   // A running turn never preempts a workspace that already has an owner.
   await call('attachSession', { request: { taskId: task.id, sessionId: 'session-late' } })
   ctx.emit('agent/status', { agent: { session: { id: 'session-late' } }, status: 'running' } as never)
   await new Promise(resolve => setTimeout(resolve, 60))
   expect(await owner()).toBe('session-live')
+  // Disposing the owner releases the workspace and promotes the queue head.
+  await call('acquireExecution', { request: { workspaceId: workspace.id, sessionId: 'session-late' } })
+  ctx.emit('session/disposed', { id: 'session-live' } as never)
+  let promoted: string | null = null
+  for (let attempt = 0; attempt < 100 && promoted !== 'session-late'; attempt += 1) {
+    await new Promise(resolve => setTimeout(resolve, 20))
+    promoted = await owner()
+  }
+  expect(promoted).toBe('session-late')
 })
 
 it('marks linked sessions with full access and gives the Agent the repository map', async () => {

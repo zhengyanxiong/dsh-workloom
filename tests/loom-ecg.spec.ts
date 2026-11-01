@@ -45,23 +45,23 @@ afterEach(() => {
   container.remove()
 })
 
-function mount(active: boolean, beatMs: number): { root: Root; rerender: (active: boolean, beatMs: number) => void } {
+function mount(active: boolean, readRate: number, writeRate: number): { root: Root; rerender: (active: boolean, readRate: number, writeRate: number) => void } {
   const root = createRoot(container)
-  const render = (nextActive: boolean, nextBeat: number): void => {
+  const render = (nextActive: boolean, nextRead: number, nextWrite: number): void => {
     act(() => {
-      root.render(createElement(LoomECG, { active: nextActive, beatMs: nextBeat }))
+      root.render(createElement(LoomECG, { active: nextActive, readRate: nextRead, writeRate: nextWrite }))
     })
   }
-  render(active, beatMs)
+  render(active, readRate, writeRate)
   return { root, rerender: render }
 }
 
-it('does not rebuild the drawing context when only the beat period changes', () => {
-  const { root, rerender } = mount(true, 2000)
+it('does not rebuild the drawing context when only the rates change', () => {
+  const { root, rerender } = mount(true, 0, 0)
   expect(getContext).toHaveBeenCalledTimes(1)
-  rerender(true, 1500)
+  rerender(true, 4000, 120)
   expect(getContext).toHaveBeenCalledTimes(1)
-  rerender(false, 1500)
+  rerender(false, 4000, 120)
   expect(getContext).toHaveBeenCalledTimes(2)
   act(() => {
     root.unmount()
@@ -69,27 +69,27 @@ it('does not rebuild the drawing context when only the beat period changes', () 
 })
 
 it('strokes the trace in batches instead of once per pixel column', () => {
-  const { root } = mount(true, 2000)
+  const { root } = mount(true, 0, 0)
   stroke.mockClear()
   frames.at(-1)!(performance.now())
-  // Grid (1) plus the trace groups — far below one stroke per column.
+  // Grid (1) plus both batched traces — far below one stroke per column per trace.
   expect(stroke.mock.calls.length).toBeGreaterThan(2)
-  expect(stroke.mock.calls.length).toBeLessThan(40)
+  expect(stroke.mock.calls.length).toBeLessThan(90)
   act(() => {
     root.unmount()
   })
 })
 
 it('schedules animation frames only while active', () => {
-  const idle = mount(false, 2000)
+  const idle = mount(false, 0, 0)
   expect(frames.length).toBe(0)
-  idle.rerender(false, 2000)
+  idle.rerender(false, 0, 0)
   expect(frames.length).toBe(0)
   act(() => {
     idle.root.unmount()
   })
   frames.length = 0
-  const live = mount(true, 2000)
+  const live = mount(true, 0, 0)
   expect(frames.length).toBe(1)
   act(() => {
     live.root.unmount()

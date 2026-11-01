@@ -299,9 +299,11 @@ export default class LoomService extends TypertRemoteService {
       const decision = await this.admitExecution(exec.agent.session.id, exec.agent.session.header.cwd)
       return decision ?? next()
     })
+    // Execution rights are held per Session, not per turn: a running turn
+    // claims a free workspace, and only session disposal or an explicit release
+    // gives it back. Idling between turns keeps the owner.
     this.ctx.on('agent/status', ({ agent, status }) => {
       if (status === 'running') void this.claimIdleExecution(agent.session.id)
-      else void this.releaseSession(agent.session.id)
     })
     this.ctx.on('session/disposed', session => {
       this.disposeVersionContext(session.id)

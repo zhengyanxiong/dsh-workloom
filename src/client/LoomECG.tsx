@@ -1,23 +1,26 @@
-/** Canvas ECG trace used by the execution-gate owner card. */
+/** Scrolling read/write token-rate trace for the execution-gate owner card. */
 import { useEffect, useRef, type CSSProperties } from 'react'
 import { COLORS } from './shell.ts'
 
 const HEIGHT = 38
-const BASELINE = HEIGHT * 0.62
-const AMPLITUDE = 9
+const BASELINE = HEIGHT * 0.74
+const TRACE_RISE = 22
 /** Batched stroke groups; one stroke per group keeps the trailing fade cheap. */
 const TRACE_CHUNKS = 32
-/** Frame rate assumed when seeding the trace so it looks continuous at once. */
-const SEED_FPS = 60
+/** Rate that fills the trace height; square-root compression keeps small rates visible. */
+const READ_FULL_SCALE = 8000
+const WRITE_FULL_SCALE = 200
 /** Concrete colors used only when a theme token resolves to nothing. */
-const FALLBACK_GREEN = '#22c55e'
+const FALLBACK_READ = '#4176e6'
+const FALLBACK_WRITE = '#22c55e'
 const FALLBACK_IDLE = '#b8bec7'
 const FALLBACK_GRID = '#e8f5ef'
 
 const style: CSSProperties = { display: 'block', width: '100%', height: HEIGHT }
 
-interface ECGColors {
-  readonly green: string
+interface TraceColors {
+  readonly read: string
+  readonly write: string
   readonly idle: string
   readonly grid: string
 }
@@ -39,64 +42,43 @@ function concrete(element: Element, value: string, fallback: string): string {
   return resolved === '' ? fallback : resolved
 }
 
-/** Read the three colors the trace draws on the current palette. */
-function resolveColors(element: Element): ECGColors {
+/** Read the colors the trace draws on the current palette. */
+function resolveColors(element: Element): TraceColors {
   return {
-    green: concrete(element, COLORS.green, FALLBACK_GREEN),
+    read: concrete(element, COLORS.business, FALLBACK_READ),
+    write: concrete(element, COLORS.green, FALLBACK_WRITE),
     idle: concrete(element, COLORS.faint, FALLBACK_IDLE),
     grid: concrete(element, COLORS.border, FALLBACK_GRID),
   }
 }
 
-function wave(progress: number): number {
-  if (progress < 0.07) return Math.sin(progress / 0.07 * Math.PI) * 0.16
-  if (progress < 0.10) return 0
-  if (progress < 0.13) return -(progress - 0.10) / 0.03 * 0.25
-  if (progress < 0.17) return -0.25 + (progress - 0.13) / 0.04 * 1.35
-  if (progress < 0.21) return 1.1 - (progress - 0.17) / 0.04 * 1.45
-  if (progress < 0.27) return -0.35 + (progress - 0.21) / 0.06 * 0.35
-  if (progress < 0.34) return 0
-  if (progress < 0.50) return Math.sin((progress - 0.34) / 0.16 * Math.PI) * 0.28
-  return 0
+/** Compress a token rate into the 0..1 height the trace uses. */
+function level(rate: number, fullScale: number): number {
+  return Math.min(1, Math.sqrt(Math.max(0, rate) / fullScale))
 }
 
-/**
- * Paint a few beats of history so a trace that just became active reads as a
- * continuous ECG instead of a flat line that fills one column per frame.
- * Index 0 is the newest sample, so older entries step the phase backwards.
- * @param target - trace array to fill in place.
- * @param phase - current wave phase at index 0.
- * @param beatMs - current beat period in milliseconds.
- */
-function seedTrace(target: number[], phase: number, beatMs: number): void {
-  if (target.length < 2) return
-  const perFrame = 1 / Math.max(1, beatMs / 1000 * SEED_FPS)
-  for (let index = 0; index < target.length; index++) {
-    const at = ((phase - index * perFrame) % 1 + 1) % 1
-    target[index] = BASELINE - wave(at) * AMPLITUDE
-  }
-}
-
-/** Inputs for the ECG component. */
+/** Inputs for the rate trace. */
 export interface LoomECGProps {
   readonly active: boolean
-  /** Milliseconds per heartbeat; a new value changes the rhythm without restarting the trace. */
-  readonly beatMs: number
+  /** Tokens per second the model is reading (prompt and cache traffic). */
+  readonly readRate: number
+  /** Tokens per second the model is writing. */
+  readonly writeRate: number
 }
 
 /**
- * Draw a left-to-right ECG whose newest sample enters at the left edge.
- * The trace owns its canvas history, so a rate-driven beat period only
- * changes the rhythm; palette changes re-resolve the colors and repaint.
- * @param props - activity flag and heartbeat period.
+ * Draw a left-to-right trace whose newest sample enters at the left edge:
+ * green is the write rate, blue is the read rate. Height is compressed with a
+ * square root so small rates stay visible next to prompt bursts.
+ * @param props - activity flag plus the current read and write token rates.
  * @returns the canvas element.
  */
-export function LoomECG({ active, beatMs }: LoomECGProps) {
+export function LoomECG({ active, readRate, writeRate }: LoomECGProps) {
   const ref = useRef<HTMLCanvasElement>(null)
-  const beat = useRef(beatMs)
+  const rates = useRef({ read: readRate, write: writeRate })
   useEffect(() => {
-    beat.current = beatMs
-  }, [beatMs])
+    rates.current = { read: readRate, write: writeRate }
+  }, [readRate, writeRate])
   useEffect(() => {
     const canvas = ref.current
     if (canvas === null) return
@@ -105,10 +87,29 @@ export function LoomECG({ active, beatMs }: LoomECGProps) {
     let colors = resolveColors(canvas)
     let frame = 0
     let width = 0
-    let phase = 0.42
     let last = performance.now()
-    let history: number[] = []
+    let shownRead = 0
+    let shownWrite = 0
+    let readHistory: number[] = []
+    let writeHistory: number[] = []
     const reduced = typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const trace = (history: number[], color: string, lineWidth: number): void => {
+      if (history.length < 2) return
+      context.strokeStyle = color
+      context.lineWidth = lineWidth
+      context.lineJoin = 'round'
+      context.lineCap = 'round'
+      const step = Math.max(1, Math.ceil((history.length - 1) / TRACE_CHUNKS))
+      for (let start = 1; start < history.length; start += step) {
+        const end = Math.min(history.length - 1, start + step - 1)
+        context.globalAlpha = 1 - 0.8 * ((start + end) / 2 / history.length)
+        context.beginPath()
+        context.moveTo(start - 1, BASELINE - history[start - 1]! * TRACE_RISE)
+        for (let index = start; index <= end; index++) context.lineTo(index, BASELINE - history[index]! * TRACE_RISE)
+        context.stroke()
+      }
+      context.globalAlpha = 1
+    }
     const draw = (): void => {
       const dpr = Math.min(window.devicePixelRatio || 1, 2)
       if (canvas.width !== Math.round(width * dpr) || canvas.height !== Math.round(HEIGHT * dpr)) {
@@ -134,47 +135,39 @@ export function LoomECG({ active, beatMs }: LoomECGProps) {
         context.stroke()
         return
       }
-      if (history.length !== Math.max(1, Math.round(width))) history = new Array(Math.max(1, Math.round(width))).fill(BASELINE)
-      context.strokeStyle = colors.green
-      context.lineJoin = 'round'
-      context.lineCap = 'round'
-      context.lineWidth = 1.35
-      // One stroke per chunk instead of per pixel: the trailing fade is
-      // quantized into TRACE_CHUNKS alpha steps, so the whole trace costs a
-      // handful of draw calls per frame rather than one per pixel column.
-      const step = Math.max(1, Math.ceil((history.length - 1) / TRACE_CHUNKS))
-      for (let start = 1; start < history.length; start += step) {
-        const end = Math.min(history.length - 1, start + step - 1)
-        context.globalAlpha = 1 - 0.85 * ((start + end) / 2 / history.length)
+      trace(readHistory, colors.read, 1.1)
+      trace(writeHistory, colors.write, 1.35)
+      const dot = (history: number[], color: string, radius: number): void => {
+        context.fillStyle = color
+        context.shadowColor = color
+        context.shadowBlur = 7
         context.beginPath()
-        context.moveTo(start - 1, history[start - 1]!)
-        for (let i = start; i <= end; i++) context.lineTo(i, history[i]!)
-        context.stroke()
+        context.arc(0, BASELINE - (history[0] ?? 0) * TRACE_RISE, radius, 0, Math.PI * 2)
+        context.fill()
+        context.shadowBlur = 0
       }
-      context.globalAlpha = 1
-      context.fillStyle = colors.green
-      context.shadowColor = colors.green
-      context.shadowBlur = 7
-      context.beginPath()
-      context.arc(0, history[0] ?? BASELINE, 2.1, 0, Math.PI * 2)
-      context.fill()
-      context.shadowBlur = 0
+      dot(readHistory, colors.read, 1.7)
+      dot(writeHistory, colors.write, 2.1)
     }
     const render = (now: number): void => {
       const dt = Math.min((now - last) / 1000, 0.1)
       last = now
       if (active && !reduced) {
-        phase = (phase + dt * 1000 / Math.max(beat.current, 500)) % 1
-        history.unshift(BASELINE - wave(phase) * AMPLITUDE)
-        history.pop()
+        const attack = Math.min(1, dt * 8)
+        shownRead += (rates.current.read - shownRead) * attack
+        shownWrite += (rates.current.write - shownWrite) * attack
+        readHistory.unshift(level(shownRead, READ_FULL_SCALE))
+        readHistory.pop()
+        writeHistory.unshift(level(shownWrite, WRITE_FULL_SCALE))
+        writeHistory.pop()
       }
       draw()
       if (active && !reduced) frame = requestAnimationFrame(render)
     }
     const resize = (): void => {
       width = Math.max(120, canvas.clientWidth)
-      history = new Array(Math.max(1, Math.round(width))).fill(BASELINE)
-      if (active) seedTrace(history, phase, beat.current)
+      readHistory = new Array(Math.max(1, Math.round(width))).fill(0)
+      writeHistory = new Array(Math.max(1, Math.round(width))).fill(0)
       draw()
     }
     const refreshColors = (): void => {
