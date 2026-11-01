@@ -41,7 +41,7 @@ function wave(p: number): number {
   return 0
 }
 
-function TokenECG({ active }: { readonly active: boolean }) {
+function TokenECG({ active, beatMs }: { readonly active: boolean; readonly beatMs: number }) {
   const ref = useRef<HTMLCanvasElement>(null)
   useEffect(() => {
     const canvas = ref.current
@@ -49,17 +49,11 @@ function TokenECG({ active }: { readonly active: boolean }) {
     const context = canvas.getContext('2d')
     if (context === null) return
     let frame = 0
-    let phase = 0
     let width = 0
+    let phase = 0.42
     let last = performance.now()
+    let history: number[] = []
     const reduced = typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    const render = (now: number): void => {
-      const dt = Math.min((now - last) / 1000, 0.1)
-      last = now
-      phase = (phase + dt * 1.2) % 1
-      draw()
-      if (active && !reduced) frame = requestAnimationFrame(render)
-    }
     const draw = (): void => {
       const dpr = Math.min(window.devicePixelRatio || 1, 2)
       if (canvas.width !== Math.round(width * dpr) || canvas.height !== Math.round(H * dpr)) {
@@ -68,39 +62,67 @@ function TokenECG({ active }: { readonly active: boolean }) {
       }
       context.setTransform(dpr, 0, 0, dpr, 0, 0)
       context.clearRect(0, 0, width, H)
-      context.strokeStyle = COLORS.border
+      context.strokeStyle = '#e8f5ef'
       context.lineWidth = 1
-      context.globalAlpha = 0.55
+      context.globalAlpha = 0.6
       context.beginPath()
       for (let x = 0; x <= width; x += 24) { context.moveTo(x + 0.5, 0); context.lineTo(x + 0.5, H) }
       for (let y = 0; y <= H; y += 12) { context.moveTo(0, y + 0.5); context.lineTo(width, y + 0.5) }
       context.stroke()
       context.globalAlpha = 1
-      context.strokeStyle = active ? COLORS.green : COLORS.faint
-      context.lineWidth = 1.35
+      if (!active) {
+        context.strokeStyle = COLORS.faint
+        context.lineWidth = 1.2
+        context.beginPath()
+        context.moveTo(0, BASE)
+        context.lineTo(width, BASE)
+        context.stroke()
+        return
+      }
+      if (history.length !== Math.max(1, Math.round(width))) history = new Array(Math.max(1, Math.round(width))).fill(BASE)
+      context.strokeStyle = COLORS.green
       context.lineJoin = 'round'
       context.lineCap = 'round'
-      context.beginPath()
-      for (let x = 0; x <= width; x += 1) {
-        const y = active ? BASE - wave(phase - x / Math.max(width, 1) * 2.2) * AMP : BASE
-        if (x === 0) context.moveTo(x, y)
-        else context.lineTo(x, y)
-      }
-      context.stroke()
-      if (active) {
-        context.fillStyle = COLORS.green
+      for (let i = 1; i < history.length; i++) {
+        context.globalAlpha = 1 - 0.85 * (i / history.length)
+        context.lineWidth = 1.35
         context.beginPath()
-        context.arc(width, BASE - wave(phase) * AMP, 2, 0, Math.PI * 2)
-        context.fill()
+        context.moveTo(i - 1, history[i - 1]!)
+        context.lineTo(i, history[i]!)
+        context.stroke()
       }
+      context.globalAlpha = 1
+      context.fillStyle = COLORS.green
+      context.shadowColor = COLORS.green
+      context.shadowBlur = 7
+      context.beginPath()
+      context.arc(0, history[0] ?? BASE, 2.1, 0, Math.PI * 2)
+      context.fill()
+      context.shadowBlur = 0
     }
-    const resize = (): void => { width = Math.max(120, canvas.parentElement?.clientWidth ?? 300); draw() }
+    const render = (now: number): void => {
+      const dt = Math.min((now - last) / 1000, 0.1)
+      last = now
+      if (active && !reduced) {
+        phase = (phase + dt * 1000 / Math.max(beatMs, 500)) % 1
+        const next = BASE - wave(phase) * AMP
+        history.unshift(next)
+        history.pop()
+      }
+      draw()
+      if (active && !reduced) frame = requestAnimationFrame(render)
+    }
+    const resize = (): void => {
+      width = Math.max(120, canvas.parentElement?.clientWidth ?? 300)
+      history = new Array(Math.max(1, Math.round(width))).fill(BASE)
+      draw()
+    }
     const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(resize) : undefined
     observer?.observe(canvas.parentElement ?? canvas)
     resize()
     if (active && !reduced) frame = requestAnimationFrame(render)
     return () => { if (frame !== 0) cancelAnimationFrame(frame); observer?.disconnect() }
-  }, [active])
+  }, [active, beatMs])
   return <canvas ref={ref} style={canvas} aria-hidden />
 }
 
@@ -138,6 +160,9 @@ export function LoomTokenECG({ t, label, usage, running }: LoomTokenECGProps) {
     return () => clearInterval(timer)
   }, [running, total])
   const generating = running && rate > 0.5
+  // Keep the trace legible: rate changes the rhythm, but it never becomes a
+  // fast strobe when the projection reports a large delta.
+  const beatMs = Math.max(1250, 2100 - Math.min(rate, 900) * 0.55)
   const stateKey: LoomKey = !running ? 'tokenECG.idle' : generating ? 'tokenECG.generating' : 'tokenECG.thinking'
   return <div style={card}>
     <div style={top}>
@@ -150,7 +175,7 @@ export function LoomTokenECG({ t, label, usage, running }: LoomTokenECGProps) {
       <span style={tokenNum}>{total === undefined ? '—' : formatTokens(total)}</span>
       <span>{t('tokenECG.tokens')}</span>
     </div>
-    <TokenECG active={generating} />
+    <TokenECG active={generating} beatMs={beatMs} />
     <div style={state}>
       <span>{t(stateKey)}</span>
       <span aria-hidden>·</span>
