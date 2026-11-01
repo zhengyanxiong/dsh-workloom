@@ -72,9 +72,9 @@ it('strokes the trace in batches instead of once per pixel column', () => {
   const { root } = mount(true, 0, 0)
   stroke.mockClear()
   frames.at(-1)!(performance.now())
-  // Grid (1) plus both batched traces — far below one stroke per column per trace.
+  // Grid (1) plus the batched trace — far below one stroke per pixel column.
   expect(stroke.mock.calls.length).toBeGreaterThan(2)
-  expect(stroke.mock.calls.length).toBeLessThan(90)
+  expect(stroke.mock.calls.length).toBeLessThan(45)
   act(() => {
     root.unmount()
   })

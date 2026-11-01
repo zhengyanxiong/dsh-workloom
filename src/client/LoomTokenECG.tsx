@@ -19,8 +19,6 @@ const card: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 5, 
 const top: CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, fontSize: 10.5, color: COLORS.text }
 const name: CSSProperties = { minWidth: 0, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
 const state: CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, color: COLORS.faint, fontSize: 9.5, lineHeight: 1.4 }
-const legend: CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 3, flex: 'none', fontSize: 9, color: COLORS.faint }
-const legendDot = (color: string): CSSProperties => ({ width: 5, height: 5, borderRadius: '50%', flex: 'none', background: color })
 const dot = (active: boolean): CSSProperties => ({ width: 6, height: 6, borderRadius: '50%', flex: 'none', background: active ? COLORS.green : COLORS.faint, transition: 'background 250ms' })
 
 /**
@@ -105,8 +103,6 @@ export function LoomTokenECG({ t, label, usage, running }: LoomTokenECGProps) {
     <div style={top}>
       <span style={dot(active)} aria-hidden />
       <span style={name} title={label}>{label}</span>
-      <span style={legend}><span style={legendDot(COLORS.green)} aria-hidden />{t('tokenECG.write')}</span>
-      <span style={legend}><span style={legendDot(COLORS.business)} aria-hidden />{t('tokenECG.read')}</span>
       <Tag tone="success">{t('bottom.sessionOwner')}</Tag>
     </div>
     <LoomECG active={active} readRate={rates.read} writeRate={rates.write} />
