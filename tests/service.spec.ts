@@ -274,6 +274,39 @@ it('exposes execution acquisition, blocked handoff and release through the gatew
   expect((await call('snapshot') as { audit: { event: string }[] }).audit.map(entry => entry.event)).toEqual(expect.arrayContaining(['execution.acquired', 'execution.queued', 'execution.takeover-requested', 'execution.takeover-blocked', 'execution.released']))
 })
 
+it('claims a free workspace as soon as its bound Session starts running', async () => {
+  const { ctx, call, dir } = await setup()
+  const repo = join(dir, 'repo'); await mkdir(repo)
+  const exec = promisify(execFile)
+  await exec('git', ['init', '--quiet', repo])
+  await writeFile(join(repo, 'file'), 'content')
+  await exec('git', ['-C', repo, 'add', 'file'])
+  await exec('git', ['-C', repo, '-c', 'user.name=Loom Test', '-c', 'user.email=loom@example.invalid', 'commit', '-qm', 'initial'])
+  const project = await call('createProject', { request: { name: 'Git', sources: [{ id: 'web', repo, path: 'web' }], modules: [] } }) as { id: string }
+  const version = await call('createVersion', { request: { projectId: project.id, name: 'v', sources: [{ sourceId: 'web', ref: 'HEAD' }] } }) as { id: string }
+  const lock = await call('generateLock', { request: { versionId: version.id } }) as { id: string }
+  const task = await call('createTask', { request: { versionId: version.id, title: 'Checkout' } }) as { id: string }
+  const workspace = await call('prepareWorkspace', { request: { path: join(dir, 'workspace'), versionId: version.id, lockId: lock.id, branches: { web: 'loom/v1/web-test0001' } } }) as { id: string }
+  await call('startAttempt', { request: { taskId: task.id, workspaceId: workspace.id } })
+  await call('attachSession', { request: { taskId: task.id, sessionId: 'session-live' } })
+  const owner = async (): Promise<string | null> => {
+    const snapshot = await call('snapshot') as { executions: { workspaceId: string; owner: { sessionId: string } | null }[] }
+    return snapshot.executions.find(execution => execution.workspaceId === workspace.id)?.owner?.sessionId ?? null
+  }
+  ctx.emit('agent/status', { agent: { session: { id: 'session-live' } }, status: 'running' } as never)
+  let current = await owner()
+  for (let attempt = 0; attempt < 100 && current === null; attempt += 1) {
+    await new Promise(resolve => setTimeout(resolve, 20))
+    current = await owner()
+  }
+  expect(current).toBe('session-live')
+  // A running turn never preempts a workspace that already has an owner.
+  await call('attachSession', { request: { taskId: task.id, sessionId: 'session-late' } })
+  ctx.emit('agent/status', { agent: { session: { id: 'session-late' } }, status: 'running' } as never)
+  await new Promise(resolve => setTimeout(resolve, 60))
+  expect(await owner()).toBe('session-live')
+})
+
 it('marks linked sessions with full access and gives the Agent the repository map', async () => {
   const { ctx, call, dir } = await setup()
   const exec = promisify(execFile)

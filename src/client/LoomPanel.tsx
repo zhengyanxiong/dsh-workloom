@@ -522,15 +522,6 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
     if (latest !== undefined) setVersion(latest.id)
   }, [catalog, project, version, task])
   useEffect(() => {
-    const timer = window.setInterval(() => {
-      if (document.visibilityState !== 'visible') return
-      void loadSnapshot().then((result) => {
-        if (result.ok) setCatalog({ status: 'ready', snapshot: result.value })
-      }, () => undefined)
-    }, 5000)
-    return () => { window.clearInterval(timer) }
-  }, [loadSnapshot])
-  useEffect(() => {
     if (selected === undefined) return
     let reference: SessionReference
     try { reference = retainSession(selected) }
@@ -618,6 +609,24 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
       updatedAt: summary?.updatedAt ?? 0,
     }
   })
+  // Poll faster while a bound Session is running: the Host catalog carries the
+  // execution owner, and a 5s poll would show that owner well after the turn
+  // starts. Native session status is immediate, so it drives the cadence.
+  const liveSnapshot = activeSessionRows.some(row => row.running)
+  useEffect(() => {
+    let cancelled = false
+    let timer = 0
+    const tick = (): void => {
+      if (!cancelled && document.visibilityState === 'visible') {
+        void loadSnapshot().then((result) => {
+          if (!cancelled && result.ok) setCatalog({ status: 'ready', snapshot: result.value })
+        }, () => undefined)
+      }
+      if (!cancelled) timer = window.setTimeout(tick, liveSnapshot ? 1200 : 5000)
+    }
+    timer = window.setTimeout(tick, liveSnapshot ? 1200 : 5000)
+    return () => { cancelled = true; window.clearTimeout(timer) }
+  }, [loadSnapshot, liveSnapshot])
   const runtimeSessionId = (selected ?? taskSessions.at(-1)?.sessionId) as SessionId | undefined
   const runtimeCatalog = runtimeSessionId === undefined ? [] : sessions.projectionsBySession[runtimeSessionId]?.values.subagentCatalog ?? []
   const subagentRows: readonly LoomSubagentRow[] = runtimeCatalog.map(entry => ({

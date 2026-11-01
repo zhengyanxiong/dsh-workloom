@@ -300,7 +300,8 @@ export default class LoomService extends TypertRemoteService {
       return decision ?? next()
     })
     this.ctx.on('agent/status', ({ agent, status }) => {
-      if (status === 'idle') void this.releaseSession(agent.session.id)
+      if (status === 'running') void this.claimIdleExecution(agent.session.id)
+      else void this.releaseSession(agent.session.id)
     })
     this.ctx.on('session/disposed', session => {
       this.disposeVersionContext(session.id)
@@ -390,6 +391,31 @@ export default class LoomService extends TypertRemoteService {
     const state = await catalog.acquireExecution(workspace.id, sessionId)
     if (state.owner?.sessionId === sessionId) return undefined
     return { kind: 'deny', reason: 'Loom workspace execution is held by another session. Wait for handoff or request takeover.' }
+  }
+
+  /**
+   * Claim a free workspace as soon as its bound Session starts a running turn,
+   * so the execution gate shows the owner before the first tool call.
+   * An owned, waiting or takeover-pending workspace is left to the tool gate.
+   * @param sessionId - Session whose Agent just transitioned to running.
+   */
+  private async claimIdleExecution(sessionId: Branded<'SessionId'>): Promise<void> {
+    try {
+      const catalog = await this.catalog
+      if (this.closed) return
+      const snapshot = catalog.snapshot()
+      const binding = findSessionAttempt(snapshot, sessionId)
+      if (binding === undefined) return
+      const workspace = snapshot.workspaces.find(candidate => candidate.id === binding.attempt.workspaceId && candidate.cleaned !== true)
+      if (workspace === undefined) return
+      const execution = snapshot.executions.find(candidate => candidate.workspaceId === workspace.id)
+      if (execution?.owner !== null && execution?.owner !== undefined) return
+      if (execution?.takeover !== null && execution?.takeover !== undefined) return
+      const state = await catalog.acquireExecution(workspace.id, sessionId)
+      if (state.owner?.sessionId === sessionId) this.refreshSnapshot(catalog)
+    } catch {
+      // The tool gate still enforces ownership; an early claim is best effort.
+    }
   }
 
   private async releaseSession(sessionId: Branded<'SessionId'>): Promise<void> {

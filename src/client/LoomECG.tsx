@@ -7,6 +7,8 @@ const BASELINE = HEIGHT * 0.62
 const AMPLITUDE = 9
 /** Batched stroke groups; one stroke per group keeps the trailing fade cheap. */
 const TRACE_CHUNKS = 32
+/** Frame rate assumed when seeding the trace so it looks continuous at once. */
+const SEED_FPS = 60
 /** Concrete colors used only when a theme token resolves to nothing. */
 const FALLBACK_GREEN = '#22c55e'
 const FALLBACK_IDLE = '#b8bec7'
@@ -56,6 +58,23 @@ function wave(progress: number): number {
   if (progress < 0.34) return 0
   if (progress < 0.50) return Math.sin((progress - 0.34) / 0.16 * Math.PI) * 0.28
   return 0
+}
+
+/**
+ * Paint a few beats of history so a trace that just became active reads as a
+ * continuous ECG instead of a flat line that fills one column per frame.
+ * Index 0 is the newest sample, so older entries step the phase backwards.
+ * @param target - trace array to fill in place.
+ * @param phase - current wave phase at index 0.
+ * @param beatMs - current beat period in milliseconds.
+ */
+function seedTrace(target: number[], phase: number, beatMs: number): void {
+  if (target.length < 2) return
+  const perFrame = 1 / Math.max(1, beatMs / 1000 * SEED_FPS)
+  for (let index = 0; index < target.length; index++) {
+    const at = ((phase - index * perFrame) % 1 + 1) % 1
+    target[index] = BASELINE - wave(at) * AMPLITUDE
+  }
 }
 
 /** Inputs for the ECG component. */
@@ -155,6 +174,7 @@ export function LoomECG({ active, beatMs }: LoomECGProps) {
     const resize = (): void => {
       width = Math.max(120, canvas.clientWidth)
       history = new Array(Math.max(1, Math.round(width))).fill(BASELINE)
+      if (active) seedTrace(history, phase, beat.current)
       draw()
     }
     const refreshColors = (): void => {
