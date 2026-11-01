@@ -954,6 +954,18 @@ export default class LoomService extends TypertRemoteService {
     })
   }
 
+  /** Leave the execution waiting queue for one Session. @param request - workspace and Session. @returns scheduling state after removal. */
+  @Remote
+  cancelExecution(request: ExecutionRequest): Promise<ExecutionState> {
+    return this.run(catalog => {
+      const parsed = executionRequest.parse(request)
+      return catalog.cancelExecution(
+        brandString<WorkspaceRecord['id']>(parsed.workspaceId),
+        brandString<Branded<'SessionId'>>(parsed.sessionId),
+      )
+    })
+  }
+
   /** Release an exact owned generation after its Agent turn settles. @param request - workspace, Session and generation. @returns the scheduling state after FIFO promotion. */
   @Remote
   releaseExecution(request: ReleaseExecutionRequest): Promise<ExecutionState> {

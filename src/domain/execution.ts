@@ -109,6 +109,16 @@ export function confirmStop(state: ExecutionState, expected: ExecutionOwner, out
   return grant(state, sessionId, state.waiting.filter(waiter => waiter !== sessionId))
 }
 
+/** Remove one Session from the waiting queue without touching the current owner. */
+export function cancelExecutionRequest(state: ExecutionState, sessionId: ExecutionOwner['sessionId']): ExecutionState {
+  if (!state.waiting.includes(sessionId)) return state
+  return {
+    ...state,
+    waiting: state.waiting.filter(waiter => waiter !== sessionId),
+    takeover: state.takeover?.sessionId === sessionId ? null : state.takeover,
+  }
+}
+
 /** Release a confirmed-finished owner and promote the FIFO head, if present.
  * @param state - Latest scheduling state.
  * @param expected - Exact owner token whose execution has finished.

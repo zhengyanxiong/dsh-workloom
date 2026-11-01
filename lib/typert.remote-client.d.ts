@@ -10,6 +10,7 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
   interface TypertRemoteNamespace$6c6f6f6d {
     acquireExecution: (request: ExecutionRequest) => Promise<RemoteResult<ExecutionState>>
     attachSession: (request: AttachSessionRequest) => Promise<RemoteResult<TaskRecord>>
+    cancelExecution: (request: ExecutionRequest) => Promise<RemoteResult<ExecutionState>>
     cleanupWorkspace: (request: CleanupWorkspaceRequest) => Promise<RemoteResult<void>>
     commitWorkspace: (request: CommitWorkspaceRequest) => Promise<RemoteResult<WorkspaceCommitResult>>
     createProject: (request: ProjectConfig) => Promise<RemoteResult<ProjectRecord>>
@@ -42,6 +43,7 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
   interface TypertRemoteMap {
     'loom/acquireExecution': (request: ExecutionRequest) => Promise<RemoteResult<ExecutionState>>
     'loom/attachSession': (request: AttachSessionRequest) => Promise<RemoteResult<TaskRecord>>
+    'loom/cancelExecution': (request: ExecutionRequest) => Promise<RemoteResult<ExecutionState>>
     'loom/cleanupWorkspace': (request: CleanupWorkspaceRequest) => Promise<RemoteResult<void>>
     'loom/commitWorkspace': (request: CommitWorkspaceRequest) => Promise<RemoteResult<WorkspaceCommitResult>>
     'loom/createProject': (request: ProjectConfig) => Promise<RemoteResult<ProjectRecord>>
@@ -79,6 +81,7 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
 export declare const TYPERT_REMOTE: TypertRemoteInfo<{
   readonly 'loom/acquireExecution': TypertRemoteMethod<{ readonly 'request': ExecutionRequest }, ExecutionState>
   readonly 'loom/attachSession': TypertRemoteMethod<{ readonly 'request': AttachSessionRequest }, TaskRecord>
+  readonly 'loom/cancelExecution': TypertRemoteMethod<{ readonly 'request': ExecutionRequest }, ExecutionState>
   readonly 'loom/cleanupWorkspace': TypertRemoteMethod<{ readonly 'request': CleanupWorkspaceRequest }, void>
   readonly 'loom/commitWorkspace': TypertRemoteMethod<{ readonly 'request': CommitWorkspaceRequest }, WorkspaceCommitResult>
   readonly 'loom/createProject': TypertRemoteMethod<{ readonly 'request': ProjectConfig }, ProjectRecord>

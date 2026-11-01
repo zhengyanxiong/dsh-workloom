@@ -198,6 +198,7 @@ export function apply(ctx: ClientContext): void {
         cleanupWorkspace: (request: CleanupWorkspaceRequest) => notified(ui.remote.loom.cleanupWorkspace(request), 'notice.workspaceCleaned'),
         cleanupWorkspaceSilent: (request: CleanupWorkspaceRequest) => ui.remote.loom.cleanupWorkspace(request),
         acquireExecution: (request: ExecutionRequest) => notified(ui.remote.loom.acquireExecution(request)),
+        cancelExecution: (request: ExecutionRequest) => notified(ui.remote.loom.cancelExecution(request)),
         releaseExecution: (request: ReleaseExecutionRequest) => notified(ui.remote.loom.releaseExecution(request)),
         takeoverExecution: (request: ExecutionRequest) => notified(ui.remote.loom.takeoverExecution(request)),
         createSessionInWorkspace: async (path: string, agentPreset?: string) => {

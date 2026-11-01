@@ -57,6 +57,7 @@ export interface ExecutionActions {
   commitWorkspace?(request: CommitWorkspaceRequest): Promise<RemoteResult<WorkspaceCommitResult>>
   cleanupWorkspace(request: CleanupWorkspaceRequest): Promise<RemoteResult<void>>
   acquireExecution(request: ExecutionRequest): Promise<RemoteResult<ExecutionState>>
+  cancelExecution(request: ExecutionRequest): Promise<RemoteResult<ExecutionState>>
   releaseExecution(request: ReleaseExecutionRequest): Promise<RemoteResult<ExecutionState>>
   takeoverExecution(request: ExecutionRequest): Promise<RemoteResult<ExecutionState>>
   /** Re-read the catalog so an operation that returns before its record settles can be observed. */
@@ -230,6 +231,15 @@ export function ExecutionPanel({ t, task, snapshot, selectedSession, actions, lo
       actions.onChanged()
     } catch (error) { setFailure({ operation: t('op.acquire'), report: thrownFailureReport(error) }) } finally { setBusy(false) }
   }
+  async function cancelWait(): Promise<void> {
+    if (workspace === undefined || actorSession === undefined) return
+    setBusy(true); setFailure(undefined)
+    try {
+      const result = await actions.cancelExecution({ workspaceId: workspace.id, sessionId: actorSession })
+      if (!result.ok) { report(t('op.release'), result.error.code, result.error.message); return }
+      actions.onChanged()
+    } catch (error) { setFailure({ operation: t('op.release'), report: thrownFailureReport(error) }) } finally { setBusy(false) }
+  }
   async function release(): Promise<void> {
     if (workspace === undefined || execution?.owner === null || execution?.owner === undefined) return
     setBusy(true); setFailure(undefined)
@@ -309,7 +319,7 @@ export function ExecutionPanel({ t, task, snapshot, selectedSession, actions, lo
       {execution?.takeover !== null && execution?.takeover !== undefined && <p style={{ ...ownerMeta, color: execution.takeover.stopStatus === 'requested' ? COLORS.dim : COLORS.warn }}>{execution.takeover.stopStatus === 'requested' ? t('execution.stopping') : t('execution.blocked')}</p>}
       {execution?.owner !== null && execution?.owner !== undefined && !ownsExecution && <div style={actionBar}>
         {!waitingExecution && <Button size="sm" variant="outline" disabled={busy || execution?.takeover !== null} onClick={() => { void acquire() }}>{t('execution.wait')}</Button>}
-        {waitingExecution && <span style={ownerMeta}>{t('execution.waiting')}</span>}
+        {waitingExecution && <Button size="sm" variant="outline" disabled={busy} onClick={() => { void cancelWait() }}>{t('execution.leaveQueue')}</Button>}
         {!takeoverConfirm && <Button size="sm" variant="outline" disabled={busy || execution?.takeover !== null} onClick={() => { setTakeoverConfirm(true); setFailure(undefined) }}>{t('execution.takeover')}</Button>}
       </div>}
       {ownsExecution && (execution?.takeover === null || execution?.takeover === undefined) && <div style={actionBar}>

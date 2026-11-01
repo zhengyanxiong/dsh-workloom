@@ -1,5 +1,6 @@
 /** Task-centred Workbench page: brief, execution rounds and the human acceptance decision. */
 import type { CSSProperties, ReactNode } from 'react'
+import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { Tag, type TagTone } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { AuditEntry, CatalogSnapshot, ProjectRecord, TaskRecord, VersionRecord } from 'dsh-workloom/types'
 import { ACTOR_LABEL, AUDIT_LABEL, COLORS, metaLine, PRIORITY_META, STATUS_META } from './shell.ts'
@@ -132,7 +133,7 @@ export function LoomTaskWorkbench({ t, task, project, version, snapshot, audit, 
         <section style={card} aria-label={t('workbench.execution')}>
           <SectionHeading title={t('workbench.execution')} />
           <LoomSessionList t={t} rows={attemptRows} selectedSessionId={selectedSessionId} onOpenSession={onOpenSession} />
-          <ExecutionPanel t={t} task={task} snapshot={snapshot} selectedSession={undefined} actions={actions} loadChanges={loadChanges} wrap={wrap} onToggleWrap={onToggleWrap} />
+          <ExecutionPanel t={t} task={task} snapshot={snapshot} selectedSession={selectedSessionId as SessionId | undefined} actions={actions} loadChanges={loadChanges} wrap={wrap} onToggleWrap={onToggleWrap} />
         </section>
 
         {!outcomeFirst && outcomeCard}

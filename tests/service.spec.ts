@@ -635,3 +635,15 @@ it('reads workspace status when the Git diff exceeds the default child-process b
   const status = await call('workspaceStatus', { request: { workspaceId: workspace.id } }) as { repositories: { files: unknown[] }[] }
   expect(status.repositories[0]!.files.length).toBeGreaterThan(0)
 })
+
+it('lets a waiting Session leave the execution queue without touching the owner', async () => {
+  const { call, dir } = await setup()
+  const { workspace } = await runningRound(call, dir)
+  await call('acquireExecution', { request: { workspaceId: workspace.id, sessionId: 'session-owner' } })
+  await call('acquireExecution', { request: { workspaceId: workspace.id, sessionId: 'session-waiting' } })
+  let state = (await call('snapshot') as { executions: { workspaceId: string; owner: { sessionId: string } | null; waiting: string[] }[] }).executions.find(execution => execution.workspaceId === workspace.id)
+  expect(state).toMatchObject({ owner: { sessionId: 'session-owner' }, waiting: ['session-waiting'] })
+  await call('cancelExecution', { request: { workspaceId: workspace.id, sessionId: 'session-waiting' } })
+  state = (await call('snapshot') as { executions: { workspaceId: string; owner: { sessionId: string } | null; waiting: string[] }[] }).executions.find(execution => execution.workspaceId === workspace.id)
+  expect(state).toMatchObject({ owner: { sessionId: 'session-owner' }, waiting: [] })
+})
