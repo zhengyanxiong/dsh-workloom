@@ -496,14 +496,9 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
     }, () => { if (active) setCatalog({ status: 'error' }) })
     return () => { active = false }
   }, [loadSnapshot, attempt])
-  const treeInitialized = useRef(false)
   const initialSelection = useRef(false)
-  useEffect(() => {
-    if (treeInitialized.current || catalog.status !== 'ready') return
-    treeInitialized.current = true
-    setExpandedProjects(new Set(catalog.snapshot.projects.map(candidate => candidate.id)))
-    setExpandedVersions(new Set(catalog.snapshot.versions.map(candidate => candidate.id)))
-  }, [catalog])
+  // The project tree starts collapsed; the selection effect below expands only
+  // the project and version it navigates to.
   useEffect(() => {
     if (initialSelection.current || catalog.status !== 'ready') return
     if (project !== undefined || version !== undefined || task !== undefined) { initialSelection.current = true; return }

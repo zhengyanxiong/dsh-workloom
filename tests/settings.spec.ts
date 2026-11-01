@@ -9,8 +9,9 @@ const storage = new Map<string, string>()
 afterEach(() => { vi.unstubAllGlobals(); storage.clear() })
 it('round-trips browser-local Loom preferences', () => {
   vi.stubGlobal('localStorage', { getItem: (key: string) => storage.get(key) ?? null, setItem: (key: string, value: string) => { storage.set(key, value) } })
-  writePreferences({ view: 'kanban', kanbanMode: 'flat', contextOpen: false, asideWidth: 344, previewWidth: 560, bottomHeight: 220, sessionLimit: 8, previewWrap: true, wipLimit: 6 })
-  expect(readPreferences()).toEqual({ view: 'kanban', kanbanMode: 'flat', contextOpen: false, asideWidth: 344, previewWidth: 560, bottomHeight: 220, sessionLimit: 8, previewWrap: true, wipLimit: 6 })
+  const written = { ...DEFAULT_PREFERENCES, view: 'kanban' as const, kanbanMode: 'flat' as const, contextOpen: false, sessionLimit: 8, wipLimit: 6, openOnLoad: true, collapseSidebar: true }
+  writePreferences(written)
+  expect(readPreferences()).toEqual(written)
 })
 it('clamps stored pane sizes and falls back for non-finite values', () => {
   vi.stubGlobal('localStorage', { getItem: () => JSON.stringify({ asideWidth: 9999, previewWidth: -4, bottomHeight: '170', sessionLimit: 99 }), setItem: () => {} })
@@ -37,4 +38,7 @@ it('renders pinned projects and local-only preference copy', () => {
   expect(html).toContain(en['settings.localOnly'])
   expect(html).toContain(en['settings.wipLimit'])
   expect(html).toContain(en['settings.wipLimitHint'])
+  expect(html).toContain(en['settings.openOnLoad'])
+  expect(html).toContain(en['settings.collapseSidebar'])
+  expect(html).toContain(en['settings.startupHint'])
 })

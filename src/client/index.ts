@@ -20,6 +20,7 @@ import type {} from '@deepseek-ai/dsh-api-gateway/client'
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
 import type { AttachSessionRequest, CleanupWorkspaceRequest, CommitWorkspaceRequest, CreateTaskRequest, CreateVersionRequest, DeleteProjectRequest, DeleteTaskRequest, DeleteVersionRequest, GenerateLockRequest, PrepareWorkspaceRequest, ProjectConfig, StartAttemptRequest, TransitionTaskRequest, WorkspaceChangesRequest, WorkspaceStatusResult, ExecutionRequest, ReleaseExecutionRequest, UpdateProjectRequest, UpdateVersionRequest, UpdateTaskRequest, UpdateWorkspaceRequest, DeleteWorkspaceRequest, ReorderExecutionQueueRequest, RegisterTemporarySessionRequest, RegisterWorkspaceRequest, RepositoryBranchesRequest, InspectWorkspaceRequest } from 'dsh-workloom/types'
 import { LoomPanel, type LoomInjected } from './LoomPanel.tsx'
+import { readPreferences } from './LoomSettings.tsx'
 import { LoomMark } from './LoomMark.tsx'
 import { LoomNoticeHost } from './LoomNoticeHost.tsx'
 import { pushLoomNotice, reportLoomFailure } from './feedback.ts'
@@ -108,7 +109,7 @@ export function apply(ctx: ClientContext): void {
   })
   // `remote.session` is a separate native service: the main slot fails with
   // "without inject" when it is omitted, even though api-remotes mounts it.
-  ctx.inject(['slots', 'locale', 'sessions', 'workspaces', 'sidebarRight', 'remote.loom', 'remote.session', 'remote.workspaceFiles', 'remote.agentPresets', 'remote.directoryPicker'], (ui) => {
+  ctx.inject(['slots', 'locale', 'sessions', 'workspaces', 'sidebarRight', 'layout', 'remote.loom', 'remote.session', 'remote.workspaceFiles', 'remote.agentPresets', 'remote.directoryPicker'], (ui) => {
     ui.effect(() => ui.locale.register(NS, { en, zh }), 'loom: dictionary')
     const t = ui.locale.bind(NS)
     const notified = async <T,>(promise: Promise<RemoteResult<T>>, success?: LoomKey): Promise<RemoteResult<T>> => {
@@ -239,6 +240,32 @@ export function apply(ctx: ClientContext): void {
     ui.slots.inject('sidebar.panellist', () => ui.slots.register({
       name: 'sidebar.panellist', id: PANEL_ID, order: 6, locale: NS, label: () => t('panel'),
     }, LoomSidebarIcon))
+    // Startup preferences from the local settings overlay. Both are read once
+    // per page load: selecting the panel needs the main slot to exist, and the
+    // sidebar starts at its default width, so a single toggle collapses it.
+    ui.effect(() => {
+      if (typeof window === 'undefined') return () => { /* no startup preferences without a page */ }
+      let cancelled = false
+      let timer = 0
+      let attempts = 0
+      const selectWorkloom = (): void => {
+        if (cancelled) return
+        try {
+          ui.layout.selectPanel(PANEL_ID)
+        } catch {
+          if (attempts < 40) { attempts += 1; timer = window.setTimeout(selectWorkloom, 50) }
+        }
+      }
+      timer = window.setTimeout(() => {
+        if (cancelled) return
+        const preferences = readPreferences()
+        // Below this width the native sidebar auto-collapses on its own, and a
+        // toggle there would expand it instead.
+        if (preferences.collapseSidebar && window.innerWidth >= 1024) ui.layout.toggleSidebar()
+        if (preferences.openOnLoad) selectWorkloom()
+      }, 0)
+      return () => { cancelled = true; window.clearTimeout(timer) }
+    }, 'loom: startup panel and sidebar preferences')
   })
 }
 

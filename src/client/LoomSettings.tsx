@@ -24,10 +24,14 @@ export interface LoomPreferences {
   readonly wipLimit: number
   /** Whether comparisons wrap wide lines instead of scrolling sideways. */
   readonly previewWrap: boolean
+  /** Whether the Workloom panel becomes the main panel after DSH loads. */
+  readonly openOnLoad: boolean
+  /** Whether the native left sidebar collapses when DSH loads. */
+  readonly collapseSidebar: boolean
 }
 
 /** Defaults used when storage is empty or malformed. */
-export const DEFAULT_PREFERENCES: LoomPreferences = { view: 'workbench', kanbanMode: 'grouped', contextOpen: true, asideWidth: 344, previewWidth: 560, bottomHeight: 220, sessionLimit: 5, previewWrap: true, wipLimit: 3 }
+export const DEFAULT_PREFERENCES: LoomPreferences = { view: 'workbench', kanbanMode: 'grouped', contextOpen: true, asideWidth: 344, previewWidth: 560, bottomHeight: 220, sessionLimit: 5, previewWrap: true, wipLimit: 3, openOnLoad: false, collapseSidebar: false }
 const STORAGE_KEY = 'loom.preferences'
 
 /**
@@ -44,12 +48,14 @@ export function readPreferences(): LoomPreferences {
     const kanbanMode = record.kanbanMode === 'flat' ? 'flat' : 'grouped'
     const contextOpen = record.contextOpen !== false
     const previewWrap = record.previewWrap !== false
+    const openOnLoad = record.openOnLoad === true
+    const collapseSidebar = record.collapseSidebar === true
     const size = (key: 'asideWidth' | 'previewWidth' | 'bottomHeight' | 'sessionLimit' | 'wipLimit', fallback: number, min: number, max: number): number => {
       const raw = record[key]
       return typeof raw === 'number' && Number.isFinite(raw) ? Math.min(Math.max(Math.round(raw), min), max) : fallback
     }
     return {
-      view, kanbanMode, contextOpen, previewWrap,
+      view, kanbanMode, contextOpen, previewWrap, openOnLoad, collapseSidebar,
       asideWidth: size('asideWidth', DEFAULT_PREFERENCES.asideWidth, 320, 460),
       previewWidth: size('previewWidth', DEFAULT_PREFERENCES.previewWidth, 300, 720),
       bottomHeight: size('bottomHeight', DEFAULT_PREFERENCES.bottomHeight, 80, 320),
@@ -68,6 +74,7 @@ export function writePreferences(preferences: LoomPreferences): void {
 const backdrop: CSSProperties = { position: 'absolute', inset: 0, background: 'rgba(0,0,0,.42)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 80 }
 const panel: CSSProperties = { width: 400, maxWidth: 'calc(100vw - 32px)', maxHeight: 'calc(100vh - 80px)', overflow: 'auto', background: COLORS.panel, border: `0.5px solid ${COLORS.border}`, borderRadius: 'var(--dsw-radius-lg)', padding: 16, boxShadow: '0 18px 48px rgba(0,0,0,.45)' }
 const field: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 5, marginBottom: 12 }
+const toggle: CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, marginBottom: 6 }
 const label: CSSProperties = { color: COLORS.dim, fontSize: 11.5 }
 const sectionTitle: CSSProperties = { margin: '0 0 8px', color: COLORS.text, fontSize: 12, fontWeight: 500 }
 const group: CSSProperties = { marginBottom: 14, paddingBottom: 14, borderBottom: `0.5px solid ${COLORS.border}` }
@@ -108,6 +115,12 @@ export function LoomSettings({ t, open, preferences, pinned, onChange, onUnpin, 
           </select>
         </label>
         <p style={{ ...metaLine, margin: 0 }}>{t('settings.sessionLimitHint')}</p>
+      </div>
+      <div style={group}>
+        <p style={sectionTitle}>{t('settings.startup')}</p>
+        <label style={toggle}><input type="checkbox" checked={preferences.openOnLoad} onChange={event => onChange({ ...preferences, openOnLoad: event.target.checked })} />{t('settings.openOnLoad')}</label>
+        <label style={toggle}><input type="checkbox" checked={preferences.collapseSidebar} onChange={event => onChange({ ...preferences, collapseSidebar: event.target.checked })} />{t('settings.collapseSidebar')}</label>
+        <p style={{ ...metaLine, margin: '6px 0 0' }}>{t('settings.startupHint')}</p>
       </div>
       <div style={group}>
         <p style={sectionTitle}>{t('settings.workspace')}</p>
