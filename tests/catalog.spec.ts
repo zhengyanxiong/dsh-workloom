@@ -362,6 +362,47 @@ it('shares an idle workspace between tasks in one version and refuses while anot
 })
 
 
+it('advances clean workspace and running round baselines when a Lock is regenerated', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'loom-catalog-')); dirs.push(dir)
+  const repo = join(dir, 'repo')
+  await mkdir(repo)
+  await exec('git', ['init', '--quiet', repo])
+  await exec('git', ['-C', repo, 'config', 'user.name', 'Loom Test'])
+  await exec('git', ['-C', repo, 'config', 'user.email', 'loom@example.invalid'])
+  await writeFile(join(repo, 'file.txt'), 'content')
+  await exec('git', ['-C', repo, 'add', 'file.txt'])
+  await exec('git', ['-C', repo, 'commit', '--quiet', '-m', 'initial'])
+  const head = async (): Promise<string> => (await exec('git', ['-C', repo, 'rev-parse', 'HEAD'])).stdout.trim()
+  const catalog = await createCatalog(join(dir, 'state.json'), head)
+  const project = await catalog.createProject({ name: 'Shop', sources: [{ id: 'web', repo, path: 'web' }], modules: [] })
+  const version = await catalog.createVersion(project.id, 'Long', [{ sourceId: project.config.sources[0]!.id, ref: 'HEAD' }])
+  const first = await catalog.generateLock(version.id)
+  const workspace = await catalog.prepareWorkspace({ path: join(dir, 'workspace'), versionId: version.id, lockId: first.id, branches: { web: 'loom/Long/web-1' } })
+  const dirtyWorkspace = await catalog.prepareWorkspace({ path: join(dir, 'workspace-2'), versionId: version.id, lockId: first.id, branches: { web: 'loom/Long/web-2' } })
+  const task = await catalog.createTask(version.id, 'Long task')
+  const running = await catalog.startAttempt(task.id, workspace.id)
+  const attempt = running.attempts[0]!
+  // Commit the round's work on its branch and fast-forward the source branch,
+  // as a merge would; the second workspace follows the same commit but is dirty.
+  await writeFile(join(workspace.path, 'web', 'next.txt'), 'next')
+  await exec('git', ['-C', join(workspace.path, 'web'), 'add', 'next.txt'])
+  await exec('git', ['-C', join(workspace.path, 'web'), 'commit', '--quiet', '-m', 'next'])
+  await exec('git', ['-C', repo, 'merge', '--ff-only', 'loom/Long/web-1'])
+  await exec('git', ['-C', join(dirtyWorkspace.path, 'web'), 'merge', '--ff-only', 'loom/Long/web-1'])
+  await writeFile(join(dirtyWorkspace.path, 'web', 'dirty.txt'), 'dirty')
+  const before = await catalog.workspaceChanges(workspace.id, attempt.id)
+  expect(before.repositories.some(repository => repository.files.length > 0)).toBe(true)
+  const regenerated = await catalog.generateLock(version.id)
+  const snapshot = catalog.snapshot()
+  const advanced = snapshot.workspaces.find(candidate => candidate.id === workspace.id)
+  expect(advanced?.lockId).toBe(regenerated.id)
+  expect(snapshot.workspaces.find(candidate => candidate.id === dirtyWorkspace.id)?.lockId).toBe(first.id)
+  expect(snapshot.tasks.find(candidate => candidate.id === task.id)?.attempts.at(-1)?.lock.id).toBe(regenerated.id)
+  const after = await catalog.workspaceChanges(workspace.id, attempt.id)
+  expect(after.repositories.every(repository => repository.files.length === 0)).toBe(true)
+  expect(snapshot.audit.some(entry => entry.event === 'workspace.updated' && entry.workspaceId === workspace.id)).toBe(true)
+})
+
 it('creates worktrees on caller-selected branches recorded with the workspace', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'loom-catalog-')); dirs.push(dir)
   const repo = join(dir, 'repo')

@@ -1670,10 +1670,42 @@ export async function createCatalog(file: string, resolveCommit: (repo: string, 
     generateLock: versionId => transaction(async draft => {
       const version = versionIn(draft, versionId)
       const project = draft.projects.find(p => p.id === version.projectId)!
+      const previous = draft.locks.filter(lock => lock.versionId === version.id).at(-1)
       const resolved = await resolveLock(project.config, version, randomUUID(), resolveCommit)
       const lock: Lock = { ...resolved, createdAt: nowIso() }
       draft.locks.push(lock)
-      recordAudit(draft, 'lock.generated', 'human', { detail: lock.repositories.map(repository => repository.commit.slice(0, 8)).join(' ') })
+      // A long-lived version advances its baseline here instead of forcing a new
+      // round or version: clean workspaces whose HEADs equal this Lock move onto
+      // it, and a running latest attempt is re-baselined so its Diff starts over.
+      let advanced = 0
+      const commits = new Map(lock.repositories.map(repository => [repository.sourceId, repository.commit]))
+      if (previous !== undefined) {
+        for (const workspace of [...draft.workspaces]) {
+          if (workspace.cleaned === true || workspace.versionId !== version.id || workspace.lockId !== previous.id) continue
+          const bindings = workspaceBindings(draft, workspace)
+          if (bindings.length === 0) continue
+          try {
+            const heads = await Promise.all(bindings.map(async binding => commits.get(binding.sourceId) === await resolveHead(binding.targetPath)))
+            if (heads.some(matches => !matches)) continue
+            if (await workingTreeDirty(bindings.map(binding => binding.targetPath))) continue
+          } catch {
+            // A workspace that cannot read its Git state keeps the previous baseline.
+            continue
+          }
+          draft.workspaces[draft.workspaces.indexOf(workspace)] = { ...workspace, lockId: lock.id }
+          for (const task of [...draft.tasks]) {
+            const attempt = task.attempts.at(-1)
+            if (attempt === undefined || attempt.workspaceId !== workspace.id || attempt.status !== 'running') continue
+            draft.tasks[draft.tasks.indexOf(task)] = { ...task, attempts: [...task.attempts.slice(0, -1), { ...attempt, lock }] }
+            recordAudit(draft, 'workspace.updated', 'human', { taskId: task.id, workspaceId: workspace.id, detail: `round baseline advanced to ${lock.id}` })
+          }
+          advanced += 1
+        }
+      }
+      const commitDetail = lock.repositories.map(repository => repository.commit.slice(0, 8)).join(' ')
+      recordAudit(draft, 'lock.generated', 'human', {
+        detail: advanced === 0 ? commitDetail : `${commitDetail} · advanced ${advanced} workspace baseline${advanced === 1 ? '' : 's'}`,
+      })
       return lock
     }),
     createTask: async (versionId, title, options = {}) => {

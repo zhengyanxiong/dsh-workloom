@@ -272,7 +272,7 @@ export function LoomContextPanel({ t, snapshot, project, version, task, versionC
         {project.config.sources.map(source => <RepositoryGraph key={source.id} t={t} source={source}
           versionRef={versionRef(source)} lock={lockCommit(source)} />)}
         {version !== undefined && <div style={{ marginTop: 2 }}>
-          <LockButton t={t} version={version} generate={generateLock} onCreated={onLockChanged} existing={latestLock !== undefined} disabled={task?.status === 'running'} hint={false} />
+          <LockButton t={t} version={version} generate={generateLock} onCreated={onLockChanged} existing={latestLock !== undefined} hint />
           <p style={hint}>{t('ctx.baselineHint')}</p>
         </div>}
       </section>
