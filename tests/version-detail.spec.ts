@@ -138,12 +138,16 @@ it('lists every immutable Lock with its timestamp, commits and source task', () 
   expect(html).toContain(en['version.lockReferenced'].replace('{count}', '1'))
   expect(html).toContain(en['version.lockReferencedBy'])
   expect(html).toContain(en['version.lockNotReferenced'])
+  // The header owns the regenerate action so a long-lived version can advance
+  // its baseline from the version page, not only from the context panel.
+  expect(html).toContain(en['lock.regenerate'])
 })
 
 it('shows an explicit empty state and Lock call to action before the first Lock', () => {
   const html = render({ locks: [], context: undefined, tasks: [] })
   expect(html).toContain(en['lock.empty'])
   expect(html).toContain(en['lock.new'])
+  expect(html).not.toContain(en['lock.regenerate'])
   expect(html).toContain(en['version.noTasks'])
   expect(html).toContain(en['ctx.notInjected'])
 })

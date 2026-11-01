@@ -114,7 +114,7 @@ export function LoomVersionDetail({ t, snapshot, project, version, context, gene
             : <p style={muted}>{t('version.descriptionEmpty')}</p>}
         </div>
         <div style={headerActions}>
-          {locks.length === 0 && <LockButton t={t} version={version} generate={generateLock} onCreated={onLockChanged} />}
+          <LockButton t={t} version={version} generate={generateLock} onCreated={onLockChanged} existing={locks.length > 0} hint={false} />
           <Button variant="outline" icon={<IconEditOutlineRegular />} onClick={onEditVersion}>{t('version.edit')}</Button>
           <Button variant="primary" className="loom-primary" icon={<IconPlusOutlineRegular />} disabled={locks.length === 0}
             title={locks.length === 0 ? t('lock.generateFirst') : t('task.new')} onClick={onCreateTask}>{t('task.new')}</Button>
@@ -151,7 +151,6 @@ export function LoomVersionDetail({ t, snapshot, project, version, context, gene
         {locks.length === 0
           ? <div style={emptyState}>
               <p style={muted}>{t('lock.empty')}</p>
-              <LockButton t={t} version={version} generate={generateLock} onCreated={onLockChanged} />
             </div>
           : <div>
               {locks.map((lock, index) => {
