@@ -617,3 +617,21 @@ it('reads status for a legacy direct workspace whose Lock predates a repository'
   const status = await call('workspaceStatus', { request: { workspaceId: workspace.id } }) as { repositories: { directory: string }[] }
   expect(status.repositories.map(repository => repository.directory).sort()).toEqual([join(root, 'alpha'), join(root, 'beta')])
 })
+
+it('reads workspace status when the Git diff exceeds the default child-process buffer', async () => {
+  const { call, dir } = await setup()
+  const exec = promisify(execFile)
+  const repo = join(dir, 'big'); await mkdir(repo)
+  await exec('git', ['init', '--quiet', repo])
+  await writeFile(join(repo, 'big.txt'), 'one line\n')
+  await exec('git', ['-C', repo, 'add', 'big.txt'])
+  await exec('git', ['-C', repo, '-c', 'user.name=Loom Test', '-c', 'user.email=loom@example.invalid', 'commit', '-qm', 'initial'])
+  const project = await call('createProject', { request: { name: 'Big', sources: [{ id: 'web', repo, path: 'web' }], modules: [] } }) as { id: string }
+  const version = await call('createVersion', { request: { projectId: project.id, name: 'v', sources: [{ sourceId: 'web', ref: 'HEAD' }] } }) as { id: string }
+  const lock = await call('generateLock', { request: { versionId: version.id } }) as { id: string }
+  const root = join(dir, 'big-workspace')
+  const workspace = await call('prepareWorkspace', { request: { path: root, versionId: version.id, lockId: lock.id } }) as { id: string }
+  await writeFile(join(root, 'web', 'big.txt'), `${'changed line\n'.repeat(200_000)}`)
+  const status = await call('workspaceStatus', { request: { workspaceId: workspace.id } }) as { repositories: { files: unknown[] }[] }
+  expect(status.repositories[0]!.files.length).toBeGreaterThan(0)
+})

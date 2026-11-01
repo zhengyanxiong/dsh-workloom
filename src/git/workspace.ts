@@ -16,6 +16,9 @@ function trustTarget(args: readonly string[]): string[] {
 }
 
 async function execFile(command: string, args: string[], options: { windowsHide: boolean }) {
+  // Git diff output can legitimately exceed Node's 1 MB default; a direct
+  // workspace may show a large branch diff without being an error.
+  const maxBuffer = 64 * 1024 * 1024
   const env: NodeJS.ProcessEnv = {}
   for (const key of ['PATH', 'SystemRoot', 'WINDIR', 'HOME', 'TMPDIR', 'TMP', 'TEMP']) {
     if (process.env[key] !== undefined) env[key] = process.env[key]
@@ -23,7 +26,7 @@ async function execFile(command: string, args: string[], options: { windowsHide:
   env.GIT_CONFIG_NOSYSTEM = '1'
   env.GIT_CONFIG_GLOBAL = process.platform === 'win32' ? 'NUL' : '/dev/null'
   env.GIT_TERMINAL_PROMPT = '0'
-  return promisify(execFileCallback)(command, ['-c', `core.hooksPath=${process.platform === 'win32' ? 'NUL' : '/dev/null'}`, ...trustTarget(args), ...args], { ...options, env })
+  return promisify(execFileCallback)(command, ['-c', `core.hooksPath=${process.platform === 'win32' ? 'NUL' : '/dev/null'}`, ...trustTarget(args), ...args], { ...options, env, maxBuffer })
 }
 const COMMIT = /^[0-9a-f]{40}(?:[0-9a-f]{24})?$/u
 
