@@ -72,10 +72,26 @@ it('strokes the trace in batches instead of once per pixel column', () => {
   const { root } = mount(true, 2000)
   stroke.mockClear()
   frames.at(-1)!(performance.now())
-  // Grid (1) plus TRACE_CHUNKS trace groups — far below one stroke per column.
+  // Grid (1) plus the trace groups — far below one stroke per column.
   expect(stroke.mock.calls.length).toBeGreaterThan(2)
   expect(stroke.mock.calls.length).toBeLessThan(40)
   act(() => {
     root.unmount()
+  })
+})
+
+it('schedules animation frames only while active', () => {
+  const idle = mount(false, 2000)
+  expect(frames.length).toBe(0)
+  idle.rerender(false, 2000)
+  expect(frames.length).toBe(0)
+  act(() => {
+    idle.root.unmount()
+  })
+  frames.length = 0
+  const live = mount(true, 2000)
+  expect(frames.length).toBe(1)
+  act(() => {
+    live.root.unmount()
   })
 })

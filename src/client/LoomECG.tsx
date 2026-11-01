@@ -6,7 +6,7 @@ const HEIGHT = 38
 const BASELINE = HEIGHT * 0.62
 const AMPLITUDE = 9
 /** Batched stroke groups; one stroke per group keeps the trailing fade cheap. */
-const TRACE_CHUNKS = 16
+const TRACE_CHUNKS = 32
 /** Concrete colors used only when a theme token resolves to nothing. */
 const FALLBACK_GREEN = '#22c55e'
 const FALLBACK_IDLE = '#b8bec7'
