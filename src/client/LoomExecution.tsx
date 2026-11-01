@@ -10,7 +10,7 @@ import type {
 import type { LoomKey } from './locales.ts'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { currentExecution } from './projection.ts'
-import { COLORS, failureKey, failureReport, shortCommit, STATUS_META, thrownFailureReport, type FailureReport } from './shell.ts'
+import { COLORS, failureKey, failureReport, thrownFailureReport, type FailureReport } from './shell.ts'
 import { LoomCleanupDialog, type LoomCleanupFailure } from './LoomCleanupDialog.tsx'
 import { LoomTakeoverDialog } from './LoomTakeoverDialog.tsx'
 import { LoomPreparationPanel } from './LoomPreparationPanel.tsx'
@@ -23,9 +23,6 @@ const box: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 8, m
 const facts: CSSProperties = { display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: '5px 18px', minWidth: 0, color: COLORS.faint, fontSize: 11 }
 const fact: CSSProperties = { display: 'inline-flex', alignItems: 'baseline', gap: 5, minWidth: 0 }
 const factValue: CSSProperties = { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: COLORS.text, fontFamily: 'ui-monospace, monospace', fontSize: 11 }
-const historyDetails: CSSProperties = { borderTop: `0.5px solid ${COLORS.border}`, paddingTop: 8, marginTop: 2 }
-const historySummary: CSSProperties = { cursor: 'pointer', color: COLORS.dim, fontSize: 11.5, lineHeight: 1.5, userSelect: 'none' }
-const historyRow: CSSProperties = { display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', padding: '4px 0 0 2px', fontSize: 11, color: COLORS.dim }
 const actionBar: CSSProperties = { display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginTop: 4 }
 const ownerBox: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4, padding: '10px 12px', border: `0.5px solid ${COLORS.border}`, borderRadius: 8, background: COLORS.panel2 }
 const ownerLine: CSSProperties = { display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', gap: 6, minWidth: 0 }
@@ -279,28 +276,12 @@ export function ExecutionPanel({ t, task, snapshot, selectedSession, actions, lo
       actions.onChanged()
     } catch (error) { setFailure({ operation: t('op.createSession'), report: thrownFailureReport(error) }) } finally { setBusy(false) }
   }
-  const previous = [...task.attempts].slice(0, -1).reverse()
   return <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
     <div style={facts}>
-      <span style={fact}><span>{t('attempt.current')}</span><span style={factValue}>{String(task.attempts.length)}</span></span>
       <span style={fact}><span>{t('workspace.title')}</span><span style={factValue} title={workspace?.path}>{workspace?.path ?? '—'}</span></span>
       <span style={fact}><span>{t('session.title')}</span><span style={factValue}>{String(current?.sessionIds.length ?? 0)}</span></span>
     </div>
     {failure !== undefined && <InlineFailure t={t} failure={failure} />}
-    {previous.length > 0 && <details style={historyDetails}>
-      <summary style={historySummary}>{t('task.history')} · {String(previous.length)}</summary>
-      {previous.map((attempt) => {
-        const number = task.attempts.indexOf(attempt) + 1
-        const attemptWorkspace = snapshot.workspaces.find(candidate => candidate.id === attempt.workspaceId)
-        return <div key={attempt.id} style={historyRow}>
-          <span style={{ fontFamily: 'ui-monospace, monospace' }}>#{number}</span>
-          <span style={{ color: STATUS_META[attempt.status].color }}>{t(STATUS_META[attempt.status].key)}</span>
-          <span style={{ fontFamily: 'ui-monospace, monospace' }}>{shortCommit(attempt.lock) ?? '—'}</span>
-          <span style={{ minWidth: 0, flex: '1 1 180px', overflowWrap: 'anywhere' }}>{attemptWorkspace?.path ?? '—'}</span>
-          <span>{t('sessions')}: {attempt.sessionIds.length}</span>
-        </div>
-      })}
-    </details>}
     {preparation !== undefined && workspace !== undefined && preparation.status !== 'ready' && <LoomPreparationPanel t={t} preparation={preparation} busy={busy} onRetry={() => { void retryPrepare() }} />}
     {(task.status === 'pending' || task.status === 'failed') && version !== undefined && <StartForm t={t} task={task} snapshot={snapshot} versionId={version.id} actions={actions} />}
     {(task.status === 'running' || task.status === 'review') && workspace !== undefined && <div style={actionBar}>

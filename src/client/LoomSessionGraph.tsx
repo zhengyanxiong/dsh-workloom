@@ -3,6 +3,8 @@ import type { CSSProperties, ReactNode } from 'react'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { ExecutionState } from 'dsh-workloom/types'
 import { COLORS, metaLine } from './shell.ts'
+import { LoomTokenECG } from './LoomTokenECG.tsx'
+import type { TokenUsageView } from './projection.ts'
 import type { LoomKey } from './locales.ts'
 
 type Translate = (key: LoomKey, params?: Readonly<Record<string, string>>) => string
@@ -33,6 +35,7 @@ export interface LoomSessionGraphProps {
   readonly rows: readonly LoomTaskSessionRow[]
   readonly groups?: readonly LoomTaskSessionGroup[] | undefined
   readonly execution?: ExecutionState | undefined
+  readonly usageBySession?: Readonly<Record<string, TokenUsageView | undefined>> | undefined
   readonly currentSessionId?: string | undefined
   readonly onOpenSession: (sessionId: SessionId) => void
 }
@@ -56,11 +59,7 @@ const empty: CSSProperties = { margin: 0, padding: '8px 9px', color: COLORS.fain
 const gate: CSSProperties = { border: `0.5px solid ${COLORS.border}`, borderRadius: 8, background: COLORS.panel, padding: 9, display: 'flex', flexDirection: 'column', gap: 7 }
 const gateHead: CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }
 const gateWorkspace: CSSProperties = { minWidth: 0, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: COLORS.dim, fontSize: 10.5, fontFamily: 'ui-monospace, monospace' }
-const ownerCard: CSSProperties = { border: '0.5px solid #a7d9b8', background: 'linear-gradient(180deg, rgba(21,128,61,.06), transparent)', borderRadius: 7, padding: '7px 8px' }
-const ownerTop: CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, fontSize: 10.5, color: COLORS.text }
-const ownerName: CSSProperties = { minWidth: 0, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
 const ownerSub: CSSProperties = { ...metaLine, display: 'flex', gap: 6, marginTop: 2, fontSize: 9 }
-const progress: CSSProperties = { height: 3, marginTop: 6, borderRadius: 99, background: '#e7f3eb', overflow: 'hidden', position: 'relative' }
 const queueTitle: CSSProperties = { ...metaLine, display: 'flex', alignItems: 'center', gap: 6, margin: '1px 0 0', fontSize: 8.5, textTransform: 'uppercase', letterSpacing: '.05em' }
 const queueRule: CSSProperties = { flex: 1, height: 1, background: COLORS.border }
 const queueRow: CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, padding: '5px 7px', border: '0.5px dashed #e1c28d', borderRadius: 6, background: 'rgba(255,247,232,.5)', fontSize: 10, color: COLORS.dim }
@@ -74,7 +73,7 @@ function formatActivity(updatedAt: number): string {
 }
 
 /** Render the active task's session tree and the workspace execution gate. */
-export function LoomSessionGraph({ t, taskTitle, workspaceLabel, rows, groups, execution, currentSessionId, onOpenSession }: LoomSessionGraphProps): ReactNode {
+export function LoomSessionGraph({ t, taskTitle, workspaceLabel, rows, groups, execution, usageBySession, currentSessionId, onOpenSession }: LoomSessionGraphProps): ReactNode {
   const allRows = groups === undefined || groups.length === 0 ? rows : groups.flatMap(group => group.rows)
   const waiting = execution?.waiting ?? []
   const owner = execution?.owner?.sessionId
@@ -132,10 +131,9 @@ export function LoomSessionGraph({ t, taskTitle, workspaceLabel, rows, groups, e
             <div style={gateHead}><span className={owner === undefined ? '' : 'loom-sg-live'} style={owner === undefined ? { width: 7, height: 7, borderRadius: '50%', background: COLORS.faint, flex: 'none' } : undefined} /><span style={gateWorkspace}>{workspaceLabel ?? '—'}</span><span style={owner === undefined ? tag : ownerTag}>{owner === undefined ? t('bottom.idle') : t('bottom.sessionOwner')}</span></div>
             {owner === undefined
               ? <p style={{ ...empty, padding: 0 }}>{t('bottom.noOwner')}</p>
-              : <div style={ownerCard}>
-                  <div style={ownerTop}><span className="loom-sg-live" /><span style={ownerName}>{ownerRow?.label ?? owner}</span><span style={ownerTag}>{t('bottom.sessionOwner')}</span></div>
-                  <div style={ownerSub}><span>{t('bottom.sessionExecuting', { time: ownerTime })}</span></div>
-                  <div style={progress}><div className="loom-sg-bar" /></div>
+              : <div style={{ marginTop: 1 }}>
+                  <LoomTokenECG t={t} label={ownerRow?.label ?? owner} usage={usageBySession?.[owner]} running={ownerRow?.running === true} />
+                  <div style={{ ...ownerSub, marginTop: 4 }}><span>{t('bottom.sessionExecuting', { time: ownerTime })}</span></div>
                 </div>}
             <div style={queueTitle}><span>{t('bottom.queue')}</span><span style={queueRule} /></div>
             {waiting.length === 0

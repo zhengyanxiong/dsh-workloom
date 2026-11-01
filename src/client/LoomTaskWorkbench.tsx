@@ -1,4 +1,4 @@
-/** Task-centred Workbench page: brief, execution rounds and the human acceptance decision. */
+/** Task-centred Workbench page: brief, execution sessions and the human acceptance decision. */
 import type { CSSProperties, ReactNode } from 'react'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { Tag, type TagTone } from '@deepseek-ai/dsh-client-ui-primitives'
@@ -8,7 +8,6 @@ import type { LoomKey } from './locales.ts'
 import type { LoadWorkspaceChanges } from './LoomDiff.tsx'
 import { ExecutionPanel, type ExecutionActions } from './LoomExecution.tsx'
 import { LoomOutcomePanel } from './LoomOutcomePanel.tsx'
-import { LoomSessionList } from './LoomSessionList.tsx'
 import { LoomExecutionQueue } from './LoomExecutionQueue.tsx'
 import type { TaskAttemptRow } from './projection.ts'
 
@@ -68,7 +67,7 @@ function SectionHeading({ title: heading, hint, action }: { readonly title: stri
   </div>
 }
 
-/** One task header plus its brief, execution rounds, acceptance decision and recent audit slice. */
+/** One task header plus its brief, execution sessions, acceptance decision and recent audit slice. */
 export function LoomTaskWorkbench({ t, task, project, version, snapshot, audit, actions, loadChanges, wrap, onToggleWrap, attemptRows, selectedSessionId, onSelectSession, onOpenSession }: {
   t: Translate
   task: TaskRecord
@@ -80,7 +79,7 @@ export function LoomTaskWorkbench({ t, task, project, version, snapshot, audit, 
   loadChanges: LoadWorkspaceChanges
   wrap: boolean
   onToggleWrap: () => void
-  /** Every execution round with all attached Sessions; the user picks one explicitly. */
+  /** Sessions of the current execution environment; the user picks one explicitly. */
   attemptRows: readonly TaskAttemptRow[]
   selectedSessionId?: string | undefined
   onSelectSession?: ((sessionId: string) => void) | undefined
@@ -110,10 +109,6 @@ export function LoomTaskWorkbench({ t, task, project, version, snapshot, audit, 
             <span aria-hidden style={separator}>·</span>
             <span>{modules.join(', ')}</span>
           </>}
-          {attemptRows.length > 0 && <>
-            <span aria-hidden style={separator}>·</span>
-            <span>{t('sessionList.round', { round: String(attemptRows.length) })}</span>
-          </>}
         </div>
       </div>
     </header>
@@ -138,10 +133,6 @@ export function LoomTaskWorkbench({ t, task, project, version, snapshot, audit, 
           <SectionHeading title={t('workbench.execution')} />
           <LoomExecutionQueue t={t} workspaceId={latestAttempt?.workspaceId} sessions={latestAttempt?.sessions ?? []} execution={execution}
             selectedSessionId={selectedSessionId} actions={actions} onSelectSession={onSelectSession} onOpenSession={onOpenSession} />
-          {attemptRows.length > 1 && <details style={{ borderTop: `0.5px solid ${COLORS.border}`, paddingTop: 8 }}>
-            <summary style={{ cursor: 'pointer', color: COLORS.faint, fontSize: 10.5 }}>{t('sessionList.history')} · {String(attemptRows.length - 1)}</summary>
-            <LoomSessionList t={t} rows={attemptRows.filter(row => !row.latest)} selectedSessionId={selectedSessionId} onOpenSession={onOpenSession} />
-          </details>}
           <ExecutionPanel t={t} task={task} snapshot={snapshot} selectedSession={selectedSessionId as SessionId | undefined} actions={actions} loadChanges={loadChanges} wrap={wrap} onToggleWrap={onToggleWrap} />
         </section>
 

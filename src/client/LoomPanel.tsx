@@ -41,7 +41,7 @@ import { LoomSessionActivity, type LoomJobsFace, type LoomSubagentRow } from './
 import { LoomVersionGraph } from './LoomVersionGraph.tsx'
 import { LoomSessionGraph, type LoomTaskSessionRow } from './LoomSessionGraph.tsx'
 import { autoWorkspaceRepositoryPath } from '../domain/workspace.ts'
-import { activeWorkspaceCount, aggregateTokenUsage, boundSessions, currentWorkspace, taskAttemptRows, taskSessionRows, workspaceName, type RecentSession, type ShellFilter } from './projection.ts'
+import { activeWorkspaceCount, aggregateTokenUsage, boundSessions, tokenUsageOf, currentWorkspace, taskAttemptRows, taskSessionRows, workspaceName, type RecentSession, type ShellFilter } from './projection.ts'
 import { deriveVersionContext } from '../shared/version-context.ts'
 import { COLORS, failureReport, metaLine, pill, select, shortCommit, thrownFailureReport, PRIORITY_META, STATUS_META, type FailureReport } from './shell.ts'
 import { reportLoomFailure } from './feedback.ts'
@@ -713,6 +713,7 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
     setAsideOpen(true)
   }
   const tokenUsage = aggregateTokenUsage(taskSessions.map(row => sessions.projectionsBySession[row.sessionId as SessionId]?.values))
+  const usageBySession = Object.fromEntries(boundRows.map(row => [row.sessionId, tokenUsageOf(sessions.projectionsBySession[row.sessionId as SessionId]?.values)]))
   const sessionGroups = snapshot === undefined || detailTask === undefined || detailWorkspace === undefined
     ? []
     : snapshot.tasks
@@ -1273,7 +1274,7 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
       collapsed={bottomCollapsed}
       pane={pane}
       audit={auditRows}
-      sessionsContent={<LoomSessionGraph t={t} taskTitle={detailTask?.title} workspaceLabel={workspaceDisplay} rows={activeSessionRows} groups={sessionGroups} execution={runtimeExecution} currentSessionId={runtimeSessionId} onOpenSession={id => { selectSession(id) }} />}
+      sessionsContent={<LoomSessionGraph t={t} taskTitle={detailTask?.title} workspaceLabel={workspaceDisplay} rows={activeSessionRows} groups={sessionGroups} execution={runtimeExecution} usageBySession={usageBySession} currentSessionId={runtimeSessionId} onOpenSession={id => { selectSession(id) }} />}
       runtimeContent={<LoomSessionActivity t={t} sessionId={runtimeSessionId} subagents={subagentRows} jobs={jobs} workspaceAccess={workspaceAccess} openSession={id => { selectSession(id) }} forkSession={() => { void forkSessionAction() }} forking={forking} forkError={forkError} canFork={runtimeSessionId !== undefined && detailTask !== undefined && detailWorkspace !== undefined} onClaim={() => { void claimWorkspace() }} claiming={claiming} claimError={claimError} />}
       graphContent={snapshot !== undefined && taskVersion !== undefined ? <LoomVersionGraph t={t} snapshot={snapshot} version={taskVersion} sessionLabel={sessionLabel} runningSessionIds={runningSessionIds} onSelectTask={selectTask} onRelease={(workspaceId, owner) => { void releaseOwner(workspaceId, owner) }} releasingWorkspaceId={releasingWorkspace} releaseError={releaseError} onReleaseAll={() => { void releaseAllStale() }} releasingAll={releasingAll} /> : undefined}
       sessionCount={activeSessionRows.length}
