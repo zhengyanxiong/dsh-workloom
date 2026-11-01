@@ -659,3 +659,15 @@ it('reorders the waiting queue and rejects a mismatched Session set', async () =
   expect(state?.waiting).toEqual(['session-b', 'session-a'])
   await expect(call('reorderExecutionQueue', { request: { workspaceId: workspace.id, sessionIds: ['session-b'] } })).rejects.toThrow('invalid_waiting_order')
 })
+
+it('requires approval before the Agent takeover tool reaches the Host', async () => {
+  const { ctx, call, dir } = await setup()
+  const { root } = await runningRound(call, dir)
+  const decision = await ctx.waterfall(
+    'tools/pre-execute',
+    { name: 'loom_request_takeover', agent: { session: { id: 'session-bound', header: { cwd: root } } } } as never,
+    () => Promise.resolve(undefined as never),
+  ) as { kind: string; displayReason?: { en?: string } }
+  expect(decision.kind).toBe('ask')
+  expect(decision.displayReason?.en).toContain('take over')
+})

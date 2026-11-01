@@ -286,6 +286,16 @@ export default class LoomService extends TypertRemoteService {
     for (const agent of agents?.list?.() ?? []) this.syncVersionContext(agent.session.id)
     this.ctx.on('tools/pre-execute', async (exec, next) => {
       if (exec.agent === undefined) return next()
+      if (exec.name === 'loom_request_takeover') {
+        return {
+          kind: 'ask',
+          reason: 'Loom takeover stops the current workspace owner before transferring execution access.',
+          displayReason: {
+            en: 'Allow this Session to stop the current Loom workspace owner and take over execution?',
+            zh: '允许当前会话停止原执行会话，并接管工作区执行权吗？',
+          },
+        }
+      }
       const decision = await this.admitExecution(exec.agent.session.id, exec.agent.session.header.cwd)
       return decision ?? next()
     })
@@ -302,7 +312,7 @@ export default class LoomService extends TypertRemoteService {
   /** Expose the Loom reporting tools once a native tools registry exists. */
   private registerAgentTools(catalog: Catalog): void {
     const attach = (registry: LoomToolRegistrar): void => {
-      this.ctx.effect(() => registerLoomAgentTools(registry, catalog, () => this.refreshSnapshot(catalog)), 'loom: register Agent tools')
+      this.ctx.effect(() => registerLoomAgentTools(registry, catalog, () => this.refreshSnapshot(catalog), sessionId => this.takeoverForAgent(sessionId)), 'loom: register Agent tools')
     }
     const tools = this.ctx.get('tools') as LoomToolRegistrar | undefined
     if (tools !== undefined) { attach(tools); return }
@@ -501,6 +511,32 @@ export default class LoomService extends TypertRemoteService {
    * @param sessionId - Session holding the current workspace execution token.
    * @returns the trusted stop outcome used to confirm or block handoff.
    */
+  /** Take over for an Agent tool after the human approved the native confirmation prompt. */
+  private async takeoverForAgent(sessionIdValue: string): Promise<Record<string, unknown>> {
+    const catalog = await this.catalog
+    if (this.closed) throw serviceError('loom_disposed')
+    const sessionId = brandString<Branded<'SessionId'>>(sessionIdValue)
+    const snapshot = catalog.snapshot()
+    const binding = findSessionAttempt(snapshot, sessionId)
+    if (binding === undefined) throw new Error('this Session is not attached to a Loom task round; takeover was not performed')
+    const workspace = snapshot.workspaces.find(candidate => candidate.id === binding.attempt.workspaceId && candidate.cleaned !== true)
+    if (workspace === undefined) throw new Error('the task workspace is no longer active')
+    const previous = snapshot.executions.find(candidate => candidate.workspaceId === workspace.id)
+    if (previous?.owner === null || previous?.owner === undefined) {
+      const state = await catalog.acquireExecution(workspace.id, sessionId)
+      return { workspaceId: workspace.id, owner: state.owner?.sessionId ?? null, sessionId }
+    }
+    if (previous.owner.sessionId === sessionId) return { workspaceId: workspace.id, owner: sessionId, sessionId }
+    const begun = await catalog.beginTakeover(workspace.id, sessionId)
+    const outcome = await this.stopOwner(begun.owner.sessionId)
+    try {
+      const state = await catalog.finishTakeover(workspace.id, begun.owner, outcome)
+      return { workspaceId: workspace.id, owner: state.owner?.sessionId ?? null, sessionId, previousOwner: begun.owner.sessionId }
+    } finally {
+      this.refreshSnapshot(catalog)
+    }
+  }
+
   private async stopOwner(sessionId: Branded<'SessionId'>): Promise<StopOutcome> {
     const agents = this.ctx.get('agents') as LoomAgentRegistry | undefined
     if (agents === undefined) return 'unknown'

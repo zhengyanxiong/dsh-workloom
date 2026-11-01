@@ -46,6 +46,9 @@ export interface LoomToolRunContext {
   readonly agent?: { readonly session: { readonly id: string } } | undefined
 }
 
+/** Host-owned takeover used by the confirmation-gated Agent tool. */
+export type LoomTakeover = (sessionId: string) => Promise<Record<string, unknown>>
+
 /** Native tool registry subset the Host registers through. */
 export interface LoomToolRegistrar {
   register(definition: LoomToolDefinition): () => void
@@ -207,7 +210,7 @@ function describeReport(value: unknown): string {
  * @param refresh - optional snapshot refresh invoked after a successful write.
  * @returns a disposer that unregisters every tool it registered.
  */
-export function registerLoomAgentTools(tools: LoomToolRegistrar, catalog: Catalog, refresh?: () => void): () => void {
+export function registerLoomAgentTools(tools: LoomToolRegistrar, catalog: Catalog, refresh?: () => void, takeover?: LoomTakeover): () => void {
   const disposers: (() => void)[] = []
   disposers.push(tools.register({
     name: 'loom_request_review',
@@ -248,6 +251,33 @@ export function registerLoomAgentTools(tools: LoomToolRegistrar, catalog: Catalo
       if (reason.trim().length > 2000) throw new Error('reason is too long')
       const evidence = readEvidence(args)
       const result = await report(catalog, exec, () => ({ suggestedStatus: 'failed', ...evidence, basis: reason }))
+      refresh?.()
+      return result
+    },
+  }))
+  disposers.push(tools.register({
+    name: 'loom_request_takeover',
+    description: 'Ask the human to stop the Session that currently owns this Loom workspace and hand execution access to this Session. The Host shows a confirmation prompt before stopping anything; use this when another Session blocks your work and the user wants this Session to continue.',
+    parameters: {
+      type: 'object', additionalProperties: false,
+      properties: { reason: { type: 'string', description: 'Why this Session needs to take over the workspace; shown to the human in the confirmation prompt.' } },
+    },
+    output: {
+      schema: {
+        type: 'object', additionalProperties: true,
+        properties: { workspaceId: { type: 'string' }, owner: { type: 'string' }, sessionId: { type: 'string' } },
+      },
+      render: (_args, value) => {
+        const state = typeof value === 'object' && value !== null ? value as Record<string, unknown> : {}
+        const owner = typeof state.owner === 'string' ? state.owner : 'the previous owner'
+        return [{ type: 'text', text: `Loom execution access was handed from ${owner} to this Session. The previous owner was stopped first.` }]
+      },
+    },
+    execute: async (_raw, exec) => {
+      const session = exec.agent?.session
+      if (session === undefined || session.id === '') throw new Error('this Loom tool requires an owning Agent session')
+      if (takeover === undefined) throw new Error('Loom takeover is unavailable in this Host')
+      const result = await takeover(session.id)
       refresh?.()
       return result
     },

@@ -374,3 +374,17 @@ it('reports unpushed commits and flags a branch without upstream instead of thro
   await catalog.cleanupWorkspace(workspace.id, true)
   expect(catalog.snapshot().audit.map(entry => entry.event)).toContain('workspace.cleaned')
 })
+
+it('registers a takeover tool that runs only the Host-provided takeover callback', async () => {
+  const { catalog } = await fixture()
+  const tools = registrar()
+  let called = ''
+  registerLoomAgentTools(tools, catalog, undefined, async sessionId => {
+    called = sessionId
+    return { workspaceId: 'w1', owner: sessionId, sessionId }
+  })
+  const tool = tools.definitions.get('loom_request_takeover')!
+  const result = await tool.execute({ reason: 'owner is blocked' }, context('session-agent') as never)
+  expect(called).toBe('session-agent')
+  expect(result).toMatchObject({ workspaceId: 'w1', owner: 'session-agent' })
+})

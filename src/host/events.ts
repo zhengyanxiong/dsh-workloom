@@ -5,7 +5,7 @@ import type { Context } from '@deepseek-ai/cordis'
 /** Decision shape returned by the native tool pre-execute waterfall. */
 export type LoomToolDecision =
   | { readonly kind: 'deny'; readonly reason: string }
-  | { readonly kind: 'ask'; readonly reason?: string | undefined }
+  | { readonly kind: 'ask'; readonly reason?: string | undefined; readonly displayReason?: { readonly en: string; readonly [locale: string]: string } | undefined }
   | { readonly kind: 'allow' }
   | { readonly kind: 'cancel' }
   | undefined
@@ -32,7 +32,7 @@ export interface LoomAgentRegistry {
 declare module '@deepseek-ai/cordis' {
   interface Events {
     /** Native tool policy waterfall observed before any tool executes. */
-    'tools/pre-execute'(exec: { readonly agent?: LoomAgent | undefined }, next: () => Promise<LoomToolDecision>): Promise<LoomToolDecision>
+    'tools/pre-execute'(exec: { readonly name?: string | undefined; readonly agent?: LoomAgent | undefined }, next: () => Promise<LoomToolDecision>): Promise<LoomToolDecision>
     /** Native Agent lifecycle transition; used to release finished execution owners. */
     'agent/status'(payload: { readonly agent: LoomAgent; readonly status: 'idle' | 'running' }): void
     /** Native Session disposal; used to release or dequeue its execution token. */
