@@ -94,11 +94,11 @@ export function LoomTokenECG({ t, label, usage, running }: LoomTokenECGProps) {
   const stateKey: LoomKey = !running ? 'tokenECG.idle' : generating ? 'tokenECG.generating' : 'tokenECG.thinking'
   return <div style={card}>
     <div style={top}>
-      <span style={dot(generating)} aria-hidden />
+      <span style={dot(running)} aria-hidden />
       <span style={name} title={label}>{label}</span>
       <Tag tone="success">{t('bottom.sessionOwner')}</Tag>
     </div>
-    <LoomECG active={generating} beatMs={beatPeriodMs(rate)} />
+    <LoomECG active={running} beatMs={beatPeriodMs(rate)} />
     <div style={state}>
       <span>{t(stateKey)}</span>
       <span aria-hidden>·</span>

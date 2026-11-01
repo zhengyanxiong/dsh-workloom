@@ -104,7 +104,7 @@ export function LoomSessionGraph({ t, taskTitle, workspaceLabel, rows, groups, e
       <span style={active ? nameActive : name} title={session.label}>{session.label}</span>
       {session.parentId !== undefined && <span style={fork}>↳ {t('bottom.sessionFork')}</span>}
       {isOwner ? <span style={ownerTag}>{t('bottom.sessionOwner')}</span> : queueIndex >= 0 ? <span style={queueTag}>{t('bottom.sessionQueue', { index: String(queueIndex + 1) })}</span> : session.unavailable === true ? <span style={tag}>{t('bottom.sessionUnavailable')}</span> : session.running ? <span style={ownerTag}>{t('bottom.sessionRunning')}</span> : null}
-      <span style={time}>{isOwner ? t('bottom.sessionExecuting', { time: formatActivity(session.updatedAt) }) : queueIndex >= 0 ? t('bottom.sessionQueued', { time: formatActivity(session.updatedAt) }) : t('bottom.sessionRecent', { time: formatActivity(session.updatedAt) })}</span>
+      <span style={time}>{isOwner && session.running ? t('bottom.sessionExecuting', { time: formatActivity(session.updatedAt) }) : queueIndex >= 0 ? t('bottom.sessionQueued', { time: formatActivity(session.updatedAt) }) : t('bottom.sessionRecent', { time: formatActivity(session.updatedAt) })}</span>
     </button>
   }
   return <div className="loom-sg" style={wrap}>

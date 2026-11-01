@@ -5,6 +5,8 @@ import { COLORS } from './shell.ts'
 const HEIGHT = 38
 const BASELINE = HEIGHT * 0.62
 const AMPLITUDE = 9
+/** Batched stroke groups; one stroke per group keeps the trailing fade cheap. */
+const TRACE_CHUNKS = 16
 /** Concrete colors used only when a theme token resolves to nothing. */
 const FALLBACK_GREEN = '#22c55e'
 const FALLBACK_IDLE = '#b8bec7'
@@ -117,12 +119,17 @@ export function LoomECG({ active, beatMs }: LoomECGProps) {
       context.strokeStyle = colors.green
       context.lineJoin = 'round'
       context.lineCap = 'round'
-      for (let i = 1; i < history.length; i++) {
-        context.globalAlpha = 1 - 0.85 * (i / history.length)
-        context.lineWidth = 1.35
+      context.lineWidth = 1.35
+      // One stroke per chunk instead of per pixel: the trailing fade is
+      // quantized into TRACE_CHUNKS alpha steps, so the whole trace costs a
+      // handful of draw calls per frame rather than one per pixel column.
+      const step = Math.max(1, Math.ceil((history.length - 1) / TRACE_CHUNKS))
+      for (let start = 1; start < history.length; start += step) {
+        const end = Math.min(history.length - 1, start + step - 1)
+        context.globalAlpha = 1 - 0.85 * ((start + end) / 2 / history.length)
         context.beginPath()
-        context.moveTo(i - 1, history[i - 1]!)
-        context.lineTo(i, history[i]!)
+        context.moveTo(start - 1, history[start - 1]!)
+        for (let i = start; i <= end; i++) context.lineTo(i, history[i]!)
         context.stroke()
       }
       context.globalAlpha = 1
