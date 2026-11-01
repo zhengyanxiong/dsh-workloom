@@ -249,6 +249,10 @@ export function ExecutionPanel({ t, task, snapshot, selectedSession, actions, lo
       actions.onChanged()
     } catch (error) { setFailure({ operation: t('op.takeover'), report: thrownFailureReport(error) }) } finally { setBusy(false) }
   }
+  function continueSession(): void {
+    if (boundSession !== undefined) { actions.onSession(boundSession); return }
+    void openSession()
+  }
   async function openSession(): Promise<void> {
     if (workspace === undefined) return
     setBusy(true); setFailure(undefined)
@@ -285,7 +289,8 @@ export function ExecutionPanel({ t, task, snapshot, selectedSession, actions, lo
     {preparation !== undefined && workspace !== undefined && preparation.status !== 'ready' && <LoomPreparationPanel t={t} preparation={preparation} busy={busy} onRetry={() => { void retryPrepare() }} />}
     {(task.status === 'pending' || task.status === 'failed') && version !== undefined && <StartForm t={t} task={task} snapshot={snapshot} versionId={version.id} actions={actions} />}
     {(task.status === 'running' || task.status === 'review') && workspace !== undefined && <div style={actionBar}>
-      <Button size="sm" variant="outline" disabled={busy} onClick={() => { void openSession() }}>{t('session.continue')}</Button>
+      {boundSession !== undefined && <Button size="sm" variant="outline" disabled={busy} onClick={continueSession}>{t('session.continue')}</Button>}
+      <Button size="sm" variant="outline" disabled={busy} onClick={() => { void openSession() }}>{t('session.new')}</Button>
       {selectedSession !== undefined && current !== undefined && !current.sessionIds.includes(selectedSession) && <Button size="sm" variant="outline" disabled={busy} onClick={() => { void attach() }}>{t('session.open')}</Button>}
     </div>}
     {workspace !== undefined && boundSession !== undefined && workspace.cleaned !== true && <div style={ownerBox}>
