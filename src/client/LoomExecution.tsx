@@ -261,7 +261,11 @@ export function ExecutionPanel({ t, task, snapshot, selectedSession, actions, lo
     } catch (error) { setFailure({ operation: t('op.takeover'), report: thrownFailureReport(error) }) } finally { setBusy(false) }
   }
   function continueSession(): void {
-    if (boundSession !== undefined) { actions.onSession(boundSession); return }
+    // Continue the Session selected in the task detail, not merely the most
+    // recently attached one; fall back to that latest binding only when the
+    // user has not selected a Session yet.
+    const target = selectedSession ?? boundSession
+    if (target !== undefined) { actions.onSession(target); return }
     void openSession()
   }
   async function openSession(): Promise<void> {
