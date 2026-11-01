@@ -5,16 +5,43 @@ import { COLORS } from './shell.ts'
 const HEIGHT = 38
 const BASELINE = HEIGHT * 0.62
 const AMPLITUDE = 9
+/** Concrete colors used only when a theme token resolves to nothing. */
+const FALLBACK_GREEN = '#22c55e'
+const FALLBACK_IDLE = '#b8bec7'
+const FALLBACK_GRID = '#e8f5ef'
 
 const style: CSSProperties = { display: 'block', width: '100%', height: HEIGHT }
 
-/** Resolve a CSS variable into a concrete color; canvas does not accept `var()`. */
-function concrete(value: string, fallback: string): string {
+interface ECGColors {
+  readonly green: string
+  readonly idle: string
+  readonly grid: string
+}
+
+/**
+ * Resolve a CSS variable on an element that inherits the document palette.
+ * Canvas `strokeStyle` does not parse `var()`, and DSH alias tokens are
+ * declared on `body`, so the root element cannot see them.
+ * @param element - element whose inherited custom properties are read.
+ * @param value - color token, either a `var(--name)` reference or a literal.
+ * @param fallback - concrete color used when the token resolves to nothing.
+ * @returns a concrete CSS color string.
+ */
+function concrete(element: Element, value: string, fallback: string): string {
   if (!value.startsWith('var(')) return value
+  if (typeof getComputedStyle !== 'function') return fallback
   const name = value.slice(4, -1).trim()
-  if (typeof window === 'undefined' || typeof getComputedStyle !== 'function') return fallback
-  const resolved = getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+  const resolved = getComputedStyle(element).getPropertyValue(name).trim()
   return resolved === '' ? fallback : resolved
+}
+
+/** Read the three colors the trace draws on the current palette. */
+function resolveColors(element: Element): ECGColors {
+  return {
+    green: concrete(element, COLORS.green, FALLBACK_GREEN),
+    idle: concrete(element, COLORS.faint, FALLBACK_IDLE),
+    grid: concrete(element, COLORS.border, FALLBACK_GRID),
+  }
 }
 
 function wave(progress: number): number {
@@ -32,27 +59,29 @@ function wave(progress: number): number {
 /** Inputs for the ECG component. */
 export interface LoomECGProps {
   readonly active: boolean
-  /** Milliseconds per heartbeat; ignored while idle. */
+  /** Milliseconds per heartbeat; a new value changes the rhythm without restarting the trace. */
   readonly beatMs: number
 }
 
 /**
- * Draw a left-to-right ECG whose newest sample is at the left edge.
- * The canvas resolves theme tokens to concrete colors because `strokeStyle`
- * does not resolve CSS variables.
+ * Draw a left-to-right ECG whose newest sample enters at the left edge.
+ * The trace owns its canvas history, so a rate-driven beat period only
+ * changes the rhythm; palette changes re-resolve the colors and repaint.
  * @param props - activity flag and heartbeat period.
  * @returns the canvas element.
  */
 export function LoomECG({ active, beatMs }: LoomECGProps) {
   const ref = useRef<HTMLCanvasElement>(null)
+  const beat = useRef(beatMs)
+  useEffect(() => {
+    beat.current = beatMs
+  }, [beatMs])
   useEffect(() => {
     const canvas = ref.current
     if (canvas === null) return
     const context = canvas.getContext('2d')
     if (context === null) return
-    const green = concrete(COLORS.green, '#2fbf71')
-    const idle = concrete(COLORS.faint, '#b8bec7')
-    const grid = concrete(COLORS.border, '#e8f5ef')
+    let colors = resolveColors(canvas)
     let frame = 0
     let width = 0
     let phase = 0.42
@@ -67,7 +96,7 @@ export function LoomECG({ active, beatMs }: LoomECGProps) {
       }
       context.setTransform(dpr, 0, 0, dpr, 0, 0)
       context.clearRect(0, 0, width, HEIGHT)
-      context.strokeStyle = grid
+      context.strokeStyle = colors.grid
       context.lineWidth = 1
       context.globalAlpha = 0.6
       context.beginPath()
@@ -76,7 +105,7 @@ export function LoomECG({ active, beatMs }: LoomECGProps) {
       context.stroke()
       context.globalAlpha = 1
       if (!active) {
-        context.strokeStyle = idle
+        context.strokeStyle = colors.idle
         context.lineWidth = 1.2
         context.beginPath()
         context.moveTo(0, BASELINE)
@@ -85,7 +114,7 @@ export function LoomECG({ active, beatMs }: LoomECGProps) {
         return
       }
       if (history.length !== Math.max(1, Math.round(width))) history = new Array(Math.max(1, Math.round(width))).fill(BASELINE)
-      context.strokeStyle = green
+      context.strokeStyle = colors.green
       context.lineJoin = 'round'
       context.lineCap = 'round'
       for (let i = 1; i < history.length; i++) {
@@ -97,8 +126,8 @@ export function LoomECG({ active, beatMs }: LoomECGProps) {
         context.stroke()
       }
       context.globalAlpha = 1
-      context.fillStyle = green
-      context.shadowColor = green
+      context.fillStyle = colors.green
+      context.shadowColor = colors.green
       context.shadowBlur = 7
       context.beginPath()
       context.arc(0, history[0] ?? BASELINE, 2.1, 0, Math.PI * 2)
@@ -109,7 +138,7 @@ export function LoomECG({ active, beatMs }: LoomECGProps) {
       const dt = Math.min((now - last) / 1000, 0.1)
       last = now
       if (active && !reduced) {
-        phase = (phase + dt * 1000 / Math.max(beatMs, 500)) % 1
+        phase = (phase + dt * 1000 / Math.max(beat.current, 500)) % 1
         history.unshift(BASELINE - wave(phase) * AMPLITUDE)
         history.pop()
       }
@@ -117,15 +146,29 @@ export function LoomECG({ active, beatMs }: LoomECGProps) {
       if (active && !reduced) frame = requestAnimationFrame(render)
     }
     const resize = (): void => {
-      width = Math.max(120, canvas.parentElement?.clientWidth ?? 300)
+      width = Math.max(120, canvas.clientWidth)
       history = new Array(Math.max(1, Math.round(width))).fill(BASELINE)
       draw()
     }
+    const refreshColors = (): void => {
+      colors = resolveColors(canvas)
+      draw()
+    }
     const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(resize) : undefined
-    observer?.observe(canvas.parentElement ?? canvas)
+    observer?.observe(canvas)
+    const media = typeof window.matchMedia === 'function' ? window.matchMedia('(prefers-color-scheme: dark)') : undefined
+    media?.addEventListener('change', refreshColors)
+    const palette = typeof MutationObserver === 'function' ? new MutationObserver(refreshColors) : undefined
+    palette?.observe(document.documentElement, { attributes: true })
+    if (document.body !== null) palette?.observe(document.body, { attributes: true })
     resize()
     if (active && !reduced) frame = requestAnimationFrame(render)
-    return () => { if (frame !== 0) cancelAnimationFrame(frame); observer?.disconnect() }
-  }, [active, beatMs])
+    return () => {
+      if (frame !== 0) cancelAnimationFrame(frame)
+      observer?.disconnect()
+      palette?.disconnect()
+      media?.removeEventListener('change', refreshColors)
+    }
+  }, [active])
   return <canvas ref={ref} style={style} aria-hidden />
 }
