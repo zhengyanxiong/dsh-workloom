@@ -4,7 +4,7 @@ import type {
   TypertRemoteInfo,
   TypertRemoteMethod,
 } from '@deepseek-ai/dsh-typert-protocol'
-import type { AttachSessionRequest, CatalogSnapshot, CleanupWorkspaceRequest, CommitWorkspaceRequest, CreateTaskRequest, CreateVersionRequest, DeleteProjectRequest, DeleteTaskRequest, DeleteVersionRequest, DeleteWorkspaceRequest, ExecutionRequest, ExecutionState, ForgetTemporarySessionRequest, GenerateLockRequest, InspectWorkspaceRequest, Lock, PrepareWorkspaceRequest, ProjectConfig, ProjectRecord, RegisterTemporarySessionRequest, RegisterWorkspaceRequest, ReleaseExecutionRequest, RepositoryBranchesRequest, StartAttemptRequest, TaskRecord, TemporarySessionRecord, TransitionTaskRequest, UpdateProjectRequest, UpdateTaskRequest, UpdateVersionRequest, UpdateWorkspaceRequest, VersionRecord, WorkspaceChangesRequest, WorkspaceCommitResult, WorkspaceInspection, WorkspaceRecord, WorkspaceRepositoryChangesRecord, WorkspaceStatusResult } from 'dsh-workloom/types'
+import type { AttachSessionRequest, CatalogSnapshot, CleanupWorkspaceRequest, CommitWorkspaceRequest, CreateTaskRequest, CreateVersionRequest, DeleteProjectRequest, DeleteTaskRequest, DeleteVersionRequest, DeleteWorkspaceRequest, ExecutionRequest, ExecutionState, ForgetTemporarySessionRequest, GenerateLockRequest, InspectWorkspaceRequest, Lock, PrepareWorkspaceRequest, ProjectConfig, ProjectRecord, RegisterTemporarySessionRequest, RegisterWorkspaceRequest, ReleaseExecutionRequest, ReorderExecutionQueueRequest, RepositoryBranchesRequest, StartAttemptRequest, TaskRecord, TemporarySessionRecord, TransitionTaskRequest, UpdateProjectRequest, UpdateTaskRequest, UpdateVersionRequest, UpdateWorkspaceRequest, VersionRecord, WorkspaceChangesRequest, WorkspaceCommitResult, WorkspaceInspection, WorkspaceRecord, WorkspaceRepositoryChangesRecord, WorkspaceStatusResult } from 'dsh-workloom/types'
 
 declare module '@deepseek-ai/dsh-typert-protocol' {
   interface TypertRemoteNamespace$6c6f6f6d {
@@ -27,6 +27,7 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
     registerTemporarySession: (request: RegisterTemporarySessionRequest) => Promise<RemoteResult<TemporarySessionRecord>>
     registerWorkspace: (request: RegisterWorkspaceRequest) => Promise<RemoteResult<WorkspaceRecord>>
     releaseExecution: (request: ReleaseExecutionRequest) => Promise<RemoteResult<ExecutionState>>
+    reorderExecutionQueue: (request: ReorderExecutionQueueRequest) => Promise<RemoteResult<ExecutionState>>
     repositoryBranches: (request: RepositoryBranchesRequest) => Promise<RemoteResult<{ topLevel: string; current?: string; branches: readonly string[]; }>>
     snapshot: () => Promise<RemoteResult<CatalogSnapshot>>
     startAttempt: (request: StartAttemptRequest) => Promise<RemoteResult<TaskRecord>>
@@ -60,6 +61,7 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
     'loom/registerTemporarySession': (request: RegisterTemporarySessionRequest) => Promise<RemoteResult<TemporarySessionRecord>>
     'loom/registerWorkspace': (request: RegisterWorkspaceRequest) => Promise<RemoteResult<WorkspaceRecord>>
     'loom/releaseExecution': (request: ReleaseExecutionRequest) => Promise<RemoteResult<ExecutionState>>
+    'loom/reorderExecutionQueue': (request: ReorderExecutionQueueRequest) => Promise<RemoteResult<ExecutionState>>
     'loom/repositoryBranches': (request: RepositoryBranchesRequest) => Promise<RemoteResult<{ topLevel: string; current?: string; branches: readonly string[]; }>>
     'loom/snapshot': () => Promise<RemoteResult<CatalogSnapshot>>
     'loom/startAttempt': (request: StartAttemptRequest) => Promise<RemoteResult<TaskRecord>>
@@ -98,6 +100,7 @@ export declare const TYPERT_REMOTE: TypertRemoteInfo<{
   readonly 'loom/registerTemporarySession': TypertRemoteMethod<{ readonly 'request': RegisterTemporarySessionRequest }, TemporarySessionRecord>
   readonly 'loom/registerWorkspace': TypertRemoteMethod<{ readonly 'request': RegisterWorkspaceRequest }, WorkspaceRecord>
   readonly 'loom/releaseExecution': TypertRemoteMethod<{ readonly 'request': ReleaseExecutionRequest }, ExecutionState>
+  readonly 'loom/reorderExecutionQueue': TypertRemoteMethod<{ readonly 'request': ReorderExecutionQueueRequest }, ExecutionState>
   readonly 'loom/repositoryBranches': TypertRemoteMethod<{ readonly 'request': RepositoryBranchesRequest }, { topLevel: string; current?: string; branches: readonly string[]; }>
   readonly 'loom/snapshot': TypertRemoteMethod<{  }, CatalogSnapshot>
   readonly 'loom/startAttempt': TypertRemoteMethod<{ readonly 'request': StartAttemptRequest }, TaskRecord>

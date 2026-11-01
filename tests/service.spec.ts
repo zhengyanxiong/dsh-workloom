@@ -647,3 +647,15 @@ it('lets a waiting Session leave the execution queue without touching the owner'
   state = (await call('snapshot') as { executions: { workspaceId: string; owner: { sessionId: string } | null; waiting: string[] }[] }).executions.find(execution => execution.workspaceId === workspace.id)
   expect(state).toMatchObject({ owner: { sessionId: 'session-owner' }, waiting: [] })
 })
+
+it('reorders the waiting queue and rejects a mismatched Session set', async () => {
+  const { call, dir } = await setup()
+  const { workspace } = await runningRound(call, dir)
+  await call('acquireExecution', { request: { workspaceId: workspace.id, sessionId: 'session-owner' } })
+  await call('acquireExecution', { request: { workspaceId: workspace.id, sessionId: 'session-a' } })
+  await call('acquireExecution', { request: { workspaceId: workspace.id, sessionId: 'session-b' } })
+  await call('reorderExecutionQueue', { request: { workspaceId: workspace.id, sessionIds: ['session-b', 'session-a'] } })
+  const state = (await call('snapshot') as { executions: { workspaceId: string; waiting: string[] }[] }).executions.find(execution => execution.workspaceId === workspace.id)
+  expect(state?.waiting).toEqual(['session-b', 'session-a'])
+  await expect(call('reorderExecutionQueue', { request: { workspaceId: workspace.id, sessionIds: ['session-b'] } })).rejects.toThrow('invalid_waiting_order')
+})

@@ -18,7 +18,7 @@ import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type {} from '@deepseek-ai/dsh-api-gateway/client'
 // Load the mounted Client Remote namespaces (`session`, `directoryPicker`, `workspaceFiles`, …).
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
-import type { AttachSessionRequest, CleanupWorkspaceRequest, CommitWorkspaceRequest, CreateTaskRequest, CreateVersionRequest, DeleteProjectRequest, DeleteTaskRequest, DeleteVersionRequest, GenerateLockRequest, PrepareWorkspaceRequest, ProjectConfig, StartAttemptRequest, TransitionTaskRequest, WorkspaceChangesRequest, WorkspaceStatusResult, ExecutionRequest, ReleaseExecutionRequest, UpdateProjectRequest, UpdateVersionRequest, UpdateTaskRequest, UpdateWorkspaceRequest, DeleteWorkspaceRequest, RegisterTemporarySessionRequest, RegisterWorkspaceRequest, RepositoryBranchesRequest, InspectWorkspaceRequest } from 'dsh-workloom/types'
+import type { AttachSessionRequest, CleanupWorkspaceRequest, CommitWorkspaceRequest, CreateTaskRequest, CreateVersionRequest, DeleteProjectRequest, DeleteTaskRequest, DeleteVersionRequest, GenerateLockRequest, PrepareWorkspaceRequest, ProjectConfig, StartAttemptRequest, TransitionTaskRequest, WorkspaceChangesRequest, WorkspaceStatusResult, ExecutionRequest, ReleaseExecutionRequest, UpdateProjectRequest, UpdateVersionRequest, UpdateTaskRequest, UpdateWorkspaceRequest, DeleteWorkspaceRequest, ReorderExecutionQueueRequest, RegisterTemporarySessionRequest, RegisterWorkspaceRequest, RepositoryBranchesRequest, InspectWorkspaceRequest } from 'dsh-workloom/types'
 import { LoomPanel, type LoomInjected } from './LoomPanel.tsx'
 import { LoomMark } from './LoomMark.tsx'
 import { LoomNoticeHost } from './LoomNoticeHost.tsx'
@@ -199,6 +199,7 @@ export function apply(ctx: ClientContext): void {
         cleanupWorkspaceSilent: (request: CleanupWorkspaceRequest) => ui.remote.loom.cleanupWorkspace(request),
         acquireExecution: (request: ExecutionRequest) => notified(ui.remote.loom.acquireExecution(request)),
         cancelExecution: (request: ExecutionRequest) => notified(ui.remote.loom.cancelExecution(request)),
+        reorderExecutionQueue: (request: ReorderExecutionQueueRequest) => ui.remote.loom.reorderExecutionQueue(request),
         releaseExecution: (request: ReleaseExecutionRequest) => notified(ui.remote.loom.releaseExecution(request)),
         takeoverExecution: (request: ExecutionRequest) => notified(ui.remote.loom.takeoverExecution(request)),
         createSessionInWorkspace: async (path: string, agentPreset?: string) => {

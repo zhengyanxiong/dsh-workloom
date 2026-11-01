@@ -19,7 +19,7 @@ import { admitWorkspaceLayout, WorkspaceLayoutError, type WorkspaceLayout, type 
 import type { AuditEntry, AuditEvent } from '../domain/audit.ts'
 import { VERSION_DESCRIPTION_MAX_CHARS } from '../shared/version-context.ts'
 import {
-  cancelExecutionRequest, confirmStop, createExecution, releaseExecution as releaseExecutionState, requestExecution,
+  cancelExecutionRequest, confirmStop, reorderWaiting, createExecution, releaseExecution as releaseExecutionState, requestExecution,
   requestTakeover, type ExecutionOwner, type ExecutionState, type StopOutcome,
 } from '../domain/execution.ts'
 
@@ -703,6 +703,7 @@ export interface Catalog {
   suggestTaskOutcome(taskId: TaskRecord['id'], suggestion: TaskSuggestion): Promise<TaskRecord>
   acquireExecution(workspaceId: WorkspaceRecord['id'], sessionId: Branded<'SessionId'>): Promise<ExecutionState>
   cancelExecution(workspaceId: WorkspaceRecord['id'], sessionId: Branded<'SessionId'>): Promise<ExecutionState>
+  reorderExecutionQueue(workspaceId: WorkspaceRecord['id'], sessionIds: readonly Branded<'SessionId'>[]): Promise<ExecutionState>
   releaseExecution(workspaceId: WorkspaceRecord['id'], expected: ExecutionOwner): Promise<ExecutionState>
   beginTakeover(workspaceId: WorkspaceRecord['id'], sessionId: Branded<'SessionId'>): Promise<{ state: ExecutionState; owner: ExecutionOwner }>
   finishTakeover(workspaceId: WorkspaceRecord['id'], expected: ExecutionOwner, outcome: StopOutcome): Promise<ExecutionState>
@@ -1551,6 +1552,13 @@ export async function createCatalog(file: string, resolveCommit: (repo: string, 
         storeExecution(draft, next)
         recordAudit(draft, 'execution.released', 'human', { workspaceId, sessionId, detail: 'left waiting queue' })
       }
+      return next
+    }),
+    reorderExecutionQueue: (workspaceId, sessionIds) => transaction(draft => {
+      const previous = executionIn(draft, workspaceId)
+      const next = reorderWaiting(previous, sessionIds)
+      storeExecution(draft, next)
+      recordAudit(draft, 'execution.released', 'human', { workspaceId, detail: `reordered waiting queue: ${sessionIds.join(', ')}` })
       return next
     }),
     beginTakeover: (workspaceId, sessionId) => transaction(draft => {

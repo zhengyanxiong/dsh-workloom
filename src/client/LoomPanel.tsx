@@ -17,7 +17,7 @@ import type {
   AttachSessionRequest, CommitWorkspaceRequest, WorkspaceCommitResult, CatalogSnapshot, CleanupWorkspaceRequest, CreateTaskRequest, CreateVersionRequest, GenerateLockRequest, Lock,
   PrepareWorkspaceRequest, ProjectConfig, ProjectRecord, StartAttemptRequest, TaskPriority, TaskRecord, TransitionTaskRequest, VersionRecord,
   WorkspaceChangesRequest, WorkspaceRecord, WorkspaceRepositoryChangesRecord, ExecutionRequest, ReleaseExecutionRequest, ExecutionState,
-  UpdateProjectRequest, UpdateVersionRequest, UpdateTaskRequest, UpdateWorkspaceRequest, DeleteWorkspaceRequest, DeleteProjectRequest, DeleteVersionRequest, DeleteTaskRequest, VersionWorkspaceInput,
+  UpdateProjectRequest, UpdateVersionRequest, UpdateTaskRequest, UpdateWorkspaceRequest, DeleteWorkspaceRequest, ReorderExecutionQueueRequest, DeleteProjectRequest, DeleteVersionRequest, DeleteTaskRequest, VersionWorkspaceInput,
   RegisterTemporarySessionRequest, TemporarySessionRecord, RegisterWorkspaceRequest, RepositoryBranchesRequest, RepositoryBranches,
   InspectWorkspaceRequest, WorkspaceInspection, DirectoryListing, WorkspaceStatusResult,
 } from 'dsh-workloom/types'
@@ -105,6 +105,7 @@ export interface LoomInjected {
   cleanupWorkspaceSilent?(request: CleanupWorkspaceRequest): Promise<RemoteResult<void>>
   acquireExecution(request: ExecutionRequest): Promise<RemoteResult<ExecutionState>>
   cancelExecution(request: ExecutionRequest): Promise<RemoteResult<ExecutionState>>
+  reorderExecutionQueue(request: ReorderExecutionQueueRequest): Promise<RemoteResult<ExecutionState>>
   releaseExecution(request: ReleaseExecutionRequest): Promise<RemoteResult<ExecutionState>>
   takeoverExecution(request: ExecutionRequest): Promise<RemoteResult<ExecutionState>>
 }
@@ -371,7 +372,7 @@ function readPinnedProjects(): ProjectRecord['id'][] {
  * @param props - locale, native catalog, session acquisition, catalog actions, and renderer seats.
  * @returns the whole Loom page.
  */
-export function LoomPanel({ t, useSessions, retainSession, openResource, loadSnapshot, createProject, updateProject, deleteProject, createVersion, updateVersion, deleteVersion, createTask, updateTask, deleteTask, generateLock, prepareWorkspace, prepareWorkspaceSilent, registerWorkspace, repositoryBranches, inspectWorkspace, pickDirectory, listDirectory, requestDraftInitialization, startAttempt, attachSession, registerTemporarySession, listAgentPresets, transitionTask, createSessionInWorkspace, openPath, openPathApplications, openPathWith, workspaceChanges, workspaceChangeCount, workspaceStatus, readFile, readBytes, commitWorkspace, updateWorkspace, deleteWorkspace, cleanupWorkspace, cleanupWorkspaceSilent, acquireExecution, cancelExecution, releaseExecution, takeoverExecution, forkSession, jobs, SessionProvider, renderSlot }: LoomPanelProps) {
+export function LoomPanel({ t, useSessions, retainSession, openResource, loadSnapshot, createProject, updateProject, deleteProject, createVersion, updateVersion, deleteVersion, createTask, updateTask, deleteTask, generateLock, prepareWorkspace, prepareWorkspaceSilent, registerWorkspace, repositoryBranches, inspectWorkspace, pickDirectory, listDirectory, requestDraftInitialization, startAttempt, attachSession, registerTemporarySession, listAgentPresets, transitionTask, createSessionInWorkspace, openPath, openPathApplications, openPathWith, workspaceChanges, workspaceChangeCount, workspaceStatus, readFile, readBytes, commitWorkspace, updateWorkspace, deleteWorkspace, cleanupWorkspace, cleanupWorkspaceSilent, acquireExecution, cancelExecution, reorderExecutionQueue, releaseExecution, takeoverExecution, forkSession, jobs, SessionProvider, renderSlot }: LoomPanelProps) {
   const sessions = useSessions(state => state)
   const [preferences, setPreferences] = useState<LoomPreferences>(readPreferences)
   const [view, setView] = useState<View>(preferences.view)
@@ -383,6 +384,7 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
   const [version, setVersion] = useState<VersionRecord['id']>()
   const [task, setTask] = useState<TaskRecord>()
   const [selected, setSelected] = useState<SessionId>()
+  const [executionSession, setExecutionSession] = useState<SessionId>()
   const [forking, setForking] = useState(false)
   const [forkError, setForkError] = useState<string>()
   const [releasingWorkspace, setReleasingWorkspace] = useState<string>()
@@ -829,7 +831,7 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
     return result
   }
   const execution: ExecutionActions = {
-    prepareWorkspace, registerWorkspace, repositoryBranches, inspectWorkspace, pickDirectory: chooseDirectory, startAttempt, commitWorkspace, attachSession, transitionTask, createSessionInWorkspace, cleanupWorkspace, acquireExecution, cancelExecution, releaseExecution, takeoverExecution, loadSnapshot,
+    prepareWorkspace, registerWorkspace, repositoryBranches, inspectWorkspace, pickDirectory: chooseDirectory, startAttempt, commitWorkspace, attachSession, transitionTask, createSessionInWorkspace, cleanupWorkspace, acquireExecution, cancelExecution, reorderExecutionQueue, releaseExecution, takeoverExecution, loadSnapshot,
     onSession: (id, draft) => {
       if (draft !== undefined) { setDraftAttempt(0); setPendingDraft({ sessionId: id, prompt: draft }) }
       setSelected(id); setView('workbench')
@@ -850,6 +852,7 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
     }
     setTask(record)
     setSelected(undefined)
+    setExecutionSession(undefined)
     setView('workbench')
   }
   const selectSession = (id: SessionId, owner?: TaskRecord): void => {
@@ -1206,7 +1209,8 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
                     wrap={preferences.previewWrap}
                     onToggleWrap={togglePreviewWrap}
                     attemptRows={detailAttemptRows}
-                    selectedSessionId={selected}
+                    selectedSessionId={executionSession}
+                    onSelectSession={id => setExecutionSession(id as SessionId)}
                     onOpenSession={openAttemptSession}
                   />
                 : displayVersion !== undefined && snapshot !== undefined

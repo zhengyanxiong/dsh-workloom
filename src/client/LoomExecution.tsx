@@ -5,7 +5,7 @@ import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import type {
   AttachSessionRequest, CatalogSnapshot, CleanupWorkspaceRequest, CommitWorkspaceRequest, ExecutionRequest, ExecutionState, PrepareWorkspaceRequest, WorkspaceCommitResult,
   ReleaseExecutionRequest, StartAttemptRequest, TaskRecord, TransitionTaskRequest, WorkspaceRecord, RegisterWorkspaceRequest,
-  RepositoryBranches, RepositoryBranchesRequest, InspectWorkspaceRequest, WorkspaceInspection,
+  RepositoryBranches, RepositoryBranchesRequest, InspectWorkspaceRequest, WorkspaceInspection, ReorderExecutionQueueRequest,
 } from 'dsh-workloom/types'
 import type { LoomKey } from './locales.ts'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
@@ -58,6 +58,7 @@ export interface ExecutionActions {
   cleanupWorkspace(request: CleanupWorkspaceRequest): Promise<RemoteResult<void>>
   acquireExecution(request: ExecutionRequest): Promise<RemoteResult<ExecutionState>>
   cancelExecution(request: ExecutionRequest): Promise<RemoteResult<ExecutionState>>
+  reorderExecutionQueue(request: ReorderExecutionQueueRequest): Promise<RemoteResult<ExecutionState>>
   releaseExecution(request: ReleaseExecutionRequest): Promise<RemoteResult<ExecutionState>>
   takeoverExecution(request: ExecutionRequest): Promise<RemoteResult<ExecutionState>>
   /** Re-read the catalog so an operation that returns before its record settles can be observed. */

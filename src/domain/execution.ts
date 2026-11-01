@@ -27,7 +27,7 @@ export interface ExecutionState {
 }
 
 /** Caller-localized rejection codes; failed transitions have no side effects. */
-export type ExecutionErrorCode = 'stale_owner' | 'takeover_pending' | 'already_owner' | 'no_takeover' | 'generation_exhausted'
+export type ExecutionErrorCode = 'stale_owner' | 'takeover_pending' | 'already_owner' | 'no_takeover' | 'generation_exhausted' | 'invalid_waiting_order'
 
 /** Human-readable explanation for each execution ownership failure. */
 const EXECUTION_ERROR_DESCRIPTION: Readonly<Record<ExecutionErrorCode, string>> = {
@@ -36,6 +36,7 @@ const EXECUTION_ERROR_DESCRIPTION: Readonly<Record<ExecutionErrorCode, string>> 
   already_owner: 'the session already owns this workspace execution',
   no_takeover: 'there is no pending takeover to confirm',
   generation_exhausted: 'the execution generation counter is exhausted',
+  invalid_waiting_order: 'the waiting order does not match the current queue',
 }
 
 /** Rejected ownership transition. */
@@ -107,6 +108,17 @@ export function confirmStop(state: ExecutionState, expected: ExecutionOwner, out
   if (outcome !== 'stopped') return { ...state, takeover: { ...state.takeover, stopStatus: outcome } }
   const sessionId = state.takeover.sessionId
   return grant(state, sessionId, state.waiting.filter(waiter => waiter !== sessionId))
+}
+
+/** Replace the waiting order exactly; unknown or missing Sessions are rejected. */
+export function reorderWaiting(state: ExecutionState, sessionIds: readonly ExecutionOwner['sessionId'][]): ExecutionState {
+  const unique = new Set(sessionIds)
+  if (unique.size !== sessionIds.length
+    || unique.size !== state.waiting.length
+    || state.waiting.some(id => !unique.has(id))) {
+    throw new ExecutionError('invalid_waiting_order')
+  }
+  return { ...state, waiting: [...sessionIds] }
 }
 
 /** Remove one Session from the waiting queue without touching the current owner. */

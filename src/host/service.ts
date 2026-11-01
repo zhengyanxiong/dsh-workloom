@@ -16,7 +16,7 @@ import type {
   CleanupWorkspaceRequest, PrepareWorkspaceRequest, ProjectConfig, ProjectRecord, RegisterWorkspaceRequest, StartAttemptRequest, TaskRecord, TransitionTaskRequest, WorkspaceChangesRequest, WorkspaceRepositoryChangesRecord, WorkspaceStatusResult,
   VersionRecord, WorkspaceRecord, ExecutionRequest, ReleaseExecutionRequest, UpdateProjectRequest, UpdateVersionRequest, UpdateTaskRequest,
   DeleteProjectRequest, DeleteVersionRequest, DeleteTaskRequest, RegisterTemporarySessionRequest, ForgetTemporarySessionRequest,
-  RepositoryBranchesRequest, InspectWorkspaceRequest, WorkspaceInspection, CommitWorkspaceRequest, WorkspaceCommitResult, VersionWorkspaceInput, UpdateWorkspaceRequest, DeleteWorkspaceRequest,
+  RepositoryBranchesRequest, InspectWorkspaceRequest, WorkspaceInspection, CommitWorkspaceRequest, WorkspaceCommitResult, VersionWorkspaceInput, UpdateWorkspaceRequest, DeleteWorkspaceRequest, ReorderExecutionQueueRequest,
 } from '../types.ts'
 import type { Lock } from '../domain/task.ts'
 import { autoWorkspaceRepositoryPath, type WorkspaceRepositoryBinding } from '../domain/workspace.ts'
@@ -111,6 +111,7 @@ const updateWorkspaceRequest = z.strictObject({ workspaceId: nonempty, label: z.
 const deleteWorkspaceRequest = z.strictObject({ workspaceId: nonempty, deleteFiles: z.boolean().optional(), confirmPath: z.string().optional() })
 const cleanupWorkspaceRequest = z.strictObject({ workspaceId: nonempty, discardChanges: z.boolean().optional() })
 const executionRequest = z.strictObject({ workspaceId: nonempty, sessionId: nonempty })
+const reorderExecutionQueueRequest = z.strictObject({ workspaceId: nonempty, sessionIds: z.array(nonempty) })
 const releaseExecutionRequest = z.strictObject({ workspaceId: nonempty, sessionId: nonempty, generation: z.number().int().nonnegative() })
 
 /** Runtime-context name registered on each Agent bound to a Loom task. */
@@ -950,6 +951,18 @@ export default class LoomService extends TypertRemoteService {
       return catalog.acquireExecution(
         brandString<WorkspaceRecord['id']>(parsed.workspaceId),
         brandString<Branded<'SessionId'>>(parsed.sessionId),
+      )
+    })
+  }
+
+  /** Replace the FIFO waiting order for one workspace. @param request - workspace and every waiting Session in the new order. @returns scheduling state after reordering. */
+  @Remote
+  reorderExecutionQueue(request: ReorderExecutionQueueRequest): Promise<ExecutionState> {
+    return this.run(catalog => {
+      const parsed = reorderExecutionQueueRequest.parse(request)
+      return catalog.reorderExecutionQueue(
+        brandString<WorkspaceRecord['id']>(parsed.workspaceId),
+        parsed.sessionIds.map(id => brandString<Branded<'SessionId'>>(id)),
       )
     })
   }

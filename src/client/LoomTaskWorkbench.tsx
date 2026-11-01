@@ -9,6 +9,7 @@ import type { LoadWorkspaceChanges } from './LoomDiff.tsx'
 import { ExecutionPanel, type ExecutionActions } from './LoomExecution.tsx'
 import { LoomOutcomePanel } from './LoomOutcomePanel.tsx'
 import { LoomSessionList } from './LoomSessionList.tsx'
+import { LoomExecutionQueue } from './LoomExecutionQueue.tsx'
 import type { TaskAttemptRow } from './projection.ts'
 
 type Translate = (key: LoomKey, params?: Readonly<Record<string, string>>) => string
@@ -68,7 +69,7 @@ function SectionHeading({ title: heading, hint, action }: { readonly title: stri
 }
 
 /** One task header plus its brief, execution rounds, acceptance decision and recent audit slice. */
-export function LoomTaskWorkbench({ t, task, project, version, snapshot, audit, actions, loadChanges, wrap, onToggleWrap, attemptRows, selectedSessionId, onOpenSession }: {
+export function LoomTaskWorkbench({ t, task, project, version, snapshot, audit, actions, loadChanges, wrap, onToggleWrap, attemptRows, selectedSessionId, onSelectSession, onOpenSession }: {
   t: Translate
   task: TaskRecord
   project: ProjectRecord | undefined
@@ -82,6 +83,7 @@ export function LoomTaskWorkbench({ t, task, project, version, snapshot, audit, 
   /** Every execution round with all attached Sessions; the user picks one explicitly. */
   attemptRows: readonly TaskAttemptRow[]
   selectedSessionId?: string | undefined
+  onSelectSession?: ((sessionId: string) => void) | undefined
   onOpenSession: (sessionId: string) => void
 }): ReactNode {
   const status = STATUS_META[task.status]
@@ -91,6 +93,8 @@ export function LoomTaskWorkbench({ t, task, project, version, snapshot, audit, 
   const body = descriptionBody(task.description ?? '')
   const recent = audit.slice(0, 4)
   const outcomeCard = <LoomOutcomePanel t={t} task={task} snapshot={snapshot} actions={actions} loadChanges={loadChanges} wrap={wrap} onToggleWrap={onToggleWrap} />
+  const latestAttempt = attemptRows.find(row => row.latest)
+  const execution = latestAttempt === undefined ? undefined : snapshot.executions.find(candidate => candidate.workspaceId === latestAttempt.workspaceId)
   const outcomeFirst = task.status === 'review' || task.status === 'completed' || task.status === 'failed'
   return <div style={shell}>
     <header style={head}>
@@ -132,7 +136,12 @@ export function LoomTaskWorkbench({ t, task, project, version, snapshot, audit, 
 
         <section style={card} aria-label={t('workbench.execution')}>
           <SectionHeading title={t('workbench.execution')} />
-          <LoomSessionList t={t} rows={attemptRows} selectedSessionId={selectedSessionId} onOpenSession={onOpenSession} />
+          <LoomExecutionQueue t={t} workspaceId={latestAttempt?.workspaceId} sessions={latestAttempt?.sessions ?? []} execution={execution}
+            selectedSessionId={selectedSessionId} actions={actions} onSelectSession={onSelectSession} onOpenSession={onOpenSession} />
+          {attemptRows.length > 1 && <details style={{ borderTop: `0.5px solid ${COLORS.border}`, paddingTop: 8 }}>
+            <summary style={{ cursor: 'pointer', color: COLORS.faint, fontSize: 10.5 }}>{t('sessionList.history')} · {String(attemptRows.length - 1)}</summary>
+            <LoomSessionList t={t} rows={attemptRows.filter(row => !row.latest)} selectedSessionId={selectedSessionId} onOpenSession={onOpenSession} />
+          </details>}
           <ExecutionPanel t={t} task={task} snapshot={snapshot} selectedSession={selectedSessionId as SessionId | undefined} actions={actions} loadChanges={loadChanges} wrap={wrap} onToggleWrap={onToggleWrap} />
         </section>
 

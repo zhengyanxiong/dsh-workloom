@@ -131,6 +131,12 @@ export interface WorkspaceCommitResult {
   readonly repositories: readonly WorkspaceCommitRepository[]
   readonly committed: number
 }
+/** Reorder the FIFO waiting queue for one workspace. */
+export interface ReorderExecutionQueueRequest {
+  readonly workspaceId: string
+  /** Every currently waiting Session, in the new priority order. */
+  readonly sessionIds: readonly string[]
+}
 /** Remove a workspace, optionally deleting its on-disk directory after explicit path confirmation. */
 export interface DeleteWorkspaceRequest {
   readonly workspaceId: string
