@@ -5,7 +5,7 @@ import Access from '@deepseek-ai/dsh-api-remote-access'
 import Gateway from '@deepseek-ai/dsh-api-gateway'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
-import { mkdtemp, readFile, rm, writeFile, mkdir } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, writeFile, mkdir, symlink } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { afterEach, expect, it } from 'vitest'
@@ -356,7 +356,7 @@ async function runningRound(call: (method: string, args?: Record<string, unknown
   return { workspace, task: attached, root }
 }
 
-it('denies an unbound Session inside a Loom workspace and admits the attached Session', async () => {
+it('leaves an unbound native Session unmanaged and admits the attached Session', async () => {
   const { ctx, call, dir } = await setup()
   const { workspace, root } = await runningRound(call, dir)
   const gate = (sessionId: string | undefined) => ctx.waterfall(
@@ -364,11 +364,8 @@ it('denies an unbound Session inside a Loom workspace and admits the attached Se
     (sessionId === undefined ? {} : { agent: { session: { id: sessionId, header: { cwd: root } } } }) as never,
     () => Promise.resolve(undefined as never),
   )
-  const denied = await gate('session-stranger') as { kind: string; reason: string }
-  expect(denied.kind).toBe('deny')
-  expect(denied.reason).toMatch(/bound to a task round/iu)
-  expect(denied.reason).toContain(root)
-  // The attached Session acquires execution through the same gate.
+  // A native Session whose cwd happens to be a workspace is not part of Loom.
+  await expect(gate('session-stranger')).resolves.toBeUndefined()
   await expect(gate('session-bound')).resolves.toBeUndefined()
   const snapshot = await call('snapshot') as { executions: { workspaceId: string; owner: { sessionId: string } | null }[] }
   expect(snapshot.executions.find(execution => execution.workspaceId === workspace.id)?.owner?.sessionId).toBe('session-bound')
@@ -395,8 +392,11 @@ it('gives temporary Sessions execution rights and releases them when forgotten',
   const snapshot = await call('snapshot') as { executions: { workspaceId: string; owner: { sessionId: string } | null; waiting: string[] }[] }
   expect(snapshot.executions.find(execution => execution.workspaceId === workspace.id)).toMatchObject({ owner: { sessionId: 'session-temp-b' }, waiting: [] })
   await call('forgetTemporarySession', { request: { sessionId: 'session-temp-b' } })
-  const denied = await gate('session-temp-b') as { kind: string; reason: string }
-  expect(denied.kind).toBe('deny')
+  // Once forgotten, the Session is a plain native Session and leaves Loom's
+  // execution model entirely; it must not keep or re-acquire ownership.
+  await expect(gate('session-temp-b')).resolves.toBeUndefined()
+  const released = await call('snapshot') as { executions: { workspaceId: string; owner: unknown }[] }
+  expect(released.executions.find(execution => execution.workspaceId === workspace.id)?.owner).toBeNull()
 })
 
 it('names the concrete blocker when cleanup is refused through the Remote', async () => {
@@ -585,4 +585,35 @@ it('rejects a missing workspace parent before writing any catalog record', async
   expect(snapshot.versions).toHaveLength(0)
   expect(snapshot.locks).toHaveLength(0)
   expect(snapshot.workspaces).toHaveLength(0)
+})
+
+it('reads status for a legacy direct workspace whose Lock predates a repository', async () => {
+  const { call, dir } = await setup()
+  const exec = promisify(execFile)
+  const alpha = join(dir, 'alpha'); await mkdir(alpha)
+  const beta = join(dir, 'beta'); await mkdir(beta)
+  for (const repo of [alpha, beta]) {
+    await exec('git', ['init', '--quiet', repo])
+    await writeFile(join(repo, 'file.txt'), `${repo}\n`)
+    await exec('git', ['-C', repo, 'add', 'file.txt'])
+    await exec('git', ['-C', repo, '-c', 'user.name=Loom Test', '-c', 'user.email=loom@example.invalid', 'commit', '-qm', 'initial'])
+  }
+  const project = await call('createProject', { request: { name: 'Legacy', sources: [{ id: 'alpha', repo: alpha, path: 'alpha' }], modules: [] } }) as { id: string }
+  const version = await call('createVersion', { request: { projectId: project.id, name: 'v', sources: [{ sourceId: 'alpha', ref: 'HEAD' }] } }) as { id: string }
+  const oldLock = await call('generateLock', { request: { versionId: version.id } }) as { id: string }
+  await call('updateProject', { request: { projectId: project.id, config: { name: 'Legacy', sources: [{ id: 'alpha', repo: alpha, path: 'alpha' }, { id: 'beta', repo: beta, path: 'beta' }], modules: [] } } })
+  await call('updateVersion', { request: { versionId: version.id, name: 'v', sources: [{ sourceId: 'alpha', ref: 'HEAD' }, { sourceId: 'beta', ref: 'HEAD' }] } })
+  await call('generateLock', { request: { versionId: version.id } })
+  const root = join(dir, 'direct'); await mkdir(root)
+  await symlink(alpha, join(root, 'alpha'))
+  await symlink(beta, join(root, 'beta'))
+  const workspace = await call('registerWorkspace', { request: {
+    path: root, versionId: version.id, lockId: oldLock.id, mode: 'direct',
+    repositories: [
+      { sourceId: 'alpha', path: 'alpha', targetPath: join(root, 'alpha') },
+      { sourceId: 'beta', path: 'beta', targetPath: join(root, 'beta') },
+    ],
+  } }) as { id: string }
+  const status = await call('workspaceStatus', { request: { workspaceId: workspace.id } }) as { repositories: { directory: string }[] }
+  expect(status.repositories.map(repository => repository.directory).sort()).toEqual([join(root, 'alpha'), join(root, 'beta')])
 })

@@ -746,16 +746,25 @@ export async function createCatalog(file: string, resolveCommit: (repo: string, 
     if (!task) throw new CatalogError('missing_task')
     return task
   }
-  function workspaceWorktrees(draft: CatalogSnapshot, workspaceId: WorkspaceRecord['id'], lockId?: Lock['id']): { sourceId: Branded<'loom.source'>; repo: string; directory: string; commit: string; branch?: string | undefined }[] {
+  function workspaceWorktrees(draft: CatalogSnapshot, workspaceId: WorkspaceRecord['id'], lockId?: Lock['id'], allowLegacyDirect = false): { sourceId: Branded<'loom.source'>; repo: string; directory: string; commit: string; branch?: string | undefined }[] {
     const workspace = workspaceIn(draft, workspaceId)
     const project = projectOfWorkspace(draft, workspace)
     if (!project) throw new CatalogError('missing_project')
     const lock = draft.locks.find(item => item.id === (lockId ?? workspace.lockId))
     if (!lock) throw new CatalogError('missing_lock')
+    const mode = workspace.mode ?? (workspace.managed === true ? 'managed' : 'direct')
+    // Direct workspaces may have been created before the project gained a
+    // repository. Their pinned Lock then has no entry for the newer binding;
+    // status/diff reads may use the latest Lock for that repository instead of
+    // refusing the whole workspace.
+    const fallback = allowLegacyDirect && mode === 'direct'
+      ? draft.locks.filter(item => item.versionId === workspace.versionId).at(-1)
+      : undefined
     return workspaceBindings(draft, workspace).map(binding => {
       const source = project.config.sources.find(item => item.id === binding.sourceId)
       if (source === undefined) throw new CatalogError('workspace_mismatch')
       const pinned = lock.repositories.find(repository => repository.sourceId === binding.sourceId)
+        ?? fallback?.repositories.find(repository => repository.sourceId === binding.sourceId)
       if (pinned === undefined) throw new CatalogError('workspace_mismatch')
       return { sourceId: binding.sourceId, repo: source.repo, directory: binding.targetPath, commit: pinned.commit, branch: binding.branch ?? workspace.branches?.[binding.sourceId] }
     })
@@ -1107,18 +1116,18 @@ export async function createCatalog(file: string, resolveCommit: (repo: string, 
     workspaceChanges: async (workspaceId, attemptId) => {
       const lockId = attemptId === undefined ? undefined : state.tasks.flatMap(task => task.attempts).find(attempt => attempt.id === attemptId)?.lock.id
       if (attemptId !== undefined && lockId === undefined) throw new CatalogError('missing_task')
-      return { repositories: await workingTreeChanges(workspaceWorktrees(state, workspaceId, lockId)) }
+      return { repositories: await workingTreeChanges(workspaceWorktrees(state, workspaceId, lockId, true)) }
     },
     workspaceChangeCount: async (workspaceId, attemptId) => {
       const lockId = attemptId === undefined ? undefined : state.tasks.flatMap(task => task.attempts).find(attempt => attempt.id === attemptId)?.lock.id
       if (attemptId !== undefined && lockId === undefined) throw new CatalogError('missing_task')
-      return workingTreeChangeCount(workspaceWorktrees(state, workspaceId, lockId))
+      return workingTreeChangeCount(workspaceWorktrees(state, workspaceId, lockId, true))
     },
     workspaceStatus: async (workspaceId, attemptId) => {
       const running = state.executions.some(execution => execution.workspaceId === workspaceId && execution.owner !== null)
       const lockId = attemptId === undefined ? undefined : state.tasks.flatMap(task => task.attempts).find(attempt => attempt.id === attemptId)?.lock.id
       if (attemptId !== undefined && lockId === undefined) throw new CatalogError('missing_task')
-      const changes = await workingTreeChanges(workspaceWorktrees(state, workspaceId, lockId))
+      const changes = await workingTreeChanges(workspaceWorktrees(state, workspaceId, lockId, true))
       // Push state is advisory: a missing upstream reports itself instead of
       // failing the whole status read.
       const repositories: WorkspaceStatusRepository[] = await Promise.all(changes.map(async repository => {

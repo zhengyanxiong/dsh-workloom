@@ -342,16 +342,14 @@ export default class LoomService extends TypertRemoteService {
   }
 
   /**
-   * Acquire or enqueue execution access for one Session that operates inside a
-   * Loom workspace.
+   * Acquire or enqueue execution access for a Session that is explicitly bound
+   * to a task round or registered as a temporary Session.
    *
-   * A Session is authorized by a task round, a temporary-session registration,
-   * or descent from an authorized Session (subagents). Any other Session whose
-   * working directory merely lives inside a Loom workspace is denied with an
-   * actionable reason instead of writing shared files.
+   * A native Session whose cwd merely lives inside a Loom workspace is not part
+   * of Loom's execution model and keeps its normal tool access.
    * @param sessionId - Session observed on the Agent runtime.
-   * @param cwd - the Agent's working directory, used when no round is bound.
-   * @returns a denial when the Session may not write, otherwise undefined.
+   * @param cwd - the Agent's working directory, used to resolve a temporary Session's workspace.
+   * @returns a denial when the bound Session may not write, otherwise undefined.
    */
   private async admitExecution(sessionId: Branded<'SessionId'>, cwd: string | undefined): Promise<{ readonly kind: 'deny'; readonly reason: string } | undefined> {
     try {
@@ -359,47 +357,28 @@ export default class LoomService extends TypertRemoteService {
       if (this.closed) return undefined
       const snapshot = catalog.snapshot()
       const binding = findSessionAttempt(snapshot, sessionId)
-      const workspace = binding !== undefined
-        ? snapshot.workspaces.find(candidate => candidate.id === binding.attempt.workspaceId && candidate.cleaned !== true)
-        : cwd === undefined
-          ? undefined
-          : findWorkspaceByPath(snapshot, cwd)
-      if (workspace === undefined) return undefined
-      const root = workspace.rootPath ?? workspace.path
-      const temporary = snapshot.temporarySessions.some(record => record.sessionId === sessionId
-        && (record.workspacePath === root || record.workspacePath === workspace.path))
-      if (binding === undefined && !temporary) {
-        if (this.inheritedExecution(snapshot, sessionId)) return undefined
-        return {
-          kind: 'deny',
-          reason: `This Session runs inside Loom workspace ${root} but is neither bound to a task round nor registered as a temporary Session. Start or attach a task round, or register this Session as a temporary Session, to obtain execution rights before writing the shared workspace.`,
-        }
+      if (binding === undefined) {
+        const temporary = cwd === undefined ? undefined : findWorkspaceByPath(snapshot, cwd)
+        if (temporary === undefined || !snapshot.temporarySessions.some(record => record.sessionId === sessionId
+          && (record.workspacePath === (temporary.rootPath ?? temporary.path) || record.workspacePath === temporary.path))) return undefined
+        return this.admitWorkspaceExecution(catalog, temporary, sessionId)
       }
-      const current = snapshot.executions.find(execution => execution.workspaceId === workspace.id)
-      if (current?.owner?.sessionId === sessionId) return undefined
-      if (current?.waiting.includes(sessionId) === true) return { kind: 'deny', reason: 'Loom workspace execution is queued behind another session.' }
-      const state = await catalog.acquireExecution(workspace.id, sessionId)
-      if (state.owner?.sessionId === sessionId) return undefined
-      return { kind: 'deny', reason: 'Loom workspace execution is held by another session. Wait for handoff or request takeover.' }
+      const workspace = snapshot.workspaces.find(candidate => candidate.id === binding.attempt.workspaceId && candidate.cleaned !== true)
+      if (workspace === undefined) return undefined
+      return this.admitWorkspaceExecution(catalog, workspace, sessionId)
     } catch {
       return { kind: 'deny', reason: 'Loom execution state is unavailable; the tool call was not executed.' }
     }
   }
 
-  /** True when one Session is a live descendant of a task-bound or temporary Session. */
-  private inheritedExecution(snapshot: CatalogSnapshot, sessionId: Branded<'SessionId'>): boolean {
-    const agents = this.ctx.get('agents') as LoomAgentRegistry | undefined
-    const listed = agents?.list?.()
-    const ownedBy = agents?.isOwnedBy
-    if (listed === undefined || ownedBy === undefined) return false
-    const authorized = new Set<string>()
-    for (const task of snapshot.tasks) for (const attempt of task.attempts) for (const attached of attempt.sessionIds) authorized.add(attached)
-    for (const record of snapshot.temporarySessions) authorized.add(record.sessionId)
-    for (const owner of listed) {
-      if (!authorized.has(owner.session.id)) continue
-      try { if (ownedBy(sessionId, owner)) return true } catch { /* a disposed Agent owns nothing */ }
-    }
-    return false
+  /** Apply the workspace owner/waiting rule for one already-authorized Session. */
+  private async admitWorkspaceExecution(catalog: Catalog, workspace: WorkspaceRecord, sessionId: Branded<'SessionId'>): Promise<{ readonly kind: 'deny'; readonly reason: string } | undefined> {
+    const current = catalog.snapshot().executions.find(execution => execution.workspaceId === workspace.id)
+    if (current?.owner?.sessionId === sessionId) return undefined
+    if (current?.waiting.includes(sessionId) === true) return { kind: 'deny', reason: 'Loom workspace execution is queued behind another session.' }
+    const state = await catalog.acquireExecution(workspace.id, sessionId)
+    if (state.owner?.sessionId === sessionId) return undefined
+    return { kind: 'deny', reason: 'Loom workspace execution is held by another session. Wait for handoff or request takeover.' }
   }
 
   private async releaseSession(sessionId: Branded<'SessionId'>): Promise<void> {
