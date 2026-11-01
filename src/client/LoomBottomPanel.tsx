@@ -64,7 +64,11 @@ const PANES: readonly { id: Pane; key: LoomKey }[] = [
 export function LoomBottomPanel(props: LoomBottomPanelProps): ReactNode {
   const { t, collapsed, height, pane, audit, sessionsContent, runtimeContent, graphContent, sessionCount, runningCount, diffCount, usage, workspaceId, attemptId, loadChanges, onChangesCount, wrap, onToggleWrap, onOpenInRight, onToggle, onPane } = props
   const [diffFullscreen, setDiffFullscreen] = useState(false)
-  const bodyHeight = pane === 'sessions' ? Math.max(height, 420) : height
+  // The sessions pane used to force a 420px body while the splitter clamps to
+  // the panel maximum, so dragging that tab changed state but nothing moved.
+  // Every pane now follows the shared height; the body scrolls when content is
+  // taller than the panel.
+  const bodyHeight = height
   useEffect(() => { if (pane !== 'diff') setDiffFullscreen(false) }, [pane])
   useEffect(() => {
     if (!diffFullscreen) return

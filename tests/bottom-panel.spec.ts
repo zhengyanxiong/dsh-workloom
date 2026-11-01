@@ -28,6 +28,12 @@ it('hides the changed-file tag when nothing changed', () => {
   const html = renderToStaticMarkup(createElement(LoomBottomPanel, props))
   expect(html).not.toContain('data-tone="info"')
 })
+it('lets the sessions pane follow the dragged panel height', () => {
+  const html = renderToStaticMarkup(createElement(LoomBottomPanel, { ...props, pane: 'sessions', height: 170 }))
+  expect(html).toContain('height:170px')
+  expect(html).not.toContain('height:420px')
+})
+
 it('leaves other panes without the Diff-only control', () => {
   const html = renderToStaticMarkup(createElement(LoomBottomPanel, { ...props, pane: 'audit' }))
   expect(html).not.toContain(en['diff.fullscreen'])
