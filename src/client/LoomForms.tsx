@@ -1317,10 +1317,12 @@ interface LockButtonProps {
   disabled?: boolean
   /** Keep the existing-Lock explanation under the action; callers with their own one-line note disable it. */
   hint?: boolean
+  /** Fixed action size; defaults to compact for an existing Lock and regular for the first one. */
+  size?: 'sm' | 'md'
 }
 
 /** Pin every repository ref of the selected version into a new immutable Lock. */
-export function LockButton({ t, version, generate, onCreated, existing = false, disabled = false, hint = true }: LockButtonProps) {
+export function LockButton({ t, version, generate, onCreated, existing = false, disabled = false, hint = true, size }: LockButtonProps) {
   const [busy, setBusy] = useState(false)
   const [failure, setFailure] = useState<string>()
   async function run(): Promise<void> {
@@ -1334,7 +1336,7 @@ export function LockButton({ t, version, generate, onCreated, existing = false, 
     } finally { setBusy(false) }
   }
   return <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 6 }}>
-    <Button size={existing ? 'sm' : 'md'} variant={existing ? 'outline' : 'primary'} className={existing ? undefined : 'loom-primary'} disabled={busy || disabled} onClick={() => { void run() }}>
+    <Button size={size ?? (existing ? 'sm' : 'md')} variant={existing ? 'outline' : 'primary'} className={existing ? undefined : 'loom-primary'} disabled={busy || disabled} onClick={() => { void run() }}>
       {busy ? t('lock.resolving') : existing ? t('lock.regenerate') : t('lock.new')}
     </Button>
     {existing && hint && <p style={{ margin: 0, color: COLORS.faint, fontSize: 10.5, lineHeight: 1.5 }}>{t('lock.regenerateHint')}</p>}

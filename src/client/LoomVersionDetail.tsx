@@ -61,12 +61,19 @@ const rowBody: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 
 const rowTitle: CSSProperties = { margin: 0, fontSize: 12, fontWeight: 400, color: COLORS.text, overflowWrap: 'anywhere' }
 const rowMeta: CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', minWidth: 0, fontSize: 10.5, color: COLORS.faint }
 const rowAction: CSSProperties = { marginLeft: 'auto', flex: 'none' }
+const lockList: CSSProperties = { display: 'flex', flexDirection: 'column', minWidth: 0 }
 const lockRow: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0, padding: '10px 0', borderTop: `0.5px solid ${COLORS.border}` }
+const lockRowFirst: CSSProperties = { ...lockRow, borderTop: 'none', paddingTop: 2 }
 const lockHead: CSSProperties = { display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap', minWidth: 0 }
-const lockId: CSSProperties = { fontFamily: 'ui-monospace, monospace', fontSize: 11, color: COLORS.text, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
-const lockRepos: CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '5px 14px', minWidth: 0 }
-const lockRepo: CSSProperties = { display: 'flex', alignItems: 'baseline', gap: 6, minWidth: 0, fontSize: 10.5, color: COLORS.dim }
-const commit: CSSProperties = { fontFamily: 'ui-monospace, monospace', fontSize: 10.5, color: COLORS.text }
+const lockId: CSSProperties = { minWidth: 0, maxWidth: 250, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'ui-monospace, monospace', fontSize: 10.5, color: COLORS.dim }
+const lockMeta: CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 4, minWidth: 0, fontSize: 10, color: COLORS.faint }
+const lockRepos: CSSProperties = { display: 'flex', flexWrap: 'wrap', gap: 6, minWidth: 0 }
+const lockRepo: CSSProperties = { display: 'inline-flex', alignItems: 'baseline', gap: 6, minWidth: 0, padding: '2px 7px', border: `0.5px solid ${COLORS.border}`, borderRadius: 5, background: COLORS.panel2, fontSize: 10 }
+const commit: CSSProperties = { fontFamily: 'ui-monospace, monospace', fontSize: 10, color: COLORS.text }
+const lockRef: CSSProperties = { color: COLORS.faint, fontSize: 9.5 }
+const lockFacts: CSSProperties = { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '5px 16px', minWidth: 0, fontSize: 10, color: COLORS.faint }
+const lockFact: CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 5, flexWrap: 'wrap', minWidth: 0 }
+const lockFactLabel: CSSProperties = { color: COLORS.faint }
 const contextPre: CSSProperties = { margin: 0, maxHeight: 240, overflow: 'auto', padding: '8px 10px', borderRadius: 6, border: `0.5px solid ${COLORS.border}`, background: COLORS.panel2, color: COLORS.dim, fontFamily: 'ui-monospace, monospace', fontSize: 10.5, lineHeight: 1.55, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }
 const contextGrid: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 8, minWidth: 0 }
 const taskChip: CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 5, minWidth: 0, padding: '3px 7px', border: `0.5px solid ${COLORS.border}`, borderRadius: 6, color: COLORS.dim, fontSize: 10.5 }
@@ -114,7 +121,7 @@ export function LoomVersionDetail({ t, snapshot, project, version, context, gene
             : <p style={muted}>{t('version.descriptionEmpty')}</p>}
         </div>
         <div style={headerActions}>
-          <LockButton t={t} version={version} generate={generateLock} onCreated={onLockChanged} existing={locks.length > 0} hint={false} />
+          <LockButton t={t} version={version} generate={generateLock} onCreated={onLockChanged} existing={locks.length > 0} hint={false} size="md" />
           <Button variant="outline" icon={<IconEditOutlineRegular />} onClick={onEditVersion}>{t('version.edit')}</Button>
           <Button variant="primary" className="loom-primary" icon={<IconPlusOutlineRegular />} disabled={locks.length === 0}
             title={locks.length === 0 ? t('lock.generateFirst') : t('task.new')} onClick={onCreateTask}>{t('task.new')}</Button>
@@ -152,37 +159,37 @@ export function LoomVersionDetail({ t, snapshot, project, version, context, gene
           ? <div style={emptyState}>
               <p style={muted}>{t('lock.empty')}</p>
             </div>
-          : <div>
-              {locks.map((lock, index) => {
-                const newest = index === locks.length - 1
+          : <div style={lockList}>
+              {[...locks].reverse().map((lock, index) => {
+                const latest = index === 0
                 const sourceTasks = lockTasks(snapshot, lock.id)
                 const referencing = lockWorkspaces(snapshot, lock.id)
-                return <div key={lock.id} style={lockRow}>
+                return <div key={lock.id} style={index === 0 ? lockRowFirst : lockRow}>
                   <div style={lockHead}>
                     <span style={lockId} title={lock.id}>{lock.id}</span>
-                    {newest && <Tag tone="solid">{t('version.lockLatest')}</Tag>}
-                    <span style={rowMeta}><IconClockOutlineRegular size={12} />{formatTimestamp(lock.createdAt) ?? t('version.lockNoTimestamp')}</span>
-                    <span style={rowMeta}>{referencing.length > 0 ? t('version.lockReferenced', { count: String(referencing.length) }) : t('version.lockNotReferenced')}</span>
+                    {latest && <Tag tone="solid">{t('version.lockLatest')}</Tag>}
+                    <span style={lockMeta}><IconClockOutlineRegular size={11} />{formatTimestamp(lock.createdAt) ?? t('version.lockNoTimestamp')}</span>
+                    {referencing.length > 0 && <span style={lockMeta}>{t('version.lockReferenced', { count: String(referencing.length) })}</span>}
                   </div>
                   <div style={lockRepos}>
                     {lock.repositories.map(repository => {
                       const current = version.sources.find(entry => entry.sourceId === repository.sourceId)?.ref
                       return <span key={repository.sourceId} style={lockRepo}>
-                        <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{repository.sourceId}</span>
+                        <span>{repository.sourceId}</span>
                         <span style={commit} title={repository.commit}>{repository.commit.slice(0, 10)}</span>
-                        {current !== undefined && <span style={{ color: COLORS.faint }}>← {current}</span>}
+                        {current !== undefined && <span style={lockRef}>← {current}</span>}
                       </span>
                     })}
                   </div>
-                  <div style={rowMeta}>
-                    <span>{t('version.lockSourceTask')}:</span>
-                    {sourceTasks.length === 0
-                      ? <span>{t('version.lockSourceTaskNone')}</span>
-                      : sourceTasks.map(task => <Tag key={task.id} tone="outline">{task.title}</Tag>)}
-                  </div>
-                  {referencing.length > 0 && <div style={rowMeta}>
-                    <span>{t('version.lockReferencedBy')}:</span>
-                    {referencing.map(entry => <span key={entry.id} title={entry.rootPath ?? entry.path}><Tag tone="quiet">{workspaceName(entry.rootPath ?? entry.path) ?? entry.path}</Tag></span>)}
+                  {(sourceTasks.length > 0 || referencing.length > 0) && <div style={lockFacts}>
+                    {sourceTasks.length > 0 && <span style={lockFact}>
+                      <span style={lockFactLabel}>{t('version.lockSourceTask')}</span>
+                      {sourceTasks.map(task => <Tag key={task.id} tone="outline">{task.title}</Tag>)}
+                    </span>}
+                    {referencing.length > 0 && <span style={lockFact}>
+                      <span style={lockFactLabel}>{t('version.lockReferencedBy')}</span>
+                      {referencing.map(entry => <span key={entry.id} title={entry.rootPath ?? entry.path}><Tag tone="quiet">{workspaceName(entry.rootPath ?? entry.path) ?? entry.path}</Tag></span>)}
+                    </span>}
                   </div>}
                 </div>
               })}

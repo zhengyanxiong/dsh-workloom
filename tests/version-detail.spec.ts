@@ -137,7 +137,8 @@ it('lists every immutable Lock with its timestamp, commits and source task', () 
   expect(html).toContain('Checkout 修复')
   expect(html).toContain(en['version.lockReferenced'].replace('{count}', '1'))
   expect(html).toContain(en['version.lockReferencedBy'])
-  expect(html).toContain(en['version.lockNotReferenced'])
+  // Newest Lock first: operators act on the head of the history, not the tail.
+  expect(html.indexOf('lock-2')).toBeLessThan(html.indexOf('lock-1'))
   // The header owns the regenerate action so a long-lived version can advance
   // its baseline from the version page, not only from the context panel.
   expect(html).toContain(en['lock.regenerate'])

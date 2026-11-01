@@ -362,7 +362,7 @@ it('shares an idle workspace between tasks in one version and refuses while anot
 })
 
 
-it('advances clean workspace and running round baselines when a Lock is regenerated', async () => {
+it('moves the version workspaces and active task rounds onto a regenerated Lock', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'loom-catalog-')); dirs.push(dir)
   const repo = join(dir, 'repo')
   await mkdir(repo)
@@ -394,12 +394,15 @@ it('advances clean workspace and running round baselines when a Lock is regenera
   expect(before.repositories.some(repository => repository.files.length > 0)).toBe(true)
   const regenerated = await catalog.generateLock(version.id)
   const snapshot = catalog.snapshot()
-  const advanced = snapshot.workspaces.find(candidate => candidate.id === workspace.id)
-  expect(advanced?.lockId).toBe(regenerated.id)
-  expect(snapshot.workspaces.find(candidate => candidate.id === dirtyWorkspace.id)?.lockId).toBe(first.id)
+  expect(snapshot.workspaces.find(candidate => candidate.id === workspace.id)?.lockId).toBe(regenerated.id)
+  // Every workspace of the version transitions; uncommitted work stays visible
+  // against the new baseline instead of pinning the workspace to the old Lock.
+  expect(snapshot.workspaces.find(candidate => candidate.id === dirtyWorkspace.id)?.lockId).toBe(regenerated.id)
   expect(snapshot.tasks.find(candidate => candidate.id === task.id)?.attempts.at(-1)?.lock.id).toBe(regenerated.id)
   const after = await catalog.workspaceChanges(workspace.id, attempt.id)
   expect(after.repositories.every(repository => repository.files.length === 0)).toBe(true)
+  const dirty = await catalog.workspaceChanges(dirtyWorkspace.id)
+  expect(dirty.repositories.some(repository => repository.files.some(file => file.path === 'dirty.txt'))).toBe(true)
   expect(snapshot.audit.some(entry => entry.event === 'workspace.updated' && entry.workspaceId === workspace.id)).toBe(true)
 })
 
