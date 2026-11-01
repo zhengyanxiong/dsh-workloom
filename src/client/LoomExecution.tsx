@@ -299,6 +299,13 @@ export function ExecutionPanel({ t, task, snapshot, selectedSession, actions, lo
         <span style={ownerValue}>{execution?.owner === null || execution?.owner === undefined ? t('workspace.ownerNone') : `${sessionTaskLabel(snapshot, execution.owner.sessionId)} · ${execution.owner.sessionId.slice(0, 8)}`}</span>
         {execution !== undefined && execution.waiting.length > 0 && <span style={ownerMeta}>{t('execution.waiting')} · {execution.waiting.map(id => sessionTaskLabel(snapshot, id)).join(', ')}</span>}
       </div>
+      <div style={ownerLine}>
+        <span style={ownerLabel}>{t('execution.currentSession')}</span>
+        <span style={ownerValue}>{actorSession === undefined ? t('workspace.ownerNone') : `${sessionTaskLabel(snapshot, actorSession)} · ${actorSession.slice(0, 8)}`}</span>
+        {waitingExecution && <span style={ownerMeta}>{`${t('execution.queuePosition')} ${String(execution!.waiting.indexOf(actorSession!) + 1)}`}</span>}
+        {ownsExecution && <span style={ownerMeta}>{t('execution.currentOwner')}</span>}
+        <span style={ownerMeta}>{t('execution.queueScope')}</span>
+      </div>
       {execution?.takeover !== null && execution?.takeover !== undefined && <p style={{ ...ownerMeta, color: execution.takeover.stopStatus === 'requested' ? COLORS.dim : COLORS.warn }}>{execution.takeover.stopStatus === 'requested' ? t('execution.stopping') : t('execution.blocked')}</p>}
       {execution?.owner !== null && execution?.owner !== undefined && !ownsExecution && <div style={actionBar}>
         {!waitingExecution && <Button size="sm" variant="outline" disabled={busy || execution?.takeover !== null} onClick={() => { void acquire() }}>{t('execution.wait')}</Button>}
