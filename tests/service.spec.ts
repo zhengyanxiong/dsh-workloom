@@ -296,3 +296,293 @@ it('marks linked sessions with full access and gives the Agent the repository ma
   expect(contexts[0]?.text).toContain('native session skill catalog')
   expect(contexts[0]?.text).not.toContain('read the relevant SKILL.md directly')
 })
+
+it('persists version descriptions and mutation timestamps through the gateway', async () => {
+  const { call, dir } = await setup()
+  const repo = join(dir, 'repo'); await mkdir(repo)
+  const exec = promisify(execFile)
+  await exec('git', ['init', '--quiet', repo])
+  await writeFile(join(repo, 'file'), 'content')
+  await exec('git', ['-C', repo, 'add', 'file'])
+  await exec('git', ['-C', repo, '-c', 'user.name=Loom Test', '-c', 'user.email=loom@example.invalid', 'commit', '-qm', 'initial'])
+  const project = await call('createProject', { request: { name: 'Shop', sources: [{ id: 'web', repo, path: 'web' }], modules: [] } }) as { id: string }
+  const version = await call('createVersion', { request: { projectId: project.id, name: 'v1', description: '目标：分页修复', sources: [{ sourceId: 'web', ref: 'HEAD' }] } }) as { id: string; description: string }
+  expect(version.description).toBe('目标：分页修复')
+  // Older clients omit the field and must not erase the stored description.
+  const renamed = await call('updateVersion', { request: { versionId: version.id, name: 'v2', sources: [{ sourceId: 'web', ref: 'HEAD' }] } }) as { name: string; description: string }
+  expect(renamed).toMatchObject({ name: 'v2', description: '目标：分页修复' })
+  const cleared = await call('updateVersion', { request: { versionId: version.id, name: 'v3', description: '', sources: [{ sourceId: 'web', ref: 'HEAD' }] } }) as { description: string }
+  expect(cleared.description).toBe('')
+  await expect(call('updateVersion', { request: { versionId: version.id, name: 'v4', description: 'x'.repeat(2001), sources: [{ sourceId: 'web', ref: 'HEAD' }] } })).rejects.toThrow()
+  const lock = await call('generateLock', { request: { versionId: version.id } }) as { id: string; createdAt?: string }
+  expect(lock.createdAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u)
+  const task = await call('createTask', { request: { versionId: version.id, title: 'Checkout' } }) as { id: string; updatedAt?: string }
+  expect(task.updatedAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u)
+  await new Promise(resolve => setTimeout(resolve, 5))
+  const edited = await call('updateTask', { request: { taskId: task.id, title: 'Checkout 2' } }) as { updatedAt?: string }
+  expect(edited.updatedAt! > task.updatedAt!).toBe(true)
+  const snapshot = await call('snapshot') as {
+    versions: { id: string; description: string }[]
+    locks: { id: string; createdAt?: string }[]
+    tasks: { id: string; updatedAt?: string }[]
+  }
+  expect(snapshot.versions.find(candidate => candidate.id === version.id)?.description).toBe('')
+  expect(snapshot.locks.find(candidate => candidate.id === lock.id)?.createdAt).toBe(lock.createdAt)
+  expect(snapshot.tasks.find(candidate => candidate.id === task.id)?.updatedAt).toBe(edited.updatedAt)
+})
+
+/** Await a gateway call that must reject and return the rejection for message assertions. */
+async function rejection(call: Promise<unknown>): Promise<Error> {
+  try { await call } catch (error) { return error as Error }
+  throw new Error('expected the call to reject')
+}
+
+/** Prepare a real managed workspace and a running round for execution-gate tests. */
+async function runningRound(call: (method: string, args?: Record<string, unknown>) => Promise<unknown>, dir: string) {
+  const repo = join(dir, 'gate-repo'); await mkdir(repo)
+  const exec = promisify(execFile)
+  await exec('git', ['init', '--quiet', repo])
+  await writeFile(join(repo, 'file'), 'content')
+  await exec('git', ['-C', repo, 'add', 'file'])
+  await exec('git', ['-C', repo, '-c', 'user.name=Loom Test', '-c', 'user.email=loom@example.invalid', 'commit', '-qm', 'initial'])
+  const project = await call('createProject', { request: { name: 'Gate', sources: [{ id: 'web', repo, path: 'web' }], modules: [] } }) as { id: string }
+  const version = await call('createVersion', { request: { projectId: project.id, name: 'v', sources: [{ sourceId: 'web', ref: 'HEAD' }] } }) as { id: string }
+  const lock = await call('generateLock', { request: { versionId: version.id } }) as { id: string }
+  const root = join(dir, 'gate-workspace')
+  const workspace = await call('prepareWorkspace', { request: { path: root, versionId: version.id, lockId: lock.id } }) as { id: string; path: string }
+  const task = await call('createTask', { request: { versionId: version.id, title: 'Gate' } }) as { id: string }
+  await call('startAttempt', { request: { taskId: task.id, workspaceId: workspace.id } })
+  const attached = await call('attachSession', { request: { taskId: task.id, sessionId: 'session-bound' } }) as { id: string }
+  return { workspace, task: attached, root }
+}
+
+it('denies an unbound Session inside a Loom workspace and admits the attached Session', async () => {
+  const { ctx, call, dir } = await setup()
+  const { workspace, root } = await runningRound(call, dir)
+  const gate = (sessionId: string | undefined) => ctx.waterfall(
+    'tools/pre-execute',
+    (sessionId === undefined ? {} : { agent: { session: { id: sessionId, header: { cwd: root } } } }) as never,
+    () => Promise.resolve(undefined as never),
+  )
+  const denied = await gate('session-stranger') as { kind: string; reason: string }
+  expect(denied.kind).toBe('deny')
+  expect(denied.reason).toMatch(/bound to a task round/iu)
+  expect(denied.reason).toContain(root)
+  // The attached Session acquires execution through the same gate.
+  await expect(gate('session-bound')).resolves.toBeUndefined()
+  const snapshot = await call('snapshot') as { executions: { workspaceId: string; owner: { sessionId: string } | null }[] }
+  expect(snapshot.executions.find(execution => execution.workspaceId === workspace.id)?.owner?.sessionId).toBe('session-bound')
+  // A call without an owning Agent is not a Loom write and stays untouched.
+  await expect(gate(undefined)).resolves.toBeUndefined()
+})
+
+it('gives temporary Sessions execution rights and releases them when forgotten', async () => {
+  const { ctx, call, dir } = await setup()
+  const { workspace, root } = await runningRound(call, dir)
+  await call('registerTemporarySession', { request: { sessionId: 'session-temp-a', workspacePath: root } })
+  await call('registerTemporarySession', { request: { sessionId: 'session-temp-b', workspacePath: root } })
+  const gate = (sessionId: string) => ctx.waterfall(
+    'tools/pre-execute',
+    { agent: { session: { id: sessionId, header: { cwd: root } } } } as never,
+    () => Promise.resolve(undefined as never),
+  )
+  await expect(gate('session-temp-a')).resolves.toBeUndefined()
+  const queued = await gate('session-temp-b') as { kind: string; reason: string }
+  expect(queued.kind).toBe('deny')
+  expect(queued.reason).toContain('queued')
+  await call('forgetTemporarySession', { request: { sessionId: 'session-temp-a' } })
+  await expect(gate('session-temp-b')).resolves.toBeUndefined()
+  const snapshot = await call('snapshot') as { executions: { workspaceId: string; owner: { sessionId: string } | null; waiting: string[] }[] }
+  expect(snapshot.executions.find(execution => execution.workspaceId === workspace.id)).toMatchObject({ owner: { sessionId: 'session-temp-b' }, waiting: [] })
+  await call('forgetTemporarySession', { request: { sessionId: 'session-temp-b' } })
+  const denied = await gate('session-temp-b') as { kind: string; reason: string }
+  expect(denied.kind).toBe('deny')
+})
+
+it('names the concrete blocker when cleanup is refused through the Remote', async () => {
+  const { call, dir } = await setup()
+  const { workspace, task } = await runningRound(call, dir)
+  const blockedByTask = await rejection(call('cleanupWorkspace', { request: { workspaceId: workspace.id } }))
+  expect(blockedByTask.message).toContain('workspace_task_running')
+  expect(blockedByTask.message).toContain(task.id)
+  const execution = await call('acquireExecution', { request: { workspaceId: workspace.id, sessionId: 'session-owner' } }) as { owner: { generation: number } }
+  await call('transitionTask', { request: { taskId: task.id, target: 'failed', actor: 'human' } })
+  const blockedByOwner = await rejection(call('cleanupWorkspace', { request: { workspaceId: workspace.id, discardChanges: true } }))
+  expect(blockedByOwner.message).toContain('workspace_busy')
+  expect(blockedByOwner.message).toContain('session-owner')
+  await call('releaseExecution', { request: { workspaceId: workspace.id, sessionId: 'session-owner', generation: execution.owner.generation } })
+  await expect(call('cleanupWorkspace', { request: { workspaceId: workspace.id, discardChanges: true } })).resolves.toBeUndefined()
+  expect(await call('snapshot')).toMatchObject({ workspaces: [{ id: workspace.id, cleaned: true }] })
+})
+
+it('creates a version with sub-project targets through the gateway', async () => {
+  const { call } = await setup()
+  const project = await call('createProject', { request: {
+    name: 'Product',
+    sources: [{ id: 'shop', repo: '/local/shop', path: 'shop' }, { id: 'service', repo: '/local/service', path: 'service' }],
+    modules: [],
+    subProjects: [
+      { id: 'web', name: 'Web', sources: [{ id: 'shop', repo: '/local/shop', path: 'shop' }], modules: [] },
+      { id: 'api', name: 'API', sources: [{ id: 'service', repo: '/local/service', path: 'service' }], modules: [] },
+    ],
+  } }) as { id: string }
+  const version = await call('createVersion', { request: {
+    projectId: project.id, name: 'v1',
+    sources: [{ sourceId: 'shop', ref: 'main' }, { sourceId: 'service', ref: 'release' }],
+    targets: [
+      { subProjectId: 'web', sourceId: 'shop', ref: 'main' },
+      { subProjectId: 'api', sourceId: 'service', ref: 'release' },
+    ],
+  } }) as { id: string; targets: { subProjectId: string }[] }
+  expect(version.targets.map(target => target.subProjectId)).toEqual(['web', 'api'])
+  await expect(call('createTask', { request: { versionId: version.id, workspaceId: 'missing', title: 'Checkout' } })).rejects.toThrow('missing_workspace')
+})
+
+it('creates a version Lock and an auto workspace in one save', async () => {
+  const { call, dir } = await setup()
+  const exec = promisify(execFile)
+  const makeRepo = async (name: string, file: string): Promise<string> => {
+    const repo = join(dir, name); await mkdir(repo)
+    await exec('git', ['init', '--quiet', repo])
+    await writeFile(join(repo, file), name)
+    await exec('git', ['-C', repo, 'add', file])
+    await exec('git', ['-C', repo, '-c', 'user.name=Loom Test', '-c', 'user.email=loom@example.invalid', 'commit', '-qm', 'initial'])
+    return repo
+  }
+  const shop = await makeRepo('shop', 'shop.txt')
+  const service = await makeRepo('service', 'service.txt')
+  const project = await call('createProject', { request: {
+    name: 'Product',
+    sources: [{ id: 'shop', repo: shop, path: 'shop' }, { id: 'service', repo: service, path: 'service' }],
+    modules: [],
+    subProjects: [
+      { id: 'web', name: 'Web', sources: [{ id: 'shop', repo: shop, path: 'shop' }], modules: [] },
+      { id: 'api', name: 'API', sources: [{ id: 'service', repo: service, path: 'service' }], modules: [] },
+    ],
+  } }) as { id: string }
+  const version = await call('createVersion', { request: {
+    projectId: project.id, name: 'v1',
+    sources: [{ sourceId: 'shop', ref: 'HEAD' }, { sourceId: 'service', ref: 'HEAD' }],
+    targets: [
+      { subProjectId: 'web', sourceId: 'shop', ref: 'HEAD' },
+      { subProjectId: 'api', sourceId: 'service', ref: 'HEAD' },
+    ],
+    workspaces: [{ mode: 'auto', parentPath: dir, name: 'v1-auto' }],
+  } }) as { id: string }
+  const snapshot = await call('snapshot') as { locks: { versionId: string }[]; workspaces: { versionId: string; preparation?: { status: string }; repositories?: { path: string; targetPath: string }[] }[] }
+  expect(snapshot.locks).toHaveLength(1)
+  expect(snapshot.workspaces[0]).toMatchObject({
+    versionId: version.id,
+    preparation: { status: 'ready' },
+    repositories: [
+      { path: 'web/shop', targetPath: join(dir, 'v1-auto', 'web', 'shop') },
+      { path: 'api/service', targetPath: join(dir, 'v1-auto', 'api', 'service') },
+    ],
+  })
+  const branch = (await exec('git', ['-C', join(dir, 'v1-auto', 'web', 'shop'), 'branch', '--show-current'])).stdout.trim()
+  expect(branch).toBe('loom/v1-auto')
+})
+
+it('binds existing git directories as a linked version workspace and rejects detached HEAD', async () => {
+  const { call, dir } = await setup()
+  const exec = promisify(execFile)
+  const makeRepo = async (name: string): Promise<string> => {
+    const repo = join(dir, name); await mkdir(repo)
+    await exec('git', ['init', '--quiet', repo])
+    await writeFile(join(repo, 'file.txt'), name)
+    await exec('git', ['-C', repo, 'add', 'file.txt'])
+    await exec('git', ['-C', repo, '-c', 'user.name=Loom Test', '-c', 'user.email=loom@example.invalid', 'commit', '-qm', 'initial'])
+    return repo
+  }
+  const shop = await makeRepo('shop')
+  const serviceRepo = await makeRepo('service')
+  const project = await call('createProject', { request: {
+    name: 'Product',
+    sources: [{ id: 'shop', repo: shop, path: 'web' }, { id: 'service', repo: serviceRepo, path: 'api' }],
+    modules: [],
+    subProjects: [
+      { id: 'web', name: 'Web', sources: [{ id: 'shop', repo: shop, path: 'web' }], modules: [] },
+      { id: 'api', name: 'API', sources: [{ id: 'service', repo: serviceRepo, path: 'api' }], modules: [] },
+    ],
+  } }) as { id: string }
+  const version = await call('createVersion', { request: {
+    projectId: project.id, name: 'linked',
+    sources: [{ sourceId: 'shop', ref: 'HEAD' }, { sourceId: 'service', ref: 'HEAD' }],
+    targets: [
+      { subProjectId: 'web', sourceId: 'shop', ref: 'HEAD' },
+      { subProjectId: 'api', sourceId: 'service', ref: 'HEAD' },
+    ],
+    workspaces: [{ mode: 'linked', rootPath: dir, repositories: [{ sourceId: 'shop', targetPath: shop }, { sourceId: 'service', targetPath: serviceRepo }] }],
+  } }) as { id: string }
+  const snapshot = await call('snapshot') as { workspaces: { id: string; mode: string; versionId: string; branches?: Record<string, string> }[] }
+  expect(snapshot.workspaces[0]).toMatchObject({ mode: 'direct', versionId: version.id })
+
+  await exec('git', ['-C', serviceRepo, 'checkout', '--quiet', '--detach', 'HEAD'])
+  await expect(call('createVersion', { request: {
+    projectId: project.id, name: 'detached',
+    sources: [{ sourceId: 'shop', ref: 'HEAD' }, { sourceId: 'service', ref: 'HEAD' }],
+    targets: [
+      { subProjectId: 'web', sourceId: 'shop', ref: 'HEAD' },
+      { subProjectId: 'api', sourceId: 'service', ref: 'HEAD' },
+    ],
+    workspaces: [{ mode: 'linked', rootPath: dir, repositories: [{ sourceId: 'shop', targetPath: shop }, { sourceId: 'service', targetPath: serviceRepo }] }],
+  } })).rejects.toThrow('detached_head')
+})
+
+it('rolls back a version created with an invalid workspace name', async () => {
+  const { call, dir } = await setup()
+  const exec = promisify(execFile)
+  const repo = join(dir, 'repo'); await mkdir(repo)
+  await exec('git', ['init', '--quiet', repo])
+  await writeFile(join(repo, 'file.txt'), 'x')
+  await exec('git', ['-C', repo, 'add', 'file.txt'])
+  await exec('git', ['-C', repo, '-c', 'user.name=Loom Test', '-c', 'user.email=loom@example.invalid', 'commit', '-qm', 'initial'])
+  const project = await call('createProject', { request: { name: 'P', sources: [{ id: 'repo', repo, path: 'repo' }], modules: [] } }) as { id: string }
+  await expect(call('createVersion', { request: {
+    projectId: project.id, name: 'bad', sources: [{ sourceId: 'repo', ref: 'HEAD' }],
+    workspaces: [{ mode: 'auto', parentPath: dir, name: 'bad/name' }],
+  } })).rejects.toThrow()
+  const snapshot = await call('snapshot') as { versions: unknown[]; locks: unknown[]; workspaces: unknown[] }
+  expect(snapshot.versions).toHaveLength(0)
+  expect(snapshot.locks).toHaveLength(0)
+  expect(snapshot.workspaces).toHaveLength(0)
+})
+
+it('rejects a version when its workspace preparation fails and removes the partial records', async () => {
+  const { call, dir } = await setup()
+  const exec = promisify(execFile)
+  const repo = join(dir, 'repo'); await mkdir(repo)
+  await exec('git', ['init', '--quiet', repo])
+  await writeFile(join(repo, 'file.txt'), 'x')
+  await exec('git', ['-C', repo, 'add', 'file.txt'])
+  await exec('git', ['-C', repo, '-c', 'user.name=Loom Test', '-c', 'user.email=loom@example.invalid', 'commit', '-qm', 'initial'])
+  const project = await call('createProject', { request: { name: 'P', sources: [{ id: 'repo', repo, path: 'repo' }], modules: [] } }) as { id: string }
+  const occupied = join(dir, 'occupied'); await mkdir(occupied); await writeFile(join(occupied, 'busy.txt'), 'busy')
+  await expect(call('createVersion', { request: {
+    projectId: project.id, name: 'bad-workspace', sources: [{ sourceId: 'repo', ref: 'HEAD' }],
+    workspaces: [{ mode: 'auto', parentPath: dir, name: 'occupied' }],
+  } })).rejects.toThrow()
+  const snapshot = await call('snapshot') as { versions: unknown[]; locks: unknown[]; workspaces: unknown[] }
+  expect(snapshot.versions).toHaveLength(0)
+  expect(snapshot.locks).toHaveLength(0)
+  expect(snapshot.workspaces).toHaveLength(0)
+})
+
+it('rejects a missing workspace parent before writing any catalog record', async () => {
+  const { call, dir } = await setup()
+  const exec = promisify(execFile)
+  const repo = join(dir, 'repo'); await mkdir(repo)
+  await exec('git', ['init', '--quiet', repo])
+  await writeFile(join(repo, 'file.txt'), 'x')
+  await exec('git', ['-C', repo, 'add', 'file.txt'])
+  await exec('git', ['-C', repo, '-c', 'user.name=Loom Test', '-c', 'user.email=loom@example.invalid', 'commit', '-qm', 'initial'])
+  const project = await call('createProject', { request: { name: 'P', sources: [{ id: 'repo', repo, path: 'repo' }], modules: [] } }) as { id: string }
+  await expect(call('createVersion', { request: {
+    projectId: project.id, name: 'missing-parent', sources: [{ sourceId: 'repo', ref: 'HEAD' }],
+    workspaces: [{ mode: 'auto', parentPath: join(dir, 'missing', 'nested'), name: 'ws' }],
+  } })).rejects.toThrow('workspace_parent_missing')
+  const snapshot = await call('snapshot') as { versions: unknown[]; locks: unknown[]; workspaces: unknown[] }
+  expect(snapshot.versions).toHaveLength(0)
+  expect(snapshot.locks).toHaveLength(0)
+  expect(snapshot.workspaces).toHaveLength(0)
+})

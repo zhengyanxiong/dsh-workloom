@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest'
-import { brandString } from '@deepseek-ai/dsh-brand'
+import { brandNumber, brandString } from '@deepseek-ai/dsh-brand'
 import type { CatalogSnapshot, Lock, ProjectRecord, TaskRecord, VersionRecord } from 'dsh-workloom/types'
-import { activeWorkspaceCount, aggregateTokenUsage, boardMetrics, boundSessions, currentLock, projectLanes, taskSessionRows, workspaceName } from '../src/client/projection.ts'
+import { activeWorkspaceCount, aggregateTokenUsage, boardMetrics, boundSessions, currentLock, lockTasks, lockWorkspaces, projectLanes, taskAttemptRows, taskSessionRows, versionLocks, versionOccupancy, versionRepositoryRows, versionWorkspaceRows, workspaceName } from '../src/client/projection.ts'
 const projectId = brandString<ProjectRecord['id']>('p1')
 const versionId = brandString<VersionRecord['id']>('v1')
 const lock: Lock = { id: brandString<Lock['id']>('l1'), versionId, repositories: [{ sourceId: brandString<'loom.source'>('web'), commit: 'a'.repeat(40) }] }
@@ -59,4 +59,64 @@ it('aggregates provider token usage and ignores missing projections', () => {
   const second = { tokenUsage: { uncachedInputTokens: 5, outputTokens: 6, cacheReadTokens: 0, cacheWriteTokens: 0 } }
   expect(aggregateTokenUsage([first, undefined, second])).toEqual({ uncachedInputTokens: 15, outputTokens: 10, cacheReadTokens: 2, cacheWriteTokens: 1 })
   expect(aggregateTokenUsage([undefined, {}])).toBeUndefined()
+})
+
+it('lists every Lock of a version, its tasks and its referenced uncleaned workspaces', () => {
+  const secondLock: Lock = { id: brandString<Lock['id']>('l2'), versionId, repositories: [{ sourceId: brandString<'loom.source'>('web'), commit: 'b'.repeat(40) }] }
+  const rows = { ...snapshot, locks: [lock, secondLock], tasks: [task('four', 'completed', ['s2'])] }
+  expect(versionLocks(rows, versionId).map(row => row.id)).toEqual([lock.id, secondLock.id])
+  expect(versionLocks(rows, brandString<VersionRecord['id']>('missing'))).toEqual([])
+  expect(lockTasks(rows, lock.id).map(row => row.id)).toEqual(['four'])
+  expect(lockWorkspaces(rows, lock.id).map(row => row.id)).toEqual(['w1'])
+  const cleaned = { ...rows, workspaces: rows.workspaces.map(row => ({ ...row, cleaned: true })) }
+  expect(lockWorkspaces(cleaned, lock.id)).toEqual([])
+})
+
+it('pairs each repository with its version ref and latest Lock commit', () => {
+  const rows = versionRepositoryRows(project, version, lock)
+  expect(rows).toEqual([{ sourceId: 'web', path: 'web', repo: '/repo', ref: 'main', commit: 'a'.repeat(40) }])
+  expect(versionRepositoryRows(project, version, undefined)[0]?.commit).toBeUndefined()
+  expect(versionRepositoryRows(undefined, version, lock)).toEqual([])
+})
+
+it('projects all execution rounds and every Session with real state', () => {
+  const multi: TaskRecord = {
+    ...task('four', 'running', ['s1', 's2']),
+    attempts: [
+      { id: brandString<'loom.attempt'>('a1'), lock, workspaceId: brandString<'loom.workspace'>('w1'), sessionIds: [brandString<'SessionId'>('s1')], status: 'review' },
+      { id: brandString<'loom.attempt'>('a2'), lock, workspaceId: brandString<'loom.workspace'>('w1'), sessionIds: [brandString<'SessionId'>('s2')], status: 'running' },
+    ],
+  }
+  const lookup = (id: string) => id === 's2' ? { running: true, displayTitle: 'Current' } : undefined
+  const rows = taskAttemptRows(multi, lookup, new Set())
+  expect(rows.map(row => row.round)).toEqual([1, 2])
+  expect(rows.map(row => row.latest)).toEqual([false, true])
+  expect(rows[0]?.sessions[0]).toMatchObject({ sessionId: 's1', running: false, available: false, unavailableReason: 'missing' })
+  expect(rows[1]?.sessions[0]).toMatchObject({ sessionId: 's2', running: true, available: true })
+  expect(taskAttemptRows(multi, lookup, new Set(['s2']))[1]?.sessions[0]).toMatchObject({ available: false, unavailableReason: 'failed' })
+  expect(taskAttemptRows(undefined, lookup, new Set())).toEqual([])
+})
+
+it('lists a version workspace with its tasks, owner and queued Sessions', () => {
+  const workspace = brandString<'loom.workspace'>('w1')
+  const generation = brandNumber<'loom.execution-generation'>(2)
+  const executions = [{ workspaceId: workspace, generation, owner: { workspaceId: workspace, sessionId: brandString<'SessionId'>('owner'), generation }, waiting: [brandString<'SessionId'>('waiting')], takeover: null }]
+  const withExecution = { ...snapshot, executions }
+  const rows = versionWorkspaceRows(withExecution, versionId)
+  expect(rows.map(row => row.workspace.id)).toEqual(['w1'])
+  expect(rows[0]?.ownerSessionId).toBe('owner')
+  expect(rows[0]?.waiting).toBe(1)
+  expect(rows[0]?.tasks.map(link => link.task.id)).toEqual(['one', 'two'])
+  expect(versionWorkspaceRows(withExecution, brandString<VersionRecord['id']>('missing'))).toEqual([])
+  const occ = versionOccupancy(withExecution, versionId)
+  expect(occ).toHaveLength(1)
+  expect(occ[0]).toMatchObject({ occupied: true, waiting: 1 })
+})
+
+it('orders uncleaned workspaces before cleaned history', () => {
+  const rows = { ...snapshot, workspaces: [
+    { id: brandString<'loom.workspace'>('w2'), path: '/tmp/w2', versionId, lockId: lock.id, cleaned: true },
+    { id: brandString<'loom.workspace'>('w1'), path: '/tmp/w1', versionId, lockId: lock.id },
+  ] }
+  expect(versionWorkspaceRows(rows, versionId).map(row => row.workspace.id)).toEqual(['w1', 'w2'])
 })

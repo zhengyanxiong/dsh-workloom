@@ -6,6 +6,7 @@ import { join, resolve } from 'node:path'
 import { afterEach, expect, it } from 'vitest'
 import { brandString, type Branded } from '@deepseek-ai/dsh-brand'
 import { createCatalog, migrateCatalog, type ProjectRecord } from '../src/host/catalog.ts'
+import { VERSION_DESCRIPTION_MAX_CHARS } from '../src/shared/version-context.ts'
 const exec = promisify(execFile)
 const dirs: string[] = []
 afterEach(async () => { for (const dir of dirs.splice(0)) { if (!resolve(dir).startsWith(join(tmpdir(), 'loom-catalog-'))) throw Error('unsafe cleanup'); await rm(dir, { recursive: true, force: true }) } })
@@ -331,6 +332,9 @@ it('tracks temporary Sessions until they attach to a task or are forgotten', asy
   await catalog.forgetTemporarySession(temporary)
   expect(catalog.snapshot().temporarySessions).toEqual([])
   await catalog.registerTemporarySession(bound, workspace.path)
+  // A temporary Session holds execution while it is registered, so it must be
+  // released before the same workspace starts a task round.
+  await catalog.forgetTemporarySession(bound)
   const task = await catalog.createTask(version.id, 'Checkout')
   await catalog.startAttempt(task.id, workspace.id)
   await catalog.attachSession(task.id, bound)
@@ -433,6 +437,8 @@ it('starts a task from a workspace created for another version of the same proje
   expect(started.attempts[0]?.lock.id).not.toBe(secondLock.id)
   expect(started.attempts[0]?.lock.repositories[0]?.commit).toBe(actual)
   expect(started.attempts[0]?.lock.versionId).toBe(second.id)
+  // A running round still occupies the workspace, so it must fail first.
+  await catalog.transitionTask(task.id, 'failed', 'human')
   await catalog.cleanupWorkspace(workspace.id, true)
 })
 
@@ -601,4 +607,120 @@ it('maps a direct workspace that points at the repository root back onto the roo
     workspaces: [{ id: 'w1', path: 'E:\\repo\\logistics-iems', versionId: 'v1', lockId: 'l1', managed: false }],
   }) as { workspaces: { repositories: { path: string; targetPath: string }[] }[] }
   expect(migrated.workspaces[0]?.repositories[0]).toMatchObject({ path: '.', targetPath: 'E:\\repo\\logistics-iems' })
+})
+
+it('persists version descriptions and keeps them when an update omits the field', async () => {
+  const { file, catalog } = await fixture()
+  const project = await catalog.createProject(config())
+  const source = project.config.sources[0]!.id
+  const plain = await catalog.createVersion(project.id, 'No description', [{ sourceId: source, ref: 'main' }])
+  expect(plain.description).toBe('')
+  const created = await catalog.createVersion(project.id, 'Release', [{ sourceId: source, ref: 'main' }], '  目标：分页修复  ')
+  expect(created.description).toBe('目标：分页修复')
+  // An update that does not know the field preserves it.
+  const renamed = await catalog.updateVersion(created.id, 'Release 2', [{ sourceId: source, ref: 'main' }])
+  expect(renamed.description).toBe('目标：分页修复')
+  // An explicit empty string clears it.
+  const cleared = await catalog.updateVersion(created.id, 'Release 3', [{ sourceId: source, ref: 'main' }], '')
+  expect(cleared.description).toBe('')
+  const withText = await catalog.updateVersion(created.id, 'Release 4', [{ sourceId: source, ref: 'main' }], '新的说明')
+  expect(withText.description).toBe('新的说明')
+  await expect(catalog.updateVersion(created.id, 'Release 5', [{ sourceId: source, ref: 'main' }], 'x'.repeat(VERSION_DESCRIPTION_MAX_CHARS + 1))).rejects.toThrow()
+  await expect(catalog.createVersion(project.id, 'Too long', [{ sourceId: source, ref: 'main' }], 'y'.repeat(VERSION_DESCRIPTION_MAX_CHARS + 1))).rejects.toThrow()
+  const reopened = await createCatalog(file, async () => 'b'.repeat(40))
+  expect(reopened.snapshot().versions.find(version => version.id === created.id)?.description).toBe('新的说明')
+})
+
+it('keeps a legacy catalog readable and adds timestamps only to new records', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'loom-catalog-')); dirs.push(dir)
+  const file = join(dir, 'state.json')
+  const commit = 'a'.repeat(40)
+  await writeFile(file, JSON.stringify({
+    schema: 'loom-json-store',
+    version: 2,
+    data: {
+      projects: [{ id: 'p1', config: { name: 'Legacy', sources: [{ id: 'web', repo: '/repos/web', path: 'web' }], modules: [] } }],
+      versions: [{ id: 'v1', projectId: 'p1', name: 'v', sources: [{ sourceId: 'web', ref: 'main' }] }],
+      locks: [{ id: 'l1', versionId: 'v1', repositories: [{ sourceId: 'web', commit }] }],
+      tasks: [{ id: 't1', versionId: 'v1', title: 'Legacy task', status: 'pending', attempts: [] }],
+      workspaces: [{ id: 'w1', path: '/tmp/loom-legacy-workspace', versionId: 'v1', lockId: 'l1' }],
+      temporarySessions: [], audit: [], executions: [],
+    },
+  }))
+  const catalog = await createCatalog(file, async () => 'b'.repeat(40))
+  const legacy = catalog.snapshot()
+  // Legacy records gain only the schema default, never a fabricated time.
+  expect(legacy.versions[0]?.description).toBe('')
+  expect(legacy.locks[0]).not.toHaveProperty('createdAt')
+  expect(legacy.tasks[0]).not.toHaveProperty('updatedAt')
+  // A new Lock and a new task carry ISO timestamps, and the old Lock stays untouched.
+  const lock = await catalog.generateLock(legacy.versions[0]!.id)
+  expect(lock.createdAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u)
+  expect(new Date(lock.createdAt!).toISOString()).toBe(lock.createdAt)
+  const task = await catalog.createTask(legacy.versions[0]!.id, 'New task')
+  expect(task.updatedAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u)
+  expect(catalog.snapshot().locks.find(candidate => candidate.id === 'l1')).not.toHaveProperty('createdAt')
+  // The legacy version still updates without inventing a description.
+  const updated = await catalog.updateVersion(legacy.versions[0]!.id, 'v2', [{ sourceId: brandString<Branded<'loom.source'>>('web'), ref: 'main' }])
+  expect(updated.description).toBe('')
+  const reopened = await createCatalog(file, async () => 'c'.repeat(40))
+  expect(reopened.snapshot().locks.find(candidate => candidate.id === 'l1')).not.toHaveProperty('createdAt')
+  expect(reopened.snapshot().tasks.find(candidate => candidate.id === 't1')).not.toHaveProperty('updatedAt')
+})
+
+it('stamps task mutation times and preserves them on a repeated Session attachment', async () => {
+  const { catalog } = await fixture()
+  const project = await catalog.createProject(config())
+  const source = project.config.sources[0]!.id
+  const version = await catalog.createVersion(project.id, 'v', [{ sourceId: source, ref: 'main' }])
+  const lock = await catalog.generateLock(version.id)
+  const task = await catalog.createTask(version.id, 'Checkout')
+  expect(task.updatedAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u)
+  const created = task.updatedAt
+  await new Promise(resolve => setTimeout(resolve, 5))
+  const edited = await catalog.updateTask(task.id, 'Checkout 2')
+  expect(edited.updatedAt! > created!).toBe(true)
+  const workspace = await catalog.registerPreparedWorkspace({ path: '/tmp/loom-stamp', versionId: version.id, lockId: lock.id })
+  await new Promise(resolve => setTimeout(resolve, 5))
+  const started = await catalog.startAttempt(task.id, workspace.id)
+  expect(started.status).toBe('running')
+  expect(started.updatedAt! > edited.updatedAt!).toBe(true)
+  const attached = await catalog.attachSession(task.id, brandString<Branded<'SessionId'>>('session-1'))
+  const attachedAt = attached.updatedAt
+  expect(attached.attempts.at(-1)?.sessionIds).toEqual(['session-1'])
+  await new Promise(resolve => setTimeout(resolve, 5))
+  const repeated = await catalog.attachSession(task.id, brandString<Branded<'SessionId'>>('session-1'))
+  expect(repeated.updatedAt).toBe(attachedAt)
+  await new Promise(resolve => setTimeout(resolve, 5))
+  const second = await catalog.attachSession(task.id, brandString<Branded<'SessionId'>>('session-2'))
+  expect(second.updatedAt! > attachedAt!).toBe(true)
+  await new Promise(resolve => setTimeout(resolve, 5))
+  const reviewed = await catalog.transitionTask(task.id, 'review', 'agent')
+  expect(reviewed.updatedAt! > second.updatedAt!).toBe(true)
+})
+
+it('stamps a new baseline Lock created by startAttempt', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'loom-catalog-')); dirs.push(dir)
+  const repo = join(dir, 'repo'); await mkdir(repo)
+  await exec('git', ['init', '--quiet', repo])
+  await writeFile(join(repo, 'file'), 'one')
+  await exec('git', ['-C', repo, 'add', 'file'])
+  await exec('git', ['-C', repo, '-c', 'user.name=Loom Test', '-c', 'user.email=loom@example.invalid', 'commit', '-qm', 'initial'])
+  const catalog = await createCatalog(join(dir, 'state.json'), async (_repo, ref) => ref === 'main' ? 'a'.repeat(40) : 'b'.repeat(40))
+  const project = await catalog.createProject({ name: 'Git', sources: [{ id: 'web', repo, path: '.' }], modules: [] })
+  const version = await catalog.createVersion(project.id, 'v', [{ sourceId: project.config.sources[0]!.id, ref: 'main' }])
+  const pinned = await catalog.generateLock(version.id)
+  const workspace = await catalog.registerPreparedWorkspace({
+    path: repo, versionId: version.id, lockId: pinned.id, mode: 'direct', rootOwner: 'user',
+    repositories: [{ sourceId: project.config.sources[0]!.id, path: '.', targetPath: repo }],
+  })
+  const task = await catalog.createTask(version.id, 'Changing baseline')
+  await writeFile(join(repo, 'file'), 'two')
+  await exec('git', ['-C', repo, 'add', 'file'])
+  await exec('git', ['-C', repo, '-c', 'user.name=Loom Test', '-c', 'user.email=loom@example.invalid', 'commit', '-qm', 'second'])
+  const started = await catalog.startAttempt(task.id, workspace.id)
+  const baseline = started.attempts.at(-1)?.lock
+  expect(baseline?.id).not.toBe(pinned.id)
+  expect(baseline?.createdAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u)
+  expect(catalog.snapshot().locks.find(candidate => candidate.id === baseline!.id)?.createdAt).toBe(baseline?.createdAt)
 })

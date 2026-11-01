@@ -1,18 +1,20 @@
 /** Workbench context panel over the selected project, version, task and workspace. */
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
 import {
-  Button, IconEditOutlineRegular, IconEllipsisOutlineRegular, IconPlusOutlineRegular, IconTrashOutlineRegular, Menu,
+  Button, DisclosureRow, IconContextInjectionOutlineRegular, IconEditOutlineRegular, IconEllipsisOutlineRegular, IconPlusOutlineRegular, IconTrashOutlineRegular, Menu,
   type MenuEntry,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import type { CatalogSnapshot, GenerateLockRequest, Lock, ProjectRecord, RepositoryBranches, RepositoryBranchesRequest, SourceConfig, TaskRecord, VersionRecord } from 'dsh-workloom/types'
-import { currentWorkspace, type TokenUsageView } from './projection.ts'
+import { currentWorkspace, versionOccupancy, type TokenUsageView, type VersionOccupancyRow } from './projection.ts'
+import { renderVersionContext, type VersionContext } from '../shared/version-context.ts'
 import { LockButton } from './LoomForms.tsx'
 import { LoomDeleteDialog, type DeleteKind } from './LoomDeleteDialog.tsx'
 import { COLORS, failureReport, sectionTitle, shortCommit, thrownFailureReport, type FailureReport, PRIORITY_META, STATUS_META } from './shell.ts'
+import { TaskStatusDot } from './LoomStatusDot.tsx'
 import type { LoomKey } from './locales.ts'
 
-type Translate = (key: LoomKey) => string
+type Translate = (key: LoomKey, params?: Readonly<Record<string, string>>) => string
 
 /** Inputs for the workbench context panel. */
 export interface LoomContextPanelProps {
@@ -21,6 +23,8 @@ export interface LoomContextPanelProps {
   readonly project: ProjectRecord | undefined
   readonly version: VersionRecord | undefined
   readonly task: TaskRecord | undefined
+  /** Shared version-context derivation; the same object the Agent receives. */
+  readonly versionContext?: VersionContext | undefined
   readonly presetName?: string | undefined
   readonly usage: TokenUsageView | undefined
   readonly generateLock: (request: GenerateLockRequest) => Promise<RemoteResult<Lock>>
@@ -36,6 +40,14 @@ export interface LoomContextPanelProps {
   readonly openPath?: ((path: string) => void) | undefined
   /** Native repository branch read, used to show the workspace's actual checkout. */
   readonly loadBranches?: ((request: RepositoryBranchesRequest) => Promise<RemoteResult<RepositoryBranches>>) | undefined
+  /** Tasks with a bound native Session that is actually running; only these animate. */
+  readonly liveTaskIds?: ReadonlySet<string> | undefined
+  /** Sessions whose runtime reports them as running; occupancy only animates for one. */
+  readonly runningSessionIds?: ReadonlySet<string> | undefined
+  /** Optional runtime section (agents, jobs, fork) rendered above the version context. */
+  readonly sessionRuntime?: ReactNode | undefined
+  /** Optional version dependency graph rendered above the version context. */
+  readonly versionGraph?: ReactNode | undefined
 }
 
 const panel: CSSProperties = { display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'auto', background: COLORS.panel, borderLeft: `0.5px solid ${COLORS.border}` }
@@ -61,6 +73,13 @@ const sourceRow: CSSProperties = { display: 'flex', flexDirection: 'column', gap
 const sourceTitle: CSSProperties = { color: COLORS.text, fontSize: 10.5, fontFamily: 'ui-monospace, monospace', overflowWrap: 'anywhere' }
 const moduleRow: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 1, padding: '5px 7px', borderRadius: 5, background: COLORS.panel, border: `0.5px solid ${COLORS.border}` }
 const sourceMeta: CSSProperties = { color: COLORS.faint, fontSize: 9.5, lineHeight: 1.45, overflowWrap: 'anywhere' }
+const ctxBlock: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 }
+const ctxLabel: CSSProperties = { color: COLORS.faint, fontSize: 9.5, lineHeight: 1.45 }
+const ctxDescription: CSSProperties = { margin: 0, color: COLORS.text, fontSize: 10.5, lineHeight: 1.55, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }
+const ctxTaskRow: CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, fontSize: 10.5 }
+const ctxTaskTitle: CSSProperties = { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: COLORS.dim }
+const ctxTaskStatus: CSSProperties = { marginLeft: 'auto', flex: 'none', color: COLORS.faint, fontSize: 9.5 }
+const ctxText: CSSProperties = { margin: '4px 0 0', maxHeight: 200, overflow: 'auto', padding: '7px 8px', borderRadius: 5, border: `0.5px solid ${COLORS.border}`, background: COLORS.panel2, color: COLORS.dim, fontFamily: 'ui-monospace, monospace', fontSize: 9.5, lineHeight: 1.5, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }
 
 function SectionHeading({ title: heading, action }: { title: string; action?: ReactNode }) {
   return <div style={{ display: 'flex', alignItems: 'center', gap: 8, minHeight: 20 }}>
@@ -117,12 +136,59 @@ function RepositoryGraph({ t, source, versionRef, lock }: {
   </div>
 }
 
+/** Version-level shared context: description, same-version tasks, real occupancy and the injected text. */
+function VersionContextSection({ t, context, occupancy, liveTaskIds, runningSessionIds }: {
+  t: Translate
+  context: VersionContext | undefined
+  occupancy: readonly VersionOccupancyRow[]
+  liveTaskIds?: ReadonlySet<string> | undefined
+  runningSessionIds?: ReadonlySet<string> | undefined
+}) {
+  const [open, setOpen] = useState(false)
+  const text = context === undefined ? undefined : renderVersionContext(context)
+  return <section style={section} aria-label={t('ctx.version')}>
+    <SectionHeading title={t('ctx.version')} action={<span style={hint}>{t('ctx.readOnly')}</span>} />
+    {context === undefined
+      ? <p style={muted}>{t('ctx.notInjected')}</p>
+      : <>
+          <div style={ctxBlock}>
+            <span style={ctxLabel}>{t('ctx.versionDescription')}</span>
+            <p style={context.description === '' ? { ...ctxDescription, color: COLORS.faint } : ctxDescription}>{context.description === '' ? t('ctx.noVersionDescription') : context.description}</p>
+          </div>
+          <div style={ctxBlock}>
+            <span style={ctxLabel}>{t('ctx.sameVersionTasks')} · {String(context.sameVersionTasks.length)}</span>
+            {context.sameVersionTasks.length === 0
+              ? <span style={{ ...ctxLabel, color: COLORS.dim }}>{t('ctx.noSameVersionTasks')}</span>
+              : context.sameVersionTasks.map(task => <div key={task.id} style={ctxTaskRow}>
+                  <TaskStatusDot status={task.status} live={liveTaskIds?.has(task.id) === true} />
+                  <span style={ctxTaskTitle} title={task.title}>{task.title}</span>
+                  <span style={ctxTaskStatus}>{t(STATUS_META[task.status].key)}</span>
+                </div>)}
+          </div>
+          <div style={ctxBlock}>
+            <span style={ctxLabel}>{t('ctx.occupancy')}</span>
+            {occupancy.length === 0
+              ? <span style={{ ...ctxLabel, color: COLORS.dim }}>{t('ctx.noOccupancy')}</span>
+              : occupancy.map(entry => <div key={entry.workspaceId} style={ctxTaskRow}>
+                  <TaskStatusDot status={entry.occupied ? 'running' : 'pending'} live={entry.occupied && entry.ownerSessionId !== undefined && runningSessionIds?.has(entry.ownerSessionId) === true} />
+                  <span style={ctxTaskTitle} title={entry.workspaceLabel}>{entry.workspaceLabel}</span>
+                  <span style={ctxTaskStatus}>{entry.occupied ? t('workspace.busy') : t('ctx.ready')}{entry.waiting > 0 ? ` · ${t('ctx.occupancyWaiting', { count: String(entry.waiting) })}` : ''}{entry.takeover ? ` · ${t('execution.stopping')}` : ''}</span>
+                </div>)}
+          </div>
+          {text !== undefined && text !== '' && <DisclosureRow icon={<IconContextInjectionOutlineRegular />} title={t('ctx.modelVisible')} open={open} expandable expandOnRowClick previewChevron onToggle={() => setOpen(value => !value)}>
+            <pre style={ctxText}>{text}</pre>
+          </DisclosureRow>}
+          <p style={hint}>{t('ctx.versionContextHint')}</p>
+        </>}
+  </section>
+}
+
 /**
  * Render the version baseline, task, workspace and cost context without inventing measurements.
  * @param props - catalog records, current selection and owner actions.
  * @returns the aside content for the workbench view.
  */
-export function LoomContextPanel({ t, snapshot, project, version, task, usage, generateLock, onLockChanged, onEditProject, onNewVersion, onEditVersion, onEditTask, onDeleteProject, onDeleteVersion, onDeleteTask, openPath, loadBranches }: LoomContextPanelProps) {
+export function LoomContextPanel({ t, snapshot, project, version, task, versionContext, usage, generateLock, onLockChanged, onEditProject, onNewVersion, onEditVersion, onEditTask, onDeleteProject, onDeleteVersion, onDeleteTask, openPath, loadBranches, liveTaskIds, runningSessionIds, sessionRuntime, versionGraph }: LoomContextPanelProps) {
   const [pendingDelete, setPendingDelete] = useState<DeleteKind>()
   const [deleting, setDeleting] = useState(false)
   const [deleteFailure, setDeleteFailure] = useState<FailureReport>()
@@ -198,6 +264,8 @@ export function LoomContextPanel({ t, snapshot, project, version, task, usage, g
       </div>
       {project !== undefined && <p style={subtitle}>{project.config.name}</p>}
     </header>
+    {sessionRuntime}
+    {versionGraph}
     {project === undefined ? <section style={section}><p style={muted}>{snapshot.projects.length === 0 ? t('project.empty') : t('ctx.selectProject')}</p></section> : <>
       <section style={section}>
         <SectionHeading title={t('ctx.baseline')} action={<span style={{ ...hint, fontFamily: 'ui-monospace, monospace' }}>{t('ctx.lockRepos').replace('{count}', String(count))}</span>} />
@@ -208,6 +276,7 @@ export function LoomContextPanel({ t, snapshot, project, version, task, usage, g
           <p style={hint}>{t('ctx.baselineHint')}</p>
         </div>}
       </section>
+      {version !== undefined && <VersionContextSection t={t} context={versionContext} occupancy={versionOccupancy(snapshot, version.id)} liveTaskIds={liveTaskIds} runningSessionIds={runningSessionIds} />}
       {task !== undefined && <section style={section}>
         <SectionHeading title={t('task.details')} action={onEditTask === undefined ? undefined : <IconAction label={t('task.edit')} icon={<IconEditOutlineRegular />} onClick={onEditTask} />} />
         <Row k={t('task.name')} v={task.title} mono={false} />
@@ -215,7 +284,7 @@ export function LoomContextPanel({ t, snapshot, project, version, task, usage, g
         <Row k={t('task.priority')} v={t(PRIORITY_META[task.priority ?? 'normal'].key)} mono={false} />
         <Row k={t('attempt.current')} v={String(task.attempts.length)} />
       </section>}
-      <section style={section}>
+      {task !== undefined && <section style={section}>
         <SectionHeading title={t('ctx.workspace')} />
         {workspace === undefined ? <p style={muted}>{t('workspace.empty')}</p> : <>
           <Row k={t('ctx.workspaceRoot')} v={workspace.path} wrap={false} />
@@ -230,7 +299,7 @@ export function LoomContextPanel({ t, snapshot, project, version, task, usage, g
             <span style={sourceMeta}>{t('ctx.workspaceBranch')}: {branchLabel(binding.sourceId)}</span>
           </div>)}
         </>}
-      </section>
+      </section>}
       <section style={section}>
         <SectionHeading title={t('ctx.modules')} action={<span style={hint}>{String(project.config.modules.length)}</span>} />
         {project.config.modules.length === 0 ? <p style={muted}>{t('task.noModules')}</p> : project.config.modules.map(module => {

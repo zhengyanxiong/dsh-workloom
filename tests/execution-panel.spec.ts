@@ -56,6 +56,7 @@ const actions: ExecutionActions = {
   acquireExecution: () => Promise.reject(new Error('unused')),
   releaseExecution: () => Promise.reject(new Error('unused')),
   takeoverExecution: () => Promise.reject(new Error('unused')),
+  loadSnapshot: () => Promise.reject(new Error('unused')),
   onSession: () => {},
   onChanged: () => {},
 }
@@ -64,43 +65,45 @@ const diffProps = {
   wrap: false,
   onToggleWrap: () => {},
 }
-it('offers the start form only for a startable task with a Lock', () => {
+it('offers only existing workspaces for a startable task', () => {
   const html = renderToStaticMarkup(createElement(ExecutionPanel, { t, task: pending, snapshot, selectedSession: undefined, actions, ...diffProps }))
   expect(html).toContain(en['task.start'])
-  expect(html).toContain(en['workspace.mode.managed'])
-  expect(html).toContain(en['workspace.mode.direct'])
+  expect(html).toContain(en['task.workspace'])
+  expect(html).toContain(workspace.path)
+  expect(html).not.toContain(en['workspace.mode.managed'])
+  expect(html).not.toContain(en['workspace.mode.direct'])
   expect(html).not.toContain(en['task.accept'])
 })
-it('highlights the selected workspace mode instead of the others', () => {
+it('does not offer workspace creation controls inside a task', () => {
   const html = renderToStaticMarkup(createElement(ExecutionPanel, { t, task: pending, snapshot, selectedSession: undefined, actions, ...diffProps }))
-  const styles = [...html.matchAll(/<button[^>]*role="radio"[^>]*style="([^"]*)"/gu)].map(match => match[1])
-  expect(styles).toHaveLength(4)
-  const selected = styles.filter(style => style.includes('border-color:var(--loom-accent)'))
-  expect(selected).toHaveLength(1)
-  expect(selected[0]).toContain('background:var(--loom-selected)')
-  expect(styles.filter(style => style.includes('1px solid var(--loom-border)'))).toHaveLength(4)
-  expect(styles.filter(style => style.includes('border-color:'))).toHaveLength(4)
-  expect(html.match(/aria-checked="true"/gu)).toHaveLength(1)
-  expect(html).toContain('<svg')
+  expect(html).not.toContain(en['workspace.mode.managed'])
+  expect(html).not.toContain(en['workspace.mode.direct'])
+  expect(html).not.toContain(en['workspace.mode.linked'])
+  expect(html).not.toContain(en['workspace.new'])
+  expect(html).not.toContain('Create independent workspace')
 })
-it('explains a missing Lock instead of offering an unusable start button', () => {
-  const html = renderToStaticMarkup(createElement(ExecutionPanel, { t, task: pending, snapshot: { ...snapshot, locks: [] }, selectedSession: undefined, actions, ...diffProps }))
-  expect(html).toContain(en['lock.empty'])
-  expect(html).not.toContain(en['task.start'])
+it('asks for a version workspace instead of creating one in the task', () => {
+  const html = renderToStaticMarkup(createElement(ExecutionPanel, { t, task: pending, snapshot: { ...snapshot, workspaces: [], locks: [] }, selectedSession: undefined, actions, ...diffProps }))
+  expect(html).toContain(en['task.workspaceRequired'])
+  expect(html).toContain(en['version.workspaceEmpty'])
+  expect(html).not.toContain(en['workspace.mode.managed'])
 })
-it('shows the running round and its agent transition', () => {
+it('shows the running round and session controls without duplicating task transitions', () => {
   const html = renderToStaticMarkup(createElement(ExecutionPanel, { t, task: running, snapshot, selectedSession: undefined, actions, ...diffProps }))
   expect(html).toContain(workspace.path)
-  expect(html).toContain(en['task.review'])
-  expect(html).toContain(en['task.fail'])
+  expect(html).toContain(en['session.continue'])
+  expect(html).not.toContain(en['task.review'])
+  expect(html).not.toContain(en['task.accept'])
+  expect(html).not.toContain(en['task.fail'])
   expect(html).toContain(en['workspace.cleanup'])
   expect(html).not.toContain(en['task.start'])
 })
-it('requires human confirmation from review', () => {
+it('leaves review transitions to the outcome panel and does not duplicate them here', () => {
   const html = renderToStaticMarkup(createElement(ExecutionPanel, { t, task: { ...running, status: 'review' }, snapshot, selectedSession: undefined, actions, ...diffProps }))
-  expect(html).toContain(en['task.accept'])
-  expect(html).toContain(en['task.continue'])
-  expect(html).toContain(en['task.fail'])
+  expect(html).toContain(en['session.continue'])
+  expect(html).not.toContain(en['task.continue'])
+  expect(html).not.toContain(en['task.accept'])
+  expect(html).not.toContain(en['task.fail'])
 })
 
 it('shows waiting and takeover controls when another Session owns the workspace', () => {
@@ -133,9 +136,9 @@ it('offers a failed task its retained matching workspace for a new attempt', () 
     attempts: [{ id: brandString<'loom.attempt'>('a1'), lock, workspaceId: workspace.id, sessionIds: [], status: 'failed' }],
   }
   const html = renderToStaticMarkup(createElement(ExecutionPanel, { t, task: failed, snapshot, selectedSession: undefined, actions, ...diffProps }))
-  expect(html).toContain(en['workspace.reuse'])
   expect(html).toContain(workspace.path)
   expect(html).toContain(en['task.start'])
+  expect(html).not.toContain(en['workspace.mode.managed'])
 })
 it('does not offer a cleaned workspace', () => {
   const failed: TaskRecord = {
@@ -165,7 +168,7 @@ it('offers an idle workspace owned by another task in the same version', () => {
   expect(html).toContain(workspace.path)
   expect(html).not.toContain(en['workspace.busy'])
 })
-it('disables a workspace while another Session owns execution on it', () => {
+it('offers a busy workspace so the new Session can queue for execution', () => {
   const other: TaskRecord = {
     ...pending,
     id: brandString<TaskRecord['id']>('t2'),
@@ -179,8 +182,8 @@ it('disables a workspace while another Session owns execution on it', () => {
     snapshot: { ...snapshot, tasks: [pending, other], executions: [{ workspaceId: workspace.id, generation: brandNumber<'loom.execution-generation'>(1), owner, waiting: [], takeover: null }] },
   }))
   expect(html).toContain(workspace.path)
-  expect(html).toContain(en['workspace.busy'])
-  expect(html).toContain('disabled')
+  expect(html).toContain(en['task.start'])
+  expect(html).not.toContain(en['workspace.busy'])
 })
 
 it('acts for the selected Session rather than the task’s last attached Session', () => {
@@ -214,13 +217,11 @@ it('builds the composer draft from the task title and optional requirements', ()
   expect(taskDraftPrompt(t, pending)).not.toContain(en['task.draftDescription'])
 })
 
-it('offers a branch picker and draft hint when a new workspace will be created', () => {
+it('reports that the version must provide a workspace', () => {
   const html = renderToStaticMarkup(createElement(ExecutionPanel, {
-    t, task: pending, snapshot: { ...snapshot, workspaces: [], projects: [{ id: brandString<'loom.project'>('p1'), config: { name: 'Shop', sources: [{ id: lock.repositories[0]!.sourceId, repo: brandString<'loom.repo'>('/repo'), path: 'web' }], modules: [] } }] }, selectedSession: undefined, actions, ...diffProps,
+    t, task: pending, snapshot: { ...snapshot, workspaces: [], locks: [] }, selectedSession: undefined, actions, ...diffProps,
   }))
-  expect(html).toContain(en['source.branch'])
-  expect(html).toContain(en['branch.load'])
-  expect(html).toContain(en['workspace.mode.managedHint'])
-  expect(html).toContain(en['workspace.branchHint'])
-  expect(html).toContain(en['task.draftHint'])
+  expect(html).toContain(en['task.workspaceRequired'])
+  expect(html).not.toContain(en['source.branch'])
+  expect(html).not.toContain(en['workspace.mode.managedHint'])
 })

@@ -1,6 +1,6 @@
 /** Process-wide operation notices rendered by the shell overlay. */
 import type { LoomKey } from './locales.ts'
-import { failureReport } from './shell.ts'
+import { failureReport, thrownFailureReport } from './shell.ts'
 
 /** Visual status of one transitory operation notice. */
 export type LoomNoticeTone = 'success' | 'error'
@@ -71,11 +71,28 @@ export function getLoomNotices(): readonly LoomNotice[] {
 
 /**
  * Report one remote operation failure through the shared notice surface.
+ * The notice names the operation so a failure on a shared board or dialog says
+ * which command did not take effect, and keeps the Host diagnostic for unknown codes.
  * @param t - Locale-bound translator.
  * @param failure - Wire code and message returned by a Workloom remote method.
+ * @param operation - Optional localized operation name (`op.transition`, …).
  */
-export function reportLoomFailure(t: (key: LoomKey) => string, failure: { readonly code: string; readonly message: string }): void {
+export function reportLoomFailure(t: (key: LoomKey) => string, failure: { readonly code: string; readonly message: string }, operation?: string): void {
   const report = failureReport(failure.code, failure.message)
   const detail = report.detail === undefined ? t(report.message) : `${t(report.message)} · ${report.detail}`
-  pushLoomNotice('error', t('notice.operationFailed'), detail)
+  pushLoomNotice('error', operation === undefined ? t('notice.operationFailed') : `${t('notice.operationFailed')} · ${operation}`, detail)
+}
+
+/**
+ * Report one thrown operation failure, keeping the thrown diagnostic for unknown causes.
+ * Workloom remotes return wire results; a rejection means the call itself broke, so the
+ * notice still names the operation and promises that no unconfirmed state is shown as success.
+ * @param t - Locale-bound translator.
+ * @param error - Rejection value from a Remote call or a native action.
+ * @param operation - Optional localized operation name.
+ */
+export function reportLoomThrown(t: (key: LoomKey) => string, error: unknown, operation?: string): void {
+  const report = thrownFailureReport(error)
+  const detail = report.detail === undefined ? t(report.message) : `${t(report.message)} · ${report.detail}`
+  pushLoomNotice('error', operation === undefined ? t('notice.operationFailed') : `${t('notice.operationFailed')} · ${operation}`, detail)
 }

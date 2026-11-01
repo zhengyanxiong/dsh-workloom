@@ -18,13 +18,14 @@ import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type {} from '@deepseek-ai/dsh-api-gateway/client'
 // Load the mounted Client Remote namespaces (`session`, `directoryPicker`, `workspaceFiles`, …).
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
-import type { AttachSessionRequest, CleanupWorkspaceRequest, CreateTaskRequest, CreateVersionRequest, DeleteProjectRequest, DeleteTaskRequest, DeleteVersionRequest, GenerateLockRequest, PrepareWorkspaceRequest, ProjectConfig, StartAttemptRequest, TransitionTaskRequest, WorkspaceChangesRequest, ExecutionRequest, ReleaseExecutionRequest, UpdateProjectRequest, UpdateVersionRequest, UpdateTaskRequest, RegisterTemporarySessionRequest, RegisterWorkspaceRequest, RepositoryBranchesRequest, InspectWorkspaceRequest } from 'dsh-workloom/types'
+import type { AttachSessionRequest, CleanupWorkspaceRequest, CommitWorkspaceRequest, CreateTaskRequest, CreateVersionRequest, DeleteProjectRequest, DeleteTaskRequest, DeleteVersionRequest, GenerateLockRequest, PrepareWorkspaceRequest, ProjectConfig, StartAttemptRequest, TransitionTaskRequest, WorkspaceChangesRequest, WorkspaceStatusResult, ExecutionRequest, ReleaseExecutionRequest, UpdateProjectRequest, UpdateVersionRequest, UpdateTaskRequest, UpdateWorkspaceRequest, DeleteWorkspaceRequest, RegisterTemporarySessionRequest, RegisterWorkspaceRequest, RepositoryBranchesRequest, InspectWorkspaceRequest } from 'dsh-workloom/types'
 import { LoomPanel, type LoomInjected } from './LoomPanel.tsx'
 import { LoomMark } from './LoomMark.tsx'
 import { LoomNoticeHost } from './LoomNoticeHost.tsx'
 import { pushLoomNotice, reportLoomFailure } from './feedback.ts'
 import { ConversationEmbed } from './conversation/ConversationEmbed.tsx'
-import { openReviewPreview, reviewIndexFromOptions, reviewTargetFromAddress } from './preview.ts'
+import type { LoomJobsFace } from './LoomSessionActivity.tsx'
+import { openFilePreview, openReviewPreview, routeLoomResource } from './preview.ts'
 import { NS, en, zh, type LoomKey } from './locales.ts'
 
 const PANEL_ID = 'loom' as MainPanelId
@@ -98,13 +99,8 @@ export function apply(ctx: ClientContext): void {
       const controller = ui.sidebarRight
       const original = controller.openResource
       controller.openResource = function (address, options) {
-        if (ui.layout.panelInfo.getSnapshot().activePanelId === PANEL_ID) {
-          const review = reviewTargetFromAddress(address, reviewIndexFromOptions(options))
-          if (review !== undefined) {
-            openReviewPreview(review)
-            return
-          }
-        }
+        if (ui.layout.panelInfo.getSnapshot().activePanelId === PANEL_ID
+          && routeLoomResource(address, options, { openFile: openFilePreview, openReview: openReviewPreview })) return
         original.call(controller, address, options)
       }
       return () => { controller.openResource = original }
@@ -149,9 +145,11 @@ export function apply(ctx: ClientContext): void {
         deleteTask: (request: DeleteTaskRequest) => notified(ui.remote.loom.deleteTask(request), 'notice.taskDeleted'),
         generateLock: (request: GenerateLockRequest) => notified(ui.remote.loom.generateLock(request), 'notice.lockGenerated'),
         prepareWorkspace: (request: PrepareWorkspaceRequest) => notified(ui.remote.loom.prepareWorkspace(request)),
+        prepareWorkspaceSilent: (request: PrepareWorkspaceRequest) => ui.remote.loom.prepareWorkspace(request),
         registerWorkspace: (request: RegisterWorkspaceRequest) => notified(ui.remote.loom.registerWorkspace(request)),
         repositoryBranches: (request: RepositoryBranchesRequest) => ui.remote.loom.repositoryBranches(request),
         inspectWorkspace: (request: InspectWorkspaceRequest) => ui.remote.loom.inspectWorkspace(request),
+        workspaceStatus: (request: WorkspaceChangesRequest): Promise<RemoteResult<WorkspaceStatusResult>> => ui.remote.loom.workspaceStatus(request),
         pickDirectory: async () => {
           const result = await ui.remote.directoryPicker.pick()
           if (!result.ok) throw new Error(`${result.error.code}: ${result.error.message}`)
@@ -192,7 +190,13 @@ export function apply(ctx: ClientContext): void {
           const result = await ui.remote.session.openWorkspacePath({ path, application })
           return result.ok
         },
+        commitWorkspace: (request: CommitWorkspaceRequest) => ui.remote.loom.commitWorkspace(request),
+        forkSession: async request => ui.sessions.fork(request),
+        jobs: ui.get('jobs') as LoomJobsFace | undefined,
+        updateWorkspace: (request: UpdateWorkspaceRequest) => ui.remote.loom.updateWorkspace(request),
+        deleteWorkspace: (request: DeleteWorkspaceRequest) => ui.remote.loom.deleteWorkspace(request),
         cleanupWorkspace: (request: CleanupWorkspaceRequest) => notified(ui.remote.loom.cleanupWorkspace(request), 'notice.workspaceCleaned'),
+        cleanupWorkspaceSilent: (request: CleanupWorkspaceRequest) => ui.remote.loom.cleanupWorkspace(request),
         acquireExecution: (request: ExecutionRequest) => notified(ui.remote.loom.acquireExecution(request)),
         releaseExecution: (request: ReleaseExecutionRequest) => notified(ui.remote.loom.releaseExecution(request)),
         takeoverExecution: (request: ExecutionRequest) => notified(ui.remote.loom.takeoverExecution(request)),

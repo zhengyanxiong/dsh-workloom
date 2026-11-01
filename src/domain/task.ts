@@ -6,7 +6,17 @@ import type { WorkspaceMode, WorkspaceRepositoryBinding } from './workspace.ts'
 export interface Lock {
   readonly id: Branded<'loom.lock'>
   readonly versionId: Branded<'loom.version'>
-  readonly repositories: readonly { readonly sourceId: Branded<'loom.source'>; readonly commit: string }[]
+  readonly repositories: readonly {
+    readonly sourceId: Branded<'loom.source'>
+    readonly commit: string
+    readonly subProjectId?: Branded<'loom.subproject'> | undefined
+  }[]
+  /**
+   * ISO 8601 generation time when the Host recorded one. Absent on Locks
+   * persisted before this field existed; catalog array order, never this value,
+   * defines which Lock is the latest.
+   */
+  readonly createdAt?: string | undefined
 }
 
 /** Workspace identity and the baseline from which its mutable code began. */
@@ -32,6 +42,57 @@ export interface Attempt {
   readonly workspaceId: Workspace['id']
   readonly sessionIds: readonly Branded<'SessionId'>[]
   readonly status: Exclude<TaskStatus, 'pending'>
+}
+
+/** One real test execution recorded as completion evidence. */
+export interface TaskTestResult {
+  /** Test file, suite or command label the caller can identify. */
+  readonly name: string
+  readonly status: 'passed' | 'failed' | 'skipped'
+  /** Optional exact command, e.g. `pnpm exec vitest run tests/task.spec.ts`. */
+  readonly command?: string | undefined
+  /** Short real diagnostic; never a placeholder. */
+  readonly detail?: string | undefined
+}
+
+/** Structured completion evidence an Agent or human attached to one task round. */
+export interface TaskEvidence {
+  /** The Agent's own summary of what it did. */
+  readonly agentSummary?: string | undefined
+  /** Items the author claims are complete. */
+  readonly completed?: readonly string[] | undefined
+  /** Items the author knows are still open. */
+  readonly notDone?: readonly string[] | undefined
+  /** Known risks the reviewer should weigh. */
+  readonly risks?: readonly string[] | undefined
+  /** Blast radius: modules, repositories or user flows the change touches. */
+  readonly impact?: readonly string[] | undefined
+  /** Only results that actually ran; absent means no test evidence exists. */
+  readonly testResults?: readonly TaskTestResult[] | undefined
+}
+
+/** Suggested or human-confirmed completion evidence; Agent state alone never completes a task. */
+export interface TaskOutcome extends TaskEvidence {
+  /** `suggested` is Agent-only and advisory; a human transition records accepted or rejected. */
+  readonly state: 'suggested' | 'accepted' | 'rejected'
+  /** Target the Agent suggested: enter review, or report failure. Never `completed`. */
+  readonly suggestedStatus?: 'review' | 'failed' | undefined
+  /** Trusted identity that authored the suggestion. */
+  readonly suggestedBy?: 'agent' | 'human' | 'system' | undefined
+  /** ISO 8601 time the suggestion was recorded. */
+  readonly at?: string | undefined
+  /** Session whose Agent produced the suggestion. */
+  readonly sessionId?: string | undefined
+  /** Round the suggestion belongs to; absent on records persisted before outcomes existed. */
+  readonly attemptId?: string | undefined
+  /** Stated reason for the suggestion. */
+  readonly basis?: string | undefined
+  /** ISO 8601 time a human confirmed or rejected the suggestion. */
+  readonly confirmedAt?: string | undefined
+  /** Actor that confirmed or rejected the suggestion; the UI must never imply the Agent did. */
+  readonly confirmedBy?: 'human' | 'agent' | 'system' | undefined
+  /** Human rationale recorded with the confirmation decision. */
+  readonly confirmationBasis?: string | undefined
 }
 
 /** Version-owned task with append-only round history. */

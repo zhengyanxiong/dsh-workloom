@@ -1,9 +1,9 @@
 /** Kanban view with metrics, project swimlanes and the overview panel. */
 import { useRef, type CSSProperties } from 'react'
-import { IconFolderCloseRegular, IconSearchOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconCloseOutlineRegular, IconFolderCloseRegular, IconSearchOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { CatalogSnapshot, ProjectRecord, TaskRecord } from 'dsh-workloom/types'
 import type { BoardColumn } from './board.ts'
-import { boardMetrics, boundSessions, flatBoard, projectLanes, type ShellFilter } from './projection.ts'
+import { boardBlockers, boardMetrics, boundSessions, flatBoard, projectLanes, type ShellFilter } from './projection.ts'
 import { AUDIT_LABEL, canMoveTask, COLORS, metaLine, sectionTitle, select, shortCommit, PRIORITY_META, STATUS_META, STATUS_ORDER } from './shell.ts'
 import type { LoomKey } from './locales.ts'
 
@@ -19,15 +19,20 @@ export interface LoomKanbanProps {
   readonly mode: 'flat' | 'grouped'
   readonly projectValue: string
   readonly versionValue: string
+  readonly statusValue: string
   readonly priorityValue: string
   readonly moduleValue: string
   readonly searchValue: string
+  /** Advisory work-in-progress limit; crossing it warns and never blocks a card. */
+  readonly wipLimit: number
   readonly onMode: (mode: 'flat' | 'grouped') => void
   readonly onProject: (value: string) => void
   readonly onVersion: (value: string) => void
+  readonly onStatus: (value: string) => void
   readonly onPriority: (value: string) => void
   readonly onModule: (value: string) => void
   readonly onSearch: (value: string) => void
+  readonly onClearFilters: () => void
   readonly onSelect: (task: TaskRecord) => void
   readonly onMove: (task: TaskRecord, target: TaskRecord['status']) => void
   readonly onNewCard: (project: ProjectRecord) => void
@@ -83,9 +88,10 @@ function Card({ task, versionName, sessions, live, versionProjects, moduleNamesB
   </button>
 }
 
-function Column({ column, t, versionNames, versionProjects, moduleNamesByProject, sessionCounts, liveTaskIds, onSelect, onDropTask }: {
+function Column({ column, t, wipLimit, versionNames, versionProjects, moduleNamesByProject, sessionCounts, liveTaskIds, onSelect, onDropTask }: {
   column: BoardColumn
   t: Translate
+  wipLimit: number
   versionNames: ReadonlyMap<string, string>
   versionProjects: ReadonlyMap<string, string>
   moduleNamesByProject: ReadonlyMap<string, ReadonlyMap<string, string>>
@@ -95,6 +101,7 @@ function Column({ column, t, versionNames, versionProjects, moduleNamesByProject
   onDropTask: (taskId: TaskRecord['id'], target: TaskRecord['status']) => void
 }) {
   const meta = STATUS_META[column.status]
+  const overLimit = column.status === 'running' && column.tasks.length > wipLimit
   return <div
     role="group"
     aria-label={t(meta.key)}
@@ -105,7 +112,7 @@ function Column({ column, t, versionNames, versionProjects, moduleNamesByProject
       <span style={{ width: 5, height: 5, borderRadius: 999, background: meta.color, flex: 'none' }} />
       <span style={{ color: COLORS.dim, whiteSpace: 'nowrap' }}>{t(meta.key)}</span>
       <span style={{ marginLeft: 'auto', padding: '1px 4px', border: `0.5px solid ${COLORS.border}`, borderRadius: 5, background: COLORS.panel, color: COLORS.faint, font: '9px/1.15 ui-monospace, monospace' }}>{String(column.tasks.length)}</span>
-      {column.status === 'running' && <span style={{ fontSize: 8.5, color: COLORS.warn, background: 'color-mix(in srgb, var(--dsw-alias-state-warn-primary) 12%, transparent)', borderRadius: 3, padding: '1px 4px' }}>{t('kb.wip')}</span>}
+      {column.status === 'running' && <span title={t('kb.wipHint')} style={{ fontSize: 8.5, color: overLimit ? COLORS.error : COLORS.warn, background: overLimit ? 'color-mix(in srgb, var(--dsw-alias-state-error-primary) 14%, transparent)' : 'color-mix(in srgb, var(--dsw-alias-state-warn-primary) 12%, transparent)', borderRadius: 3, padding: '1px 4px' }}>{t('kb.wipCount').replace('{count}', String(column.tasks.length)).replace('{limit}', String(wipLimit))}</span>}
     </div>
     <div style={{ display: 'flex', flexDirection: 'column', gap: 5, padding: 6, flex: 1, minHeight: 0, overflowY: 'auto' }}>
       {column.tasks.length === 0 && <span style={{ ...metaLine, textAlign: 'center', padding: '12px 5px', border: `0.5px dashed ${COLORS.border}`, borderRadius: 5, fontSize: 9.5 }}>{t('kb.empty')}</span>}
@@ -120,8 +127,10 @@ function Column({ column, t, versionNames, versionProjects, moduleNamesByProject
  * @returns the board view.
  */
 export function LoomKanban(props: LoomKanbanProps) {
-  const { t, snapshot, liveTaskIds = new Set(), filter, mode, projectValue, versionValue, priorityValue, moduleValue, searchValue, onMode, onProject, onVersion, onPriority, onModule, onSearch, onSelect, onMove, onNewCard } = props
+  const { t, snapshot, liveTaskIds = new Set(), filter, mode, projectValue, versionValue, statusValue, priorityValue, moduleValue, searchValue, wipLimit, onMode, onProject, onVersion, onStatus, onPriority, onModule, onSearch, onClearFilters, onSelect, onMove, onNewCard } = props
   const metrics = boardMetrics(snapshot, filter)
+  const overWip = metrics.running > wipLimit
+  const hasFilters = projectValue !== '' || versionValue !== '' || statusValue !== '' || priorityValue !== '' || moduleValue !== '' || searchValue.trim() !== ''
   const versionNames = new Map(snapshot.versions.map(version => [version.id, version.name]))
   const versionProjects = new Map(snapshot.versions.map(version => [version.id, version.projectId]))
   const moduleNamesByProject = new Map(snapshot.projects.map(project => [project.id, new Map(project.config.modules.map(module => [module.id, module.path]))]))
@@ -143,6 +152,11 @@ export function LoomKanban(props: LoomKanbanProps) {
         <Metric value={metrics.activeSessions} label={t('kb.activeSessions')} />
         <Metric value={metrics.review} label={t('kb.review')} color={COLORS.purple} />
         <Metric value={metrics.completed} label={t('kb.completed')} color={COLORS.green} />
+        <span role="status" title={t('kb.wipHint')} style={{ marginLeft: 'auto', padding: '0 10px', fontSize: 10, color: overWip ? COLORS.error : COLORS.faint, whiteSpace: 'nowrap' }}>
+          {overWip
+            ? t('kb.wipExceeded').replace('{count}', String(metrics.running)).replace('{limit}', String(wipLimit))
+            : t('kb.wipWithin').replace('{count}', String(metrics.running)).replace('{limit}', String(wipLimit))}
+        </span>
       </div>
       <div style={filterBar}>
         <select aria-label={t('top.project')} value={projectValue} onChange={event => { onProject(event.target.value) }} style={filterChip}>
@@ -152,6 +166,10 @@ export function LoomKanban(props: LoomKanbanProps) {
         <select aria-label={t('top.version')} value={versionValue} onChange={event => { onVersion(event.target.value) }} style={filterChip}>
           <option value="">{t('top.allVersions')}</option>
           {versions.map(version => <option key={version.id} value={version.id}>{version.name}</option>)}
+        </select>
+        <select aria-label={t('kb.status')} value={statusValue} onChange={event => onStatus(event.target.value)} style={filterChip}>
+          <option value="">{t('kb.allStatuses')}</option>
+          {STATUS_ORDER.map(status => <option key={status} value={status}>{t(STATUS_META[status].key)}</option>)}
         </select>
         <select aria-label={t('kb.priority')} value={priorityValue} onChange={event => onPriority(event.target.value)} style={filterChip}>
           <option value="">{t('kb.priority')}</option>
@@ -171,6 +189,9 @@ export function LoomKanban(props: LoomKanbanProps) {
           <button type="button" aria-pressed={mode === 'grouped'} onClick={() => onMode('grouped')} style={{ ...modeButton, ...(mode === 'grouped' ? { background: COLORS.panel, color: COLORS.text, boxShadow: '0 1px 2px rgba(15,17,21,.10)' } : {}) }}>{t('kb.grouped')}</button>
           <button type="button" aria-pressed={mode === 'flat'} onClick={() => onMode('flat')} style={{ ...modeButton, ...(mode === 'flat' ? { background: COLORS.panel, color: COLORS.text, boxShadow: '0 1px 2px rgba(15,17,21,.10)' } : {}) }}>{t('kb.flat')}</button>
         </div>
+        {hasFilters && <button type="button" aria-label={t('kb.clearFilters')} title={t('kb.clearFilters')} onClick={onClearFilters} style={{ ...filterChip, display: 'inline-flex', alignItems: 'center', gap: 4, cursor: 'pointer', color: COLORS.dim }}>
+          <IconCloseOutlineRegular size={10} />{t('kb.clearFilters')}
+        </button>}
       </div>
     </div>
     <div style={boardArea}>
@@ -185,13 +206,13 @@ export function LoomKanban(props: LoomKanbanProps) {
                 <button type="button" style={{ marginLeft: 'auto', border: 'none', background: 'transparent', color: COLORS.faint, font: 'inherit', fontSize: 9.5, cursor: 'pointer', padding: '2px 0' }} onClick={() => onNewCard(project)}>＋ {t('kb.newCard')}</button>
               </div>
               <div className="loom-kb-columns" style={columnsGrid}>
-                {columns.map(column => <Column key={column.status} column={column} t={t} versionNames={versionNames} versionProjects={versionProjects} moduleNamesByProject={moduleNamesByProject} sessionCounts={sessionCounts} liveTaskIds={liveTaskIds} onSelect={onSelect} onDropTask={handleDrop} />)}
+                {columns.map(column => <Column key={column.status} column={column} t={t} wipLimit={wipLimit} versionNames={versionNames} versionProjects={versionProjects} moduleNamesByProject={moduleNamesByProject} sessionCounts={sessionCounts} liveTaskIds={liveTaskIds} onSelect={onSelect} onDropTask={handleDrop} />)}
               </div>
             </div>)}
             {lanes.length === 0 && <p style={metaLine}>{t('kb.empty')}</p>}
           </div>
         : <div className="loom-kb-columns" style={{ ...columnsGrid, flex: 1, minHeight: 210, marginTop: 0 }}>
-            {flat.map(column => <Column key={column.status} column={column} t={t} versionNames={versionNames} versionProjects={versionProjects} moduleNamesByProject={moduleNamesByProject} sessionCounts={sessionCounts} liveTaskIds={liveTaskIds} onSelect={onSelect} onDropTask={handleDrop} />)}
+            {flat.map(column => <Column key={column.status} column={column} t={t} wipLimit={wipLimit} versionNames={versionNames} versionProjects={versionProjects} moduleNamesByProject={moduleNamesByProject} sessionCounts={sessionCounts} liveTaskIds={liveTaskIds} onSelect={onSelect} onDropTask={handleDrop} />)}
           </div>}
     </div>
   </div>
@@ -209,6 +230,13 @@ export function LoomKanbanAside({ t, snapshot, filter, onSelectSession }: { t: T
     projectTasks.set(project.id, snapshot.tasks.filter(task => versionIds.has(task.versionId)).length)
   }
   const recent = [...snapshot.audit].reverse().slice(0, 4)
+  const blockers = boardBlockers(snapshot, filter)
+  const blockedGroups = ([
+    { key: 'approval', title: 'kb.blockedApproval', rows: blockers.approval },
+    { key: 'workspace', title: 'kb.blockedWorkspace', rows: blockers.workspace },
+    { key: 'takeover', title: 'kb.blockedTakeover', rows: blockers.takeover },
+    { key: 'other', title: 'kb.blockedOther', rows: blockers.other },
+  ] as const).filter(group => group.rows.length > 0)
   const stat = (value: number, label: string, color?: string) => <div style={{ background: COLORS.panel, border: `0.5px solid ${COLORS.border}`, borderRadius: 7, padding: '8px 9px' }}><div style={{ fontWeight: 400, fontFamily: 'ui-monospace, monospace', fontSize: 16, lineHeight: 1, color: color ?? COLORS.text }}>{String(value)}</div><div style={{ ...metaLine, marginTop: 4, fontSize: 9.5 }}>{label}</div></div>
   return <div style={{ overflow: 'auto', flex: 1 }}>
     <div style={{ padding: '12px 14px 9px', borderBottom: `0.5px solid ${COLORS.border}` }}>
@@ -238,6 +266,18 @@ export function LoomKanbanAside({ t, snapshot, filter, onSelectSession }: { t: T
       <h4 style={sectionTitle}>{t('kb.panelReview')}</h4>
       {reviews.length === 0 && <p style={metaLine}>{t('kb.panelNone')}</p>}
       {reviews.map(task => <p key={task.id} style={{ margin: '5px 0 0', fontSize: 10.5, lineHeight: 1.45, color: COLORS.dim, overflowWrap: 'anywhere' }}>{task.title}</p>)}
+    </section>
+    <section style={{ borderBottom: `0.5px solid ${COLORS.border}`, padding: '10px 14px' }}>
+      <h4 style={sectionTitle}>{t('kb.blocked')}</h4>
+      {blockedGroups.length === 0 && <p style={metaLine}>{t('kb.blockedNone')}</p>}
+      {blockedGroups.map(group => <div key={group.key} style={{ marginTop: 7 }}>
+        <div style={{ ...metaLine, fontSize: 9, color: COLORS.dim }}>{t(group.title)} · {String(group.rows.length)}</div>
+        {group.rows.slice(0, 5).map(row => <div key={`${group.key}:${row.task.id}`} style={{ display: 'flex', flexDirection: 'column', gap: 1, marginTop: 4, paddingLeft: 7, borderLeft: `1.5px solid ${COLORS.borderStrong}` }}>
+          <span style={{ fontSize: 10.5, color: COLORS.text, lineHeight: 1.4, overflowWrap: 'anywhere' }}>{row.task.title}</span>
+          <span style={{ ...metaLine, fontSize: 9 }}>{t(row.reason)}</span>
+        </div>)}
+        {group.rows.length > 5 && <div style={{ ...metaLine, fontSize: 9, marginTop: 3 }}>+{String(group.rows.length - 5)}</div>}
+      </div>)}
     </section>
     <section style={{ borderBottom: `0.5px solid ${COLORS.border}`, padding: '10px 14px' }}>
       <h4 style={sectionTitle}>{t('kb.projects')}</h4>

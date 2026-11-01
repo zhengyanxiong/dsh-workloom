@@ -11,6 +11,7 @@ export type WorkspaceRepositoryKind = 'worktree' | 'direct' | 'link'
 /** One repository's logical path and its real physical directory. */
 export interface WorkspaceRepositoryBinding {
   readonly sourceId: Branded<'loom.source'>
+  readonly subProjectId?: Branded<'loom.subproject'> | undefined
   /** Path below the workspace root; `.` is valid only for a single direct repository. */
   readonly path: string
   /** Real directory Git operates on. */
@@ -81,4 +82,38 @@ export function admitWorkspaceLayout(layout: WorkspaceLayout): void {
   if (layout.mode === 'linked' && layout.repositories.some(repository => repository.kind !== 'link')) throw new WorkspaceLayoutError('invalid_kind')
   if (layout.mode === 'linked' && layout.repositories.some(repository => repository.path === '.')) throw new WorkspaceLayoutError('invalid_path')
   if (layout.mode === 'direct' && layout.repositories.some(repository => repository.kind !== 'direct')) throw new WorkspaceLayoutError('invalid_kind')
+}
+
+/** V2 workspace lifecycle exposed to the client; derived without adding duplicate persisted state. */
+export type WorkspaceLifecycle = 'preparing' | 'ready' | 'failed' | 'cleaned'
+
+/** One safe path segment for a Loom-created worktree. */
+function safeSegment(value: string, fallback: string): string {
+  const cleaned = value.trim().replace(/[^A-Za-z0-9._-]+/gu, '-').replace(/^[-.]+|[-.]+$/gu, '')
+  return cleaned === '' ? fallback : cleaned
+}
+
+/** Program-defined repository path inside an auto-created workspace.
+ * @param subProjectId - owning sub-project identity
+ * @param source - repository id and configured relative path
+ * @returns `<subProjectSlug>/<repoPath>`; a root repo uses its source id
+ */
+export function autoWorkspaceRepositoryPath(subProjectId: string, source: { id: string; path: string }): string {
+  const repo = source.path === '.' ? safeSegment(source.id, 'repo') : source.path
+  return subProjectId === 'default' ? repo : `${safeSegment(subProjectId, 'subproject')}/${repo}`
+}
+
+/** Derive the lifecycle shown to the client from persisted preparation fields.
+ * @param workspace - record with optional cleanup/preparation state
+ * @returns cleaned, failed, ready, or preparing
+ */
+export function workspaceLifecycle(workspace: {
+  readonly cleaned?: boolean | undefined
+  readonly preparation?: { readonly status: 'waiting' | 'preparing' | 'ready' | 'failed' } | undefined
+}): WorkspaceLifecycle {
+  if (workspace.cleaned === true) return 'cleaned'
+  if (workspace.preparation === undefined) return 'ready'
+  if (workspace.preparation.status === 'failed') return 'failed'
+  if (workspace.preparation.status === 'ready') return 'ready'
+  return 'preparing'
 }

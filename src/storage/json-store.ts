@@ -56,9 +56,9 @@ export function createJsonStore<T>(options: JsonStoreOptions<T>): JsonStore<T> {
       || !('version' in envelope) || typeof envelope.version !== 'number'
       || !Number.isSafeInteger(envelope.version) || envelope.version < 1 || envelope.version > options.version
       || !('data' in envelope)) {
-      throw new Error('invalid schema envelope')
+      throw new Error('invalid_catalog: the loom-json-store envelope is missing required fields')
     }
-    if (envelope.version !== options.version && options.migrate === undefined) throw new Error('unsupported schema version')
+    if (envelope.version !== options.version && options.migrate === undefined) throw new Error(`invalid_catalog: unsupported catalog schema version ${String(envelope.version)}; expected ${String(options.version)}`)
     const data = envelope.version === options.version ? envelope.data : options.migrate?.(envelope.data, envelope.version)
     return structuredClone(options.parse(data))
   }

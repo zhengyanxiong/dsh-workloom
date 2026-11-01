@@ -13,7 +13,16 @@ export type AuditEvent =
   | 'task.updated'
   | 'task.deleted'
   | 'task.transitioned'
+  /** An Agent asked for human review and attached completion evidence. */
+  | 'task.review-requested'
+  /** An Agent suggested failure with a stated reason; the status never changed. */
+  | 'task.failure-suggested'
+  /** A human completed or failed a task consistently with the Agent suggestion. */
+  | 'task.confirmation-accepted'
+  /** A human decided against the Agent suggestion. */
+  | 'task.confirmation-rejected'
   | 'workspace.prepared'
+  | 'workspace.updated'
   | 'workspace.cleaned'
   | 'attempt.started'
   | 'session.attached'
@@ -31,7 +40,11 @@ export interface AuditEntry {
   readonly actor: 'human' | 'agent' | 'system'
   readonly event: AuditEvent
   readonly taskId?: string | undefined
+  /** Execution round the event concerns, when one exists. */
+  readonly attemptId?: string | undefined
   readonly workspaceId?: string | undefined
   readonly sessionId?: string | undefined
+  /** Stated basis for a suggestion or human confirmation decision. */
+  readonly basis?: string | undefined
   readonly detail?: string | undefined
 }

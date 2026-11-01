@@ -9,7 +9,8 @@ import type { LoomKey } from './locales.ts'
 
 type Translate = (key: LoomKey) => string
 
-type Pane = 'diff' | 'terminal' | 'tests' | 'audit' | 'costs'
+export type LoomBottomPane = 'diff' | 'sessions' | 'runtime' | 'graph' | 'audit' | 'costs'
+type Pane = LoomBottomPane
 
 /** Bottom panel inputs; pane content never invents measurements. */
 export interface LoomBottomPanelProps {
@@ -19,6 +20,12 @@ export interface LoomBottomPanelProps {
   readonly height: number
   readonly pane: Pane
   readonly audit: readonly AuditEntry[]
+  /** Active task/session context for the bottom tabs. */
+  readonly sessionsContent?: ReactNode | undefined
+  readonly runtimeContent?: ReactNode | undefined
+  readonly graphContent?: ReactNode | undefined
+  readonly sessionCount?: number | undefined
+  readonly runningCount?: number | undefined
   readonly diffCount: number
   readonly usage: TokenUsageView | undefined
   readonly workspaceId: string | undefined
@@ -42,8 +49,9 @@ function CountBadge({ count }: { count: number }): ReactNode {
 
 const PANES: readonly { id: Pane; key: LoomKey }[] = [
   { id: 'diff', key: 'diff' },
-  { id: 'terminal', key: 'terminal' },
-  { id: 'tests', key: 'tests' },
+  { id: 'sessions', key: 'bottom.sessions' },
+  { id: 'runtime', key: 'bottom.runtime' },
+  { id: 'graph', key: 'bottom.graph' },
   { id: 'audit', key: 'bottom.activity' },
   { id: 'costs', key: 'costs' },
 ]
@@ -54,8 +62,9 @@ const PANES: readonly { id: Pane; key: LoomKey }[] = [
  * @returns the bottom region of the Loom page.
  */
 export function LoomBottomPanel(props: LoomBottomPanelProps): ReactNode {
-  const { t, collapsed, height, pane, audit, diffCount, usage, workspaceId, attemptId, loadChanges, onChangesCount, wrap, onToggleWrap, onOpenInRight, onToggle, onPane } = props
+  const { t, collapsed, height, pane, audit, sessionsContent, runtimeContent, graphContent, sessionCount, runningCount, diffCount, usage, workspaceId, attemptId, loadChanges, onChangesCount, wrap, onToggleWrap, onOpenInRight, onToggle, onPane } = props
   const [diffFullscreen, setDiffFullscreen] = useState(false)
+  const bodyHeight = pane === 'sessions' ? Math.max(height, 420) : height
   useEffect(() => { if (pane !== 'diff') setDiffFullscreen(false) }, [pane])
   useEffect(() => {
     if (!diffFullscreen) return
@@ -66,12 +75,15 @@ export function LoomBottomPanel(props: LoomBottomPanelProps): ReactNode {
   const diffBody = <LoomDiff t={t} workspaceId={workspaceId} {...(attemptId === undefined ? {} : { attemptId })} loadChanges={loadChanges} wrap={wrap} onToggleWrap={onToggleWrap} {...onOpenInRight === undefined ? {} : { onOpenInRight }} {...onChangesCount === undefined ? {} : { onChangesCount }} />
   return <section style={{ flex: 'none', borderTop: `0.5px solid ${COLORS.border}`, background: COLORS.panel2, display: 'flex', flexDirection: 'column' }}>
     <div style={{ display: 'flex', alignItems: 'center', gap: 2, padding: '0 8px', height: 34, overflowX: 'auto', borderBottom: collapsed ? 'none' : `0.5px solid ${COLORS.border}` }}>
-      {PANES.map(item => <button key={item.id} type="button" onClick={() => { onPane(item.id); if (collapsed) onToggle() }} style={{ height: '100%', flex: 'none', padding: '0 13px', display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap', background: 'none', border: 'none', borderBottom: `2px solid ${pane === item.id && !collapsed ? COLORS.accent : 'transparent'}`, color: pane === item.id && !collapsed ? COLORS.text : COLORS.dim, cursor: 'pointer', font: 'inherit', fontSize: 12 }}>{t(item.key)}{item.id === 'diff' ? <CountBadge count={diffCount} /> : item.id === 'audit' ? <CountBadge count={audit.length} /> : null}</button>)}
+      {PANES.map(item => <button key={item.id} type="button" onClick={() => { onPane(item.id); if (collapsed) onToggle() }} style={{ height: '100%', flex: 'none', padding: '0 13px', display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap', background: 'none', border: 'none', borderBottom: `2px solid ${pane === item.id && !collapsed ? COLORS.accent : 'transparent'}`, color: pane === item.id && !collapsed ? COLORS.text : COLORS.dim, cursor: 'pointer', font: 'inherit', fontSize: 12 }}>{t(item.key)}{item.id === 'diff' ? <CountBadge count={diffCount} /> : item.id === 'sessions' ? <CountBadge count={sessionCount ?? 0} /> : item.id === 'runtime' ? <CountBadge count={runningCount ?? 0} /> : item.id === 'audit' ? <CountBadge count={audit.length} /> : null}</button>)}
       {!collapsed && pane === 'diff' && <button type="button" title={t('diff.fullscreen')} aria-label={t('diff.fullscreen')} onClick={() => setDiffFullscreen(true)} style={{ marginLeft: 'auto', flex: 'none', display: 'flex', alignItems: 'center', gap: 5, height: '100%', padding: '0 10px', whiteSpace: 'nowrap', border: 'none', background: 'transparent', color: COLORS.faint, cursor: 'pointer', font: 'inherit', fontSize: 11 }}><IconFullscreenOutlineRegular size={13} />{t('diff.fullscreen')}</button>}
       <button type="button" onClick={onToggle} style={{ marginLeft: !collapsed && pane === 'diff' ? 0 : 'auto', flex: 'none', position: 'sticky', right: 0, zIndex: 1, background: COLORS.panel2, border: 'none', color: COLORS.faint, cursor: 'pointer', font: 'inherit', fontSize: 11, padding: '0 10px', whiteSpace: 'nowrap' }}>{collapsed ? `▴ ${t('bottom.expand')}` : `▾ ${t('bottom.collapse')}`}</button>
     </div>
-    {!collapsed && <div style={{ height, overflow: 'auto', padding: '10px 16px', fontSize: 11.5, fontFamily: 'ui-monospace, "Cascadia Code", monospace', lineHeight: 1.75 }}>
+    {!collapsed && <div style={{ height: bodyHeight, overflow: 'auto', padding: '10px 16px', fontSize: 11.5, fontFamily: pane === 'sessions' || pane === 'runtime' || pane === 'graph' ? 'var(--sans)' : 'ui-monospace, "Cascadia Code", monospace', lineHeight: 1.75 }}>
       {pane === 'diff' && diffBody}
+      {pane === 'sessions' && sessionsContent}
+      {pane === 'runtime' && runtimeContent}
+      {pane === 'graph' && graphContent}
       {pane === 'audit' && (audit.length === 0
         ? <p style={{ ...metaLine, margin: 0 }}>{t('bottom.activityEmpty')}</p>
         : audit.map(entry => <div key={entry.id} style={{ display: 'flex', gap: 12, minWidth: 0 }}>
@@ -89,7 +101,6 @@ export function LoomBottomPanel(props: LoomBottomPanelProps): ReactNode {
             <span>{t('ctx.usageTotal')}: {String(usage.uncachedInputTokens + usage.outputTokens + usage.cacheReadTokens + usage.cacheWriteTokens)}</span>
             <span style={metaLine}>{t('ctx.usageNote')}</span>
           </div>)}
-      {(pane === 'terminal' || pane === 'tests') && <p style={{ ...metaLine, margin: 0 }}>{t('bottom.wiredLater')} · {t('diff.workspace')}</p>}
     </div>}
     {diffFullscreen && pane === 'diff' && <section aria-label={t('diff.title')} style={{ position: 'fixed', inset: 0, zIndex: 90, background: COLORS.panel, display: 'flex', flexDirection: 'column' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderBottom: `0.5px solid ${COLORS.border}`, flex: 'none' }}>
@@ -101,6 +112,3 @@ export function LoomBottomPanel(props: LoomBottomPanelProps): ReactNode {
     </section>}
   </section>
 }
-
-/** Pane id accepted by the bottom panel. */
-export type LoomBottomPane = Pane

@@ -139,3 +139,32 @@ export function previewTargetFromAddress(address: string): LoomPreviewTarget | u
     return undefined
   }
 }
+
+/** Handlers that receive a resource routed into the active Loom preview. */
+export interface LoomResourceHandlers {
+  openFile(target: LoomPreviewTarget): void
+  openReview(target: LoomReviewTarget): void
+}
+
+/**
+ * Route a native right-Sidebar resource into Loom's preview while the Loom page
+ * is mounted. A file address has no native Session surface on this page, so the
+ * native controller would reject it and the caller would show its own error.
+ * @param address - resource address passed to the right Sidebar.
+ * @param options - options supplied beside the address.
+ * @param handlers - Loom preview openers.
+ * @returns whether the address was handled by Loom.
+ */
+export function routeLoomResource(address: string, options: unknown, handlers: LoomResourceHandlers): boolean {
+  const file = previewTargetFromAddress(address)
+  if (file !== undefined) {
+    handlers.openFile({ ...file, mode: 'file' })
+    return true
+  }
+  const review = reviewTargetFromAddress(address, reviewIndexFromOptions(options))
+  if (review !== undefined) {
+    handlers.openReview(review)
+    return true
+  }
+  return false
+}

@@ -4,19 +4,21 @@ import type {
   TypertRemoteInfo,
   TypertRemoteMethod,
 } from '@deepseek-ai/dsh-typert-protocol'
-import type { AttachSessionRequest, CatalogSnapshot, CleanupWorkspaceRequest, CreateTaskRequest, CreateVersionRequest, DeleteProjectRequest, DeleteTaskRequest, DeleteVersionRequest, ExecutionRequest, ExecutionState, ForgetTemporarySessionRequest, GenerateLockRequest, InspectWorkspaceRequest, Lock, PrepareWorkspaceRequest, ProjectConfig, ProjectRecord, RegisterTemporarySessionRequest, RegisterWorkspaceRequest, ReleaseExecutionRequest, RepositoryBranchesRequest, StartAttemptRequest, TaskRecord, TemporarySessionRecord, TransitionTaskRequest, UpdateProjectRequest, UpdateTaskRequest, UpdateVersionRequest, VersionRecord, WorkspaceChangesRequest, WorkspaceInspection, WorkspaceRecord, WorkspaceRepositoryChangesRecord, WorkspaceStatusResult } from 'dsh-workloom/types'
+import type { AttachSessionRequest, CatalogSnapshot, CleanupWorkspaceRequest, CommitWorkspaceRequest, CreateTaskRequest, CreateVersionRequest, DeleteProjectRequest, DeleteTaskRequest, DeleteVersionRequest, DeleteWorkspaceRequest, ExecutionRequest, ExecutionState, ForgetTemporarySessionRequest, GenerateLockRequest, InspectWorkspaceRequest, Lock, PrepareWorkspaceRequest, ProjectConfig, ProjectRecord, RegisterTemporarySessionRequest, RegisterWorkspaceRequest, ReleaseExecutionRequest, RepositoryBranchesRequest, StartAttemptRequest, TaskRecord, TemporarySessionRecord, TransitionTaskRequest, UpdateProjectRequest, UpdateTaskRequest, UpdateVersionRequest, UpdateWorkspaceRequest, VersionRecord, WorkspaceChangesRequest, WorkspaceCommitResult, WorkspaceInspection, WorkspaceRecord, WorkspaceRepositoryChangesRecord, WorkspaceStatusResult } from 'dsh-workloom/types'
 
 declare module '@deepseek-ai/dsh-typert-protocol' {
   interface TypertRemoteNamespace$6c6f6f6d {
     acquireExecution: (request: ExecutionRequest) => Promise<RemoteResult<ExecutionState>>
     attachSession: (request: AttachSessionRequest) => Promise<RemoteResult<TaskRecord>>
     cleanupWorkspace: (request: CleanupWorkspaceRequest) => Promise<RemoteResult<void>>
+    commitWorkspace: (request: CommitWorkspaceRequest) => Promise<RemoteResult<WorkspaceCommitResult>>
     createProject: (request: ProjectConfig) => Promise<RemoteResult<ProjectRecord>>
     createTask: (request: CreateTaskRequest) => Promise<RemoteResult<TaskRecord>>
     createVersion: (request: CreateVersionRequest) => Promise<RemoteResult<VersionRecord>>
     deleteProject: (request: DeleteProjectRequest) => Promise<RemoteResult<void>>
     deleteTask: (request: DeleteTaskRequest) => Promise<RemoteResult<void>>
     deleteVersion: (request: DeleteVersionRequest) => Promise<RemoteResult<void>>
+    deleteWorkspace: (request: DeleteWorkspaceRequest) => Promise<RemoteResult<void>>
     forgetTemporarySession: (request: ForgetTemporarySessionRequest) => Promise<RemoteResult<void>>
     generateLock: (request: GenerateLockRequest) => Promise<RemoteResult<Lock>>
     inspectWorkspace: (request: InspectWorkspaceRequest) => Promise<RemoteResult<WorkspaceInspection>>
@@ -32,6 +34,7 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
     updateProject: (request: UpdateProjectRequest) => Promise<RemoteResult<ProjectRecord>>
     updateTask: (request: UpdateTaskRequest) => Promise<RemoteResult<TaskRecord>>
     updateVersion: (request: UpdateVersionRequest) => Promise<RemoteResult<VersionRecord>>
+    updateWorkspace: (request: UpdateWorkspaceRequest) => Promise<RemoteResult<WorkspaceRecord>>
     workspaceChangeCount: (request: WorkspaceChangesRequest) => Promise<RemoteResult<number>>
     workspaceChanges: (request: WorkspaceChangesRequest) => Promise<RemoteResult<{ repositories: WorkspaceRepositoryChangesRecord[]; }>>
     workspaceStatus: (request: WorkspaceChangesRequest) => Promise<RemoteResult<WorkspaceStatusResult>>
@@ -40,12 +43,14 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
     'loom/acquireExecution': (request: ExecutionRequest) => Promise<RemoteResult<ExecutionState>>
     'loom/attachSession': (request: AttachSessionRequest) => Promise<RemoteResult<TaskRecord>>
     'loom/cleanupWorkspace': (request: CleanupWorkspaceRequest) => Promise<RemoteResult<void>>
+    'loom/commitWorkspace': (request: CommitWorkspaceRequest) => Promise<RemoteResult<WorkspaceCommitResult>>
     'loom/createProject': (request: ProjectConfig) => Promise<RemoteResult<ProjectRecord>>
     'loom/createTask': (request: CreateTaskRequest) => Promise<RemoteResult<TaskRecord>>
     'loom/createVersion': (request: CreateVersionRequest) => Promise<RemoteResult<VersionRecord>>
     'loom/deleteProject': (request: DeleteProjectRequest) => Promise<RemoteResult<void>>
     'loom/deleteTask': (request: DeleteTaskRequest) => Promise<RemoteResult<void>>
     'loom/deleteVersion': (request: DeleteVersionRequest) => Promise<RemoteResult<void>>
+    'loom/deleteWorkspace': (request: DeleteWorkspaceRequest) => Promise<RemoteResult<void>>
     'loom/forgetTemporarySession': (request: ForgetTemporarySessionRequest) => Promise<RemoteResult<void>>
     'loom/generateLock': (request: GenerateLockRequest) => Promise<RemoteResult<Lock>>
     'loom/inspectWorkspace': (request: InspectWorkspaceRequest) => Promise<RemoteResult<WorkspaceInspection>>
@@ -61,6 +66,7 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
     'loom/updateProject': (request: UpdateProjectRequest) => Promise<RemoteResult<ProjectRecord>>
     'loom/updateTask': (request: UpdateTaskRequest) => Promise<RemoteResult<TaskRecord>>
     'loom/updateVersion': (request: UpdateVersionRequest) => Promise<RemoteResult<VersionRecord>>
+    'loom/updateWorkspace': (request: UpdateWorkspaceRequest) => Promise<RemoteResult<WorkspaceRecord>>
     'loom/workspaceChangeCount': (request: WorkspaceChangesRequest) => Promise<RemoteResult<number>>
     'loom/workspaceChanges': (request: WorkspaceChangesRequest) => Promise<RemoteResult<{ repositories: WorkspaceRepositoryChangesRecord[]; }>>
     'loom/workspaceStatus': (request: WorkspaceChangesRequest) => Promise<RemoteResult<WorkspaceStatusResult>>
@@ -74,12 +80,14 @@ export declare const TYPERT_REMOTE: TypertRemoteInfo<{
   readonly 'loom/acquireExecution': TypertRemoteMethod<{ readonly 'request': ExecutionRequest }, ExecutionState>
   readonly 'loom/attachSession': TypertRemoteMethod<{ readonly 'request': AttachSessionRequest }, TaskRecord>
   readonly 'loom/cleanupWorkspace': TypertRemoteMethod<{ readonly 'request': CleanupWorkspaceRequest }, void>
+  readonly 'loom/commitWorkspace': TypertRemoteMethod<{ readonly 'request': CommitWorkspaceRequest }, WorkspaceCommitResult>
   readonly 'loom/createProject': TypertRemoteMethod<{ readonly 'request': ProjectConfig }, ProjectRecord>
   readonly 'loom/createTask': TypertRemoteMethod<{ readonly 'request': CreateTaskRequest }, TaskRecord>
   readonly 'loom/createVersion': TypertRemoteMethod<{ readonly 'request': CreateVersionRequest }, VersionRecord>
   readonly 'loom/deleteProject': TypertRemoteMethod<{ readonly 'request': DeleteProjectRequest }, void>
   readonly 'loom/deleteTask': TypertRemoteMethod<{ readonly 'request': DeleteTaskRequest }, void>
   readonly 'loom/deleteVersion': TypertRemoteMethod<{ readonly 'request': DeleteVersionRequest }, void>
+  readonly 'loom/deleteWorkspace': TypertRemoteMethod<{ readonly 'request': DeleteWorkspaceRequest }, void>
   readonly 'loom/forgetTemporarySession': TypertRemoteMethod<{ readonly 'request': ForgetTemporarySessionRequest }, void>
   readonly 'loom/generateLock': TypertRemoteMethod<{ readonly 'request': GenerateLockRequest }, Lock>
   readonly 'loom/inspectWorkspace': TypertRemoteMethod<{ readonly 'request': InspectWorkspaceRequest }, WorkspaceInspection>
@@ -95,6 +103,7 @@ export declare const TYPERT_REMOTE: TypertRemoteInfo<{
   readonly 'loom/updateProject': TypertRemoteMethod<{ readonly 'request': UpdateProjectRequest }, ProjectRecord>
   readonly 'loom/updateTask': TypertRemoteMethod<{ readonly 'request': UpdateTaskRequest }, TaskRecord>
   readonly 'loom/updateVersion': TypertRemoteMethod<{ readonly 'request': UpdateVersionRequest }, VersionRecord>
+  readonly 'loom/updateWorkspace': TypertRemoteMethod<{ readonly 'request': UpdateWorkspaceRequest }, WorkspaceRecord>
   readonly 'loom/workspaceChangeCount': TypertRemoteMethod<{ readonly 'request': WorkspaceChangesRequest }, number>
   readonly 'loom/workspaceChanges': TypertRemoteMethod<{ readonly 'request': WorkspaceChangesRequest }, { repositories: WorkspaceRepositoryChangesRecord[]; }>
   readonly 'loom/workspaceStatus': TypertRemoteMethod<{ readonly 'request': WorkspaceChangesRequest }, WorkspaceStatusResult>

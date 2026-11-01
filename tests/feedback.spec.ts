@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { dismissLoomNotice, getLoomNotices, pushLoomNotice, reportLoomFailure, subscribeLoomNotices } from '../src/client/feedback.ts'
+import { dismissLoomNotice, getLoomNotices, pushLoomNotice, reportLoomFailure, reportLoomThrown, subscribeLoomNotices } from '../src/client/feedback.ts'
 import type { LoomKey } from '../src/client/locales.ts'
 
 const t = (key: LoomKey): string => `t:${key}`
@@ -53,3 +53,21 @@ describe('operation notices', () => {
     ])
   })
 })
+
+  it('names the failed operation and localizes the known execution codes', () => {
+    reportLoomFailure(t, { code: 'gateway/internal', message: 'workspace_not_prepared' }, 't:op.prepare')
+    reportLoomFailure(t, { code: 'gateway/internal', message: 'execution_not_owned' }, 't:op.acquire')
+    reportLoomFailure(t, { code: 'gateway/internal', message: 'task_not_active' }, 't:op.transition')
+    expect(getLoomNotices().map(notice => [notice.title, notice.detail])).toEqual([
+      ['t:notice.operationFailed · t:op.prepare', 't:error.workspaceNotPrepared'],
+      ['t:notice.operationFailed · t:op.acquire', 't:error.executionNotOwned'],
+      ['t:notice.operationFailed · t:op.transition', 't:error.taskNotActive'],
+    ])
+  })
+
+  it('reports a thrown rejection with its diagnostic instead of swallowing it', () => {
+    reportLoomThrown(t, new Error('network down'), 't:op.cleanup')
+    const [notice] = getLoomNotices()
+    expect(notice?.title).toBe('t:notice.operationFailed · t:op.cleanup')
+    expect(notice?.detail).toContain('network down')
+  })

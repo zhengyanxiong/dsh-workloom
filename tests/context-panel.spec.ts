@@ -4,6 +4,7 @@ import { expect, it } from 'vitest'
 import { brandString } from '@deepseek-ai/dsh-brand'
 import { LoomContextPanel } from '../src/client/LoomContextPanel.tsx'
 import { en, type LoomKey } from '../src/client/locales.ts'
+import type { VersionContext } from '../src/shared/version-context.ts'
 import type { CatalogSnapshot, ProjectRecord, TaskRecord, VersionRecord } from 'dsh-workloom/types'
 
 const t = (key: LoomKey) => en[key]
@@ -48,4 +49,46 @@ it('renders version, Git, task and cost context with actions in the header', () 
   expect(html).toContain(en['ctx.more'])
   expect(html).toContain(en['lock.new'])
   expect(html).not.toContain(en['task.delete'])
+})
+
+const versionContext: VersionContext = {
+  projectId: String(project.id),
+  projectName: 'Shop',
+  versionId: String(version.id),
+  versionName: 'v1',
+  description: '维护版本，只接受 bugfix',
+  repositories: [{ sourceId: 'web', path: 'shop', ref: 'main' }],
+  locks: [],
+  modules: [],
+  sameVersionTasks: [
+    { id: 't1', title: 'Checkout', status: 'running', branches: [], workspaceCleaned: false },
+    { id: 't2', title: 'Docs', status: 'completed', branches: [], workspaceCleaned: true },
+  ],
+  executions: [],
+  render: { tokens: 0, maxTokens: 500, truncated: false },
+}
+
+it('renders version context in its own section, separate from task context', () => {
+  const html = renderToStaticMarkup(createElement(LoomContextPanel, {
+    t, snapshot, project, version, task, versionContext, usage: undefined,
+    generateLock: () => Promise.reject(new Error('unused')),
+    onLockChanged: () => undefined,
+  }))
+  expect(html).toContain(en['ctx.version'])
+  expect(html).toContain(en['ctx.versionDescription'])
+  expect(html).toContain('维护版本，只接受 bugfix')
+  expect(html).toContain(en['ctx.sameVersionTasks'])
+  expect(html).toContain('Docs')
+  expect(html).toContain(en['ctx.occupancy'])
+  expect(html).toContain(en['ctx.noOccupancy'])
+  expect(html).toContain(en['ctx.modelVisible'])
+})
+
+it('states that a version context is not injected when none is derived', () => {
+  const html = renderToStaticMarkup(createElement(LoomContextPanel, {
+    t, snapshot, project, version, task, usage: undefined,
+    generateLock: () => Promise.reject(new Error('unused')),
+    onLockChanged: () => undefined,
+  }))
+  expect(html).toContain(en['ctx.notInjected'])
 })

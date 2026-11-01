@@ -39,10 +39,39 @@ export interface PreparedWorkspace {
   readonly root: string
   readonly worktrees: readonly string[]
 }
+/** Human-readable explanation for each workspace preparation failure code. */
+const PREPARATION_ERROR_DESCRIPTION: Readonly<Record<string, string>> = {
+  invalid_path: 'the repository path is not a safe relative workspace path',
+  invalid_root: 'the workspace root must be an absolute path',
+  empty_workspace: 'the workspace needs at least one repository',
+  invalid_target: 'the repository target must be an absolute path',
+  overlapping_paths: 'repository paths overlap inside the workspace',
+  existing_target: 'a repository target already exists',
+  existing_root: 'the workspace root already exists',
+  invalid_commit: 'the requested commit is not a valid full Git commit hash',
+  invalid_branch: 'the requested branch name is invalid',
+  branch_mismatch: 'the branch tip differs from the Lock commit',
+  branch_checked_out: 'the branch is already checked out in another worktree',
+  branch_exists: 'the branch already exists',
+  branch_create_failed: 'the branch could not be created',
+  branches_failed: 'one or more workspace branches could not be reconciled',
+  commit_failed: 'the workspace commit failed',
+  diff_failed: 'the workspace diff could not be read',
+  status_failed: 'the workspace status could not be read',
+  worktree_add_failed: 'the Git worktree could not be created',
+  invalid_worktree: 'the Git worktree is invalid',
+  link_failed: 'the workspace link could not be created',
+  dubious_ownership: 'Git refuses this repository because its directory owner differs',
+  local_repository_required: 'the source must be a local Git repository',
+  invalid_repository: 'the repository could not be read',
+  git_not_found: 'the Git executable was not found',
+  invalid_ref: 'the repository ref is invalid',
+}
 /** Preparation failure with independent rollback diagnostics. */
 export class WorkspacePreparationError extends Error {
   constructor(readonly code: string, readonly rollbackErrors: readonly string[] = [], cause?: unknown, readonly detail?: string) {
-    super(`${code}${detail === undefined || detail === '' ? '' : `: ${detail}`}${rollbackErrors.length === 0 ? '' : `; rollback: ${rollbackErrors.join('; ')}`}`, { cause })
+    const description = PREPARATION_ERROR_DESCRIPTION[code] ?? 'workspace preparation failed'
+    super(`${code}: ${description}${detail === undefined || detail === '' ? '' : ` (${detail})`}${rollbackErrors.length === 0 ? '' : `; rollback: ${rollbackErrors.join('; ')}`}`, { cause })
     this.name = 'WorkspacePreparationError'
   }
 }
@@ -147,6 +176,39 @@ async function fetchCommit(repo: string, ref: string): Promise<string | undefine
   } catch { return undefined }
 }
 
+/**
+ * Commit every uncommitted change in one worktree without pushing it.
+ * Branch identity comes from the user's normal Git configuration; hooks and
+ * interactive prompts stay disabled so a checkpoint cannot run repository code.
+ * @param worktree - absolute local worktree path.
+ * @param message - non-empty commit subject.
+ * @returns the new commit id, or undefined when the worktree was clean.
+ */
+export async function commitWorkingTree(worktree: string, message: string): Promise<string | undefined> {
+  const top = await localRepository(worktree)
+  const status = await workingTreeStatus(top)
+  if (status.trim() === '') return undefined
+  const env: NodeJS.ProcessEnv = { ...process.env, GIT_TERMINAL_PROMPT: '0', GIT_CONFIG_NOSYSTEM: '1' }
+  for (const key of ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'GIT_OBJECT_DIRECTORY', 'GIT_ALTERNATE_OBJECT_DIRECTORIES']) delete env[key]
+  const run = async (args: string[]): Promise<string> => {
+    const result = await promisify(execFileCallback)('git', [
+      '-c', `core.hooksPath=${process.platform === 'win32' ? 'NUL' : '/dev/null'}`,
+      ...trustTarget(args), ...args,
+    ], { windowsHide: true, env })
+    return result.stdout
+  }
+  try {
+    await run(['-C', top, 'add', '-A'])
+    await run(['-C', top, '-c', 'commit.gpgsign=false', 'commit', '--no-verify', '-m', message])
+    const commit = (await run(['-C', top, 'rev-parse', 'HEAD'])).trim()
+    if (!COMMIT.test(commit)) throw new WorkspacePreparationError('commit_failed')
+    return commit
+  } catch (error) {
+    if (error instanceof WorkspacePreparationError) throw error
+    throw new WorkspacePreparationError('commit_failed', [], error, gitDetail(error))
+  }
+}
+
 /** Return porcelain status for one existing worktree without modifying it.
  * @param worktree - Absolute local worktree path.
  * @returns Git porcelain v1 status, empty when clean.
@@ -181,6 +243,106 @@ export interface LinkedRepository {
   readonly path: string
   readonly target: string
 }
+/** One admitted linked repository, resolved but not yet linked. */
+export interface LinkedRepositoryPlan {
+  readonly request: LinkedRepository
+  readonly path: string
+  readonly target: string
+  readonly link: string
+}
+
+/** Validate every linked repository and the root before any filesystem effect.
+ * @param root - Absolute workspace root to create or continue.
+ * @param repositories - Relative link path and existing repository target.
+ * @param options - `existingRoot` continues a partially prepared workspace.
+ * @returns the resolved root and one plan per repository.
+ */
+export async function planLinkedWorkspace(
+  root: string,
+  repositories: readonly LinkedRepository[],
+  options: PreparePlanOptions = {},
+): Promise<{ readonly root: string; readonly plans: readonly LinkedRepositoryPlan[] }> {
+  const rootPath = resolve(root)
+  if (!isAbsolute(root)) throw new WorkspacePreparationError('invalid_root')
+  if (repositories.length === 0) throw new WorkspacePreparationError('empty_workspace')
+  const plans: LinkedRepositoryPlan[] = []
+  const seen = new Set<string>()
+  for (const request of repositories.map(repository => ({ ...repository }))) {
+    if (!isAbsolute(request.target)) throw new WorkspacePreparationError('invalid_target')
+    const target = await localRepository(request.target)
+    const path = safeRelativePath(request.path)
+    if (path === '.') throw new WorkspacePreparationError('invalid_path')
+    const link = resolve(rootPath, path)
+    if (!inside(rootPath, link)) throw new WorkspacePreparationError('overlapping_paths')
+    if ([...seen].some(other => other.toLowerCase() === link.toLowerCase() || inside(other.toLowerCase(), link.toLowerCase()) || inside(link.toLowerCase(), other.toLowerCase()))) throw new WorkspacePreparationError('overlapping_paths')
+    seen.add(link)
+    if (await exists(link)) throw new WorkspacePreparationError('existing_target')
+    plans.push({ request, path, target, link })
+  }
+  if (options.existingRoot !== true && await exists(rootPath)) throw new WorkspacePreparationError('existing_root')
+  return { root: rootPath, plans }
+}
+
+/**
+ * Create one link below an existing Loom-owned root.
+ * @param root - Existing workspace root.
+ * @param plan - One admitted linked repository plan.
+ * @returns parent directories this step created.
+ */
+export async function addLinkedWorkspaceLink(root: string, plan: LinkedRepositoryPlan): Promise<readonly string[]> {
+  const createdDirs: string[] = []
+  try {
+    const parent = resolve(plan.link, '..')
+    if (!(await exists(parent))) {
+      let cursor = parent
+      const missing: string[] = []
+      while (cursor !== root && !(await exists(cursor))) {
+        missing.push(cursor)
+        cursor = resolve(cursor, '..')
+      }
+      for (const directory of missing.reverse()) {
+        await mkdir(directory)
+        createdDirs.push(directory)
+      }
+    }
+    await symlink(plan.target, plan.link, process.platform === 'win32' ? 'junction' : 'dir')
+    return createdDirs
+  } catch (error) {
+    for (const directory of [...createdDirs].reverse()) {
+      try { await rmdir(directory) } catch { /* a non-empty or already-gone directory is reported through the link failure */ }
+    }
+    if (error instanceof WorkspacePreparationError) throw error
+    throw new WorkspacePreparationError('link_failed', [], error, plan.link)
+  }
+}
+
+/**
+ * Remove one link; an already-missing link counts as removed so a retry succeeds.
+ * @param link - Absolute link path.
+ * @returns paths that could not be removed; empty on success.
+ */
+export async function removeLinkedWorkspaceLink(link: string): Promise<string[]> {
+  try {
+    await unlink(link)
+    return []
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === 'ENOENT' ? [] : [link]
+  }
+}
+
+/**
+ * Remove a Loom-owned linked root after its links are gone.
+ * @param root - Loom-owned workspace root.
+ * @returns paths that could not be removed; empty on success.
+ */
+export async function removeLinkedWorkspaceRoot(root: string): Promise<string[]> {
+  const errors: string[] = []
+  try { await rm(join(root, '.dsh'), { recursive: true, force: true }) } catch { errors.push(join(root, '.dsh')) }
+  try { await rmdir(root) } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') errors.push(root)
+  }
+  return errors
+}
 
 /** Create a Loom-owned root and link existing repositories into it.
  * @param root - New absolute workspace root; it must not already exist.
@@ -188,38 +350,19 @@ export interface LinkedRepository {
  * @returns created root and link paths; removal only ever deletes the links.
  */
 export async function createLinkedWorkspace(root: string, repositories: readonly LinkedRepository[]): Promise<PreparedWorkspace> {
-  const rootPath = resolve(root)
-  if (!isAbsolute(root)) throw new WorkspacePreparationError('invalid_root')
-  if (repositories.length === 0) throw new WorkspacePreparationError('empty_workspace')
-  const prepared: { path: string; target: string; link: string }[] = []
-  const seen = new Set<string>()
-  for (const repository of repositories) {
-    if (!isAbsolute(repository.target)) throw new WorkspacePreparationError('invalid_target')
-    const target = await localRepository(repository.target)
-    const path = safeRelativePath(repository.path)
-    if (path === '.') throw new WorkspacePreparationError('invalid_path')
-    const link = resolve(rootPath, path)
-    if (!inside(rootPath, link)) throw new WorkspacePreparationError('overlapping_paths')
-    if ([...seen].some(other => other.toLowerCase() === link.toLowerCase() || inside(other.toLowerCase(), link.toLowerCase()) || inside(link.toLowerCase(), other.toLowerCase()))) throw new WorkspacePreparationError('overlapping_paths')
-    seen.add(link)
-    if (await exists(link)) throw new WorkspacePreparationError('existing_target')
-    prepared.push({ path, target, link })
-  }
-  if (await exists(rootPath)) throw new WorkspacePreparationError('existing_root')
-  await mkdir(rootPath, { recursive: true, mode: 0o700 })
+  const { root: rootPath, plans } = await planLinkedWorkspace(root, repositories)
   const created: string[] = []
   try {
-    for (const item of prepared) {
-      const parent = resolve(item.link, '..')
-      await mkdir(parent, { recursive: true })
-      await symlink(item.target, item.link, process.platform === 'win32' ? 'junction' : 'dir')
-      created.push(item.link)
+    await mkdir(rootPath, { recursive: true, mode: 0o700 })
+    for (const plan of plans) {
+      await addLinkedWorkspaceLink(rootPath, plan)
+      created.push(plan.link)
     }
-    return { root: rootPath, worktrees: prepared.map(item => item.link) }
+    return { root: rootPath, worktrees: plans.map(item => item.link) }
   } catch (error) {
     const rollbackErrors: string[] = []
     for (const link of [...created].reverse()) {
-      try { await unlink(link) } catch (rollback) { rollbackErrors.push(`remove link ${link}: ${String(rollback)}`) }
+      rollbackErrors.push(...await removeLinkedWorkspaceLink(link).then(errors => errors.map(failed => `remove link ${failed}: failed`)))
     }
     try { await rm(rootPath, { recursive: true, force: true }) } catch (rollback) { rollbackErrors.push(`remove root ${rootPath}: ${String(rollback)}`) }
     if (error instanceof WorkspacePreparationError) throw new WorkspacePreparationError(error.code, rollbackErrors, error, error.detail)
@@ -234,23 +377,11 @@ export async function createLinkedWorkspace(root: string, repositories: readonly
  */
 export async function removeLinkedWorkspace(root: string, links: readonly string[]): Promise<string[]> {
   const errors: string[] = []
-  for (const link of links) {
-    try { await unlink(link) } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') errors.push(link)
-    }
-  }
-  try { await rm(join(root, '.dsh'), { recursive: true, force: true }) } catch { errors.push(join(root, '.dsh')) }
-  try { await rmdir(root) } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') errors.push(root)
-  }
+  for (const link of links) errors.push(...await removeLinkedWorkspaceLink(link))
+  errors.push(...await removeLinkedWorkspaceRoot(root))
   return errors
 }
 
-/** Create a task-owned root and detached worktrees; rollback only this call's creations on failure.
- * @param root - New absolute workspace root; it must not already exist.
- * @param repositories - Local repositories and exact commits to materialize.
- * @returns created root and worktree paths.
- */
 async function branchTip(repo: string, branch: string): Promise<string | undefined> {
   try {
     return (await execFile('git', ['-C', repo, 'rev-parse', '--verify', `refs/heads/${branch}`], { windowsHide: true })).stdout.trim()
@@ -262,12 +393,42 @@ async function branchCheckedOut(repo: string, branch: string): Promise<boolean> 
   return listing.split(/\r?\n/u).some(line => line.trim() === `branch refs/heads/${branch}`)
 }
 
-export async function prepareWorkspace(root: string, repositories: readonly WorkspaceRepository[]): Promise<PreparedWorkspace> {
+/** One admitted repository, resolved against the filesystem but not yet materialized. */
+export interface WorkspaceRepositoryPlan {
+  readonly request: WorkspaceRepository
+  readonly repo: string
+  readonly target: string
+  readonly branch: string | undefined
+}
+/** One materialized worktree plus the state needed to undo exactly this step. */
+export interface AddedWorkspaceWorktree {
+  readonly plan: WorkspaceRepositoryPlan
+  readonly createdBranch: boolean
+  readonly createdDirs: readonly string[]
+}
+/** Admission options for a preparation step sequence. */
+export interface PreparePlanOptions {
+  /** A retry continues on the root a previous attempt created. */
+  readonly existingRoot?: boolean | undefined
+}
+
+/**
+ * Validate every repository and the root before any filesystem effect.
+ * @param root - Absolute workspace root to create or continue.
+ * @param repositories - Local repositories, relative paths and exact commits.
+ * @param options - `existingRoot` continues a partially prepared workspace.
+ * @returns the resolved root and one plan per repository.
+ */
+export async function planWorkspace(
+  root: string,
+  repositories: readonly WorkspaceRepository[],
+  options: PreparePlanOptions = {},
+): Promise<{ readonly root: string; readonly plans: readonly WorkspaceRepositoryPlan[] }> {
   const requests = repositories.map(request => ({ ...request }))
   const rootPath = resolve(root)
   if (!isAbsolute(root)) throw new WorkspacePreparationError('invalid_root')
   if (repositories.length === 0) throw new WorkspacePreparationError('empty_workspace')
-  const prepared: { readonly repo: string; readonly target: string; readonly branch: string | undefined }[] = []
+  const plans: WorkspaceRepositoryPlan[] = []
   const seen = new Set<string>()
   for (const request of requests) {
     const repo = await localRepository(request.repo)
@@ -278,55 +439,126 @@ export async function prepareWorkspace(root: string, repositories: readonly Work
     seen.add(target)
     if (await exists(target)) throw new WorkspacePreparationError('existing_target')
     if (request.branch !== undefined && !/^(?![-.])[A-Za-z0-9._/-]+$/u.test(request.branch)) throw new WorkspacePreparationError('invalid_branch')
-    prepared.push({ repo, target, branch: request.branch })
+    plans.push({ request, repo, target, branch: request.branch })
   }
-  if (await exists(rootPath)) throw new WorkspacePreparationError('existing_root')
-  const created: { target: string; repo: string; branch: string | undefined; createdBranch: boolean }[] = []
+  if (options.existingRoot !== true && await exists(rootPath)) throw new WorkspacePreparationError('existing_root')
+  return { root: rootPath, plans }
+}
+
+/**
+ * Create the Loom-owned workspace root after {@link planWorkspace} admitted it.
+ * @param root - Absolute root that must not exist yet.
+ */
+export async function createWorkspaceRoot(root: string): Promise<void> {
+  await mkdir(root, { mode: 0o700 })
+}
+
+/**
+ * Materialize one planned worktree, creating missing parents; a failure removes
+ * only this step's residue so already materialized siblings survive.
+ * @param root - Existing prepared workspace root.
+ * @param plan - One admitted repository plan.
+ * @returns the added worktree and the directories this step created.
+ */
+export async function addWorkspaceWorktree(root: string, plan: WorkspaceRepositoryPlan): Promise<AddedWorkspaceWorktree> {
+  const createdDirs: string[] = []
+  let createdBranch = false
+  try {
+    const parent = resolve(plan.target, '..')
+    if (!(await exists(parent))) {
+      let cursor = parent
+      const missing: string[] = []
+      while (cursor !== root && !(await exists(cursor))) {
+        missing.push(cursor)
+        cursor = resolve(cursor, '..')
+      }
+      for (const directory of missing.reverse()) {
+        await mkdir(directory)
+        createdDirs.push(directory)
+      }
+    }
+    let args: string[]
+    if (plan.branch === undefined) {
+      args = ['-C', plan.repo, 'worktree', 'add', '--detach', '--', plan.target, plan.request.commit]
+    } else {
+      const tip = await branchTip(plan.repo, plan.branch)
+      if (tip === undefined) {
+        args = ['-C', plan.repo, 'worktree', 'add', '-b', plan.branch, '--', plan.target, plan.request.commit]
+        createdBranch = true
+      } else {
+        if (tip !== plan.request.commit) throw new WorkspacePreparationError('branch_mismatch', [], undefined, plan.repo)
+        if (await branchCheckedOut(plan.repo, plan.branch)) throw new WorkspacePreparationError('branch_checked_out', [], undefined, plan.repo)
+        args = ['-C', plan.repo, 'worktree', 'add', '--', plan.target, plan.branch]
+      }
+    }
+    await execFile('git', args, { windowsHide: true })
+    return { plan, createdBranch, createdDirs }
+  } catch (error) {
+    const rollbackErrors = await undoWorkspaceWorktree(plan, createdDirs, createdBranch)
+    if (error instanceof WorkspacePreparationError) throw new WorkspacePreparationError(error.code, rollbackErrors, error, error.detail)
+    throw new WorkspacePreparationError('worktree_add_failed', rollbackErrors, error, gitDetail(error))
+  }
+}
+
+/** Undo one in-flight worktree step without touching sibling worktrees. */
+async function undoWorkspaceWorktree(plan: WorkspaceRepositoryPlan, createdDirs: readonly string[], createdBranch: boolean): Promise<string[]> {
+  const rollbackErrors: string[] = []
+  if (await exists(plan.target)) {
+    try { await execFile('git', ['-C', plan.repo, 'worktree', 'remove', '--force', '--', plan.target], { windowsHide: true }) }
+    catch (rollback) { rollbackErrors.push(`remove ${plan.target}: ${String(rollback)}`) }
+  }
+  if (createdBranch && plan.branch !== undefined) {
+    try { await execFile('git', ['-C', plan.repo, 'branch', '-D', '--', plan.branch], { windowsHide: true }) }
+    catch (rollback) { rollbackErrors.push(`remove branch ${plan.branch}: ${String(rollback)}`) }
+  }
+  for (const directory of [...createdDirs].reverse()) {
+    try { await rmdir(directory) }
+    catch (rollback) {
+      if ((rollback as NodeJS.ErrnoException).code !== 'ENOENT') rollbackErrors.push(`remove directory ${directory}: ${String(rollback)}`)
+    }
+  }
+  return rollbackErrors
+}
+
+/**
+ * Remove one materialized worktree and the branch the preparation created.
+ * @param repo - Local repository that owns the worktree.
+ * @param directory - Absolute worktree directory.
+ * @param branch - Branch recorded on the workspace binding.
+ * @returns paths that could not be removed; empty on success.
+ */
+export async function removeWorkspaceWorktree(repo: string, directory: string, branch?: string): Promise<string[]> {
+  const errors: string[] = []
+  try {
+    await execFile('git', ['-C', repo, 'worktree', 'remove', '--force', '--', directory], { windowsHide: true })
+    if (branch !== undefined) await execFile('git', ['-C', repo, 'branch', '-D', '--', branch], { windowsHide: true })
+  } catch { errors.push(directory) }
+  return errors
+}
+
+/**
+ * Create one task-owned root and detached worktrees; rollback only this call's creations on failure.
+ * @param root - New absolute workspace root; it must not already exist.
+ * @param repositories - Local repositories and exact commits to materialize.
+ * @returns created root and worktree paths.
+ */
+export async function prepareWorkspace(root: string, repositories: readonly WorkspaceRepository[]): Promise<PreparedWorkspace> {
+  const { root: rootPath, plans } = await planWorkspace(root, repositories)
+  const added: AddedWorkspaceWorktree[] = []
   const createdDirs: string[] = []
   try {
-    await mkdir(rootPath, { mode: 0o700 })
+    await createWorkspaceRoot(rootPath)
     createdDirs.push(rootPath)
-    for (const [index, request] of requests.entries()) {
-      const { repo, target } = prepared[index]!
-      const parent = resolve(target, '..')
-      if (!(await exists(parent))) {
-        let cursor = parent
-        const missing: string[] = []
-        while (cursor !== rootPath && !(await exists(cursor))) {
-          missing.push(cursor)
-          cursor = resolve(cursor, '..')
-        }
-        for (const directory of missing.reverse()) {
-          await mkdir(directory)
-          createdDirs.push(directory)
-        }
-      }
-      let args: string[]
-      let createdBranch = false
-      if (request.branch === undefined) {
-        args = ['-C', repo, 'worktree', 'add', '--detach', '--', target, request.commit]
-      } else {
-        const tip = await branchTip(repo, request.branch)
-        if (tip === undefined) {
-          args = ['-C', repo, 'worktree', 'add', '-b', request.branch, '--', target, request.commit]
-          createdBranch = true
-        } else {
-          if (tip !== request.commit) throw new WorkspacePreparationError('branch_mismatch')
-          if (await branchCheckedOut(repo, request.branch)) throw new WorkspacePreparationError('branch_checked_out')
-          args = ['-C', repo, 'worktree', 'add', '--', target, request.branch]
-        }
-      }
-      await execFile('git', args, { windowsHide: true })
-      created.push({ target, repo, branch: request.branch, createdBranch })
+    for (const plan of plans) {
+      const step = await addWorkspaceWorktree(rootPath, plan)
+      added.push(step)
+      createdDirs.push(...step.createdDirs)
     }
-    return { root: rootPath, worktrees: created.map(item => item.target) }
+    return { root: rootPath, worktrees: added.map(item => item.plan.target) }
   } catch (error) {
     const rollbackErrors: string[] = []
-    for (const { target, repo, branch, createdBranch } of [...created].reverse()) {
-      try {
-        await execFile('git', ['-C', repo, 'worktree', 'remove', '--', target], { windowsHide: true })
-        if (branch !== undefined && createdBranch) await execFile('git', ['-C', repo, 'branch', '-D', '--', branch], { windowsHide: true })
-      } catch (rollback) { rollbackErrors.push(`remove ${target}: ${String(rollback)}`) }
+    for (const step of [...added].reverse()) {
+      rollbackErrors.push(...await undoWorkspaceWorktree(step.plan, step.createdDirs, step.createdBranch))
     }
     for (const directory of [...createdDirs].reverse()) {
       try { await rmdir(directory) }
@@ -581,16 +813,23 @@ export async function workingTreeChangeCount(worktrees: readonly { repo: string;
  */
 export async function removeWorkspace(root: string, repositories: readonly { repo: string; directory: string; branch?: string }[]): Promise<string[]> {
   const errors: string[] = []
-  for (const { repo, directory, branch } of repositories) {
-    try {
-      await execFile('git', ['-C', repo, 'worktree', 'remove', '--force', '--', directory], { windowsHide: true })
-      if (branch !== undefined) await execFile('git', ['-C', repo, 'branch', '-D', '--', branch], { windowsHide: true })
-    } catch { errors.push(directory) }
-  }
-  try { await rm(root, { recursive: true, force: true }) } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') errors.push(root)
-  }
+  for (const { repo, directory, branch } of repositories) errors.push(...await removeWorkspaceWorktree(repo, directory, branch))
+  errors.push(...await removeWorkspaceRoot(root))
   return errors
+}
+
+/**
+ * Remove a Loom-owned managed root and report leftovers instead of throwing.
+ * @param root - Absolute workspace root.
+ * @returns the root path when anything survived, otherwise an empty array.
+ */
+export async function removeWorkspaceRoot(root: string): Promise<string[]> {
+  try {
+    await rm(root, { recursive: true, force: true })
+    return await exists(root) ? [`${root}: survived removal`] : []
+  } catch (error) {
+    return [`${root}: ${String(error)}`]
+  }
 }
 
 /**
@@ -604,6 +843,19 @@ export async function commitsSince(directory: string, baseline: string): Promise
     const result = await execFile('git', ['-C', directory, 'rev-list', '--count', `${baseline}..HEAD`], { windowsHide: true })
     return Number.parseInt(result.stdout.trim(), 10) || 0
   } catch (error) { throw new WorkspacePreparationError('diff_failed', [], error) }
+}
+
+/**
+ * Count commits HEAD has that its configured upstream does not.
+ * @param directory - prepared worktree or repository directory.
+ * @returns the ahead count, or `undefined` when the branch has no upstream; never throws.
+ */
+export async function unpushedCommits(directory: string): Promise<number | undefined> {
+  try {
+    const result = await execFile('git', ['-C', directory, 'rev-list', '--count', '@{u}..HEAD'], { windowsHide: true })
+    const count = Number.parseInt(result.stdout.trim(), 10)
+    return Number.isFinite(count) ? count : undefined
+  } catch { return undefined }
 }
 
 

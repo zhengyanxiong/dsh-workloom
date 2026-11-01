@@ -4,11 +4,15 @@
     "src/index.ts",
     "src/host/**/*.ts",
     "src/git/**/*.ts",
+    "src/shared/**/*.ts",
     "src/storage/**/*.ts",
     "tests/catalog.spec.ts",
+    "tests/context-injection.spec.ts",
     "tests/json-store.spec.ts",
     "tests/git-workspace.spec.ts",
+    "tests/host-ops.spec.ts",
     "tests/service.spec.ts",
+    "tests/version-context.spec.ts",
     "src/types.ts"
   ]
 }

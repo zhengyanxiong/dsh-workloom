@@ -14,12 +14,12 @@ import type { SessionWorkspacePathApplication } from '@deepseek-ai/dsh-api-sessi
 import { fileAddressFor } from '@deepseek-ai/dsh-util-workspace-path'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import type {
-  AttachSessionRequest, CatalogSnapshot, CleanupWorkspaceRequest, CreateTaskRequest, CreateVersionRequest, GenerateLockRequest, Lock,
+  AttachSessionRequest, CommitWorkspaceRequest, WorkspaceCommitResult, CatalogSnapshot, CleanupWorkspaceRequest, CreateTaskRequest, CreateVersionRequest, GenerateLockRequest, Lock,
   PrepareWorkspaceRequest, ProjectConfig, ProjectRecord, StartAttemptRequest, TaskPriority, TaskRecord, TransitionTaskRequest, VersionRecord,
   WorkspaceChangesRequest, WorkspaceRecord, WorkspaceRepositoryChangesRecord, ExecutionRequest, ReleaseExecutionRequest, ExecutionState,
-  UpdateProjectRequest, UpdateVersionRequest, UpdateTaskRequest, DeleteProjectRequest, DeleteVersionRequest, DeleteTaskRequest,
+  UpdateProjectRequest, UpdateVersionRequest, UpdateTaskRequest, UpdateWorkspaceRequest, DeleteWorkspaceRequest, DeleteProjectRequest, DeleteVersionRequest, DeleteTaskRequest, VersionWorkspaceInput,
   RegisterTemporarySessionRequest, TemporarySessionRecord, RegisterWorkspaceRequest, RepositoryBranchesRequest, RepositoryBranches,
-  InspectWorkspaceRequest, WorkspaceInspection, DirectoryListing,
+  InspectWorkspaceRequest, WorkspaceInspection, DirectoryListing, WorkspaceStatusResult,
 } from 'dsh-workloom/types'
 import { ImportProjectForm, LockButton, ProjectForm, TaskForm, VersionForm, type AgentPresetOption, type VersionStep } from './LoomForms.tsx'
 import { LoomSettings, readPreferences, writePreferences, type LoomPreferences } from './LoomSettings.tsx'
@@ -34,9 +34,17 @@ import { openFilePreview, workspacePreview, workspaceReviewPreview } from './pre
 import { LoomContextPanel } from './LoomContextPanel.tsx'
 import { LoomDeleteDialog } from './LoomDeleteDialog.tsx'
 import { LoomKanban, LoomKanbanAside } from './LoomKanban.tsx'
+import { LoomTemporaryDialog, type LoomTemporaryActions } from './LoomTemporaryDialog.tsx'
 import { LoomTaskWorkbench } from './LoomTaskWorkbench.tsx'
-import { activeWorkspaceCount, aggregateTokenUsage, boundSessions, currentWorkspace, taskSessionRows, workspaceName, type RecentSession, type ShellFilter } from './projection.ts'
+import { LoomVersionDetail } from './LoomVersionDetail.tsx'
+import { LoomSessionActivity, type LoomJobsFace, type LoomSubagentRow } from './LoomSessionActivity.tsx'
+import { LoomVersionGraph } from './LoomVersionGraph.tsx'
+import { LoomSessionGraph, type LoomTaskSessionRow } from './LoomSessionGraph.tsx'
+import { autoWorkspaceRepositoryPath } from '../domain/workspace.ts'
+import { activeWorkspaceCount, aggregateTokenUsage, boundSessions, currentWorkspace, taskAttemptRows, taskSessionRows, workspaceName, type RecentSession, type ShellFilter } from './projection.ts'
+import { deriveVersionContext } from '../shared/version-context.ts'
 import { COLORS, failureReport, metaLine, pill, select, shortCommit, thrownFailureReport, PRIORITY_META, STATUS_META, type FailureReport } from './shell.ts'
+import { reportLoomFailure } from './feedback.ts'
 import { NS, type LoomKey } from './locales.ts'
 import { presetDisplayText, type BuiltInPresetCopyKey } from '@deepseek-ai/dsh-agent-preset-registry/display'
 
@@ -64,6 +72,8 @@ export interface LoomInjected {
   deleteTask(request: DeleteTaskRequest): Promise<RemoteResult<void>>
   generateLock(request: GenerateLockRequest): Promise<RemoteResult<Lock>>
   prepareWorkspace(request: PrepareWorkspaceRequest): Promise<RemoteResult<WorkspaceRecord>>
+  /** Preparation used for inline add-workspace failures; must not emit a toast. */
+  prepareWorkspaceSilent?(request: PrepareWorkspaceRequest): Promise<RemoteResult<WorkspaceRecord>>
   startAttempt(request: StartAttemptRequest): Promise<RemoteResult<TaskRecord>>
   attachSession(request: AttachSessionRequest): Promise<RemoteResult<TaskRecord>>
   registerTemporarySession(request: RegisterTemporarySessionRequest): Promise<RemoteResult<TemporarySessionRecord>>
@@ -82,8 +92,17 @@ export interface LoomInjected {
   readBytes(sessionId: SessionId, path: string, signal: AbortSignal): Promise<RemoteResult<WorkspaceFileBytes>>
   workspaceChanges(request: WorkspaceChangesRequest): Promise<RemoteResult<{ repositories: WorkspaceRepositoryChangesRecord[] }>>
   workspaceChangeCount(request: WorkspaceChangesRequest): Promise<RemoteResult<number>>
+  workspaceStatus(request: WorkspaceChangesRequest): Promise<RemoteResult<WorkspaceStatusResult>>
   readFile(sessionId: SessionId, path: string, offset: number, signal: AbortSignal): Promise<RemoteResult<WorkspaceFileText>>
+  commitWorkspace(request: CommitWorkspaceRequest): Promise<RemoteResult<WorkspaceCommitResult>>
+  forkSession(request: { readonly sessionId: SessionId; readonly increaseTitle?: boolean }): Promise<SessionId>
+  /** Native jobs service, when the jobs client plugin is installed. */
+  readonly jobs?: LoomJobsFace | undefined
+  updateWorkspace(request: UpdateWorkspaceRequest): Promise<RemoteResult<WorkspaceRecord>>
+  deleteWorkspace(request: DeleteWorkspaceRequest): Promise<RemoteResult<void>>
   cleanupWorkspace(request: CleanupWorkspaceRequest): Promise<RemoteResult<void>>
+  /** Cleanup used for rollback; must not emit a user-facing success toast. */
+  cleanupWorkspaceSilent?(request: CleanupWorkspaceRequest): Promise<RemoteResult<void>>
   acquireExecution(request: ExecutionRequest): Promise<RemoteResult<ExecutionState>>
   releaseExecution(request: ReleaseExecutionRequest): Promise<RemoteResult<ExecutionState>>
   takeoverExecution(request: ExecutionRequest): Promise<RemoteResult<ExecutionState>>
@@ -139,7 +158,7 @@ const sidebar: CSSProperties = { width: 320, flex: 'none', background: COLORS.pa
 const center: CSSProperties = { flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, background: COLORS.panel }
 const aside: CSSProperties = { width: 344, flex: 'none', display: 'flex', flexDirection: 'column', borderLeft: `0.5px solid ${COLORS.border}`, background: COLORS.panel }
 const modalOverlay: CSSProperties = { position: 'fixed', inset: 0, zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, overflow: 'auto', background: 'rgba(0,0,0,.42)' }
-const modalCard: CSSProperties = { display: 'flex', flexDirection: 'column', width: '100%', maxHeight: 'calc(100% - 48px)', boxSizing: 'border-box', overflowY: 'auto', padding: '20px 22px 18px', background: COLORS.panel, border: `0.5px solid ${COLORS.border}`, borderRadius: 'var(--dsw-radius-lg)', boxShadow: '0 24px 64px rgba(0,0,0,.32)' }
+const modalCard: CSSProperties = { display: 'flex', flexDirection: 'column', width: '100%', maxHeight: 'calc(100% - 48px)', boxSizing: 'border-box', overflowY: 'auto', padding: '20px 22px 0', background: COLORS.panel, border: `0.5px solid ${COLORS.border}`, borderRadius: 'var(--dsw-radius-lg)', boxShadow: '0 24px 64px rgba(0,0,0,.32)' }
 const modalHeader: CSSProperties = { display: 'flex', alignItems: 'flex-start', gap: 8, minHeight: 30, marginBottom: 6 }
 const modalTitle: CSSProperties = { fontSize: 18, fontWeight: 500, lineHeight: 1.3, letterSpacing: '-.015em' }
 const modalHint: CSSProperties = { margin: '0 0 12px', color: COLORS.dim, fontSize: 12, lineHeight: 1.55 }
@@ -351,7 +370,7 @@ function readPinnedProjects(): ProjectRecord['id'][] {
  * @param props - locale, native catalog, session acquisition, catalog actions, and renderer seats.
  * @returns the whole Loom page.
  */
-export function LoomPanel({ t, useSessions, retainSession, openResource, loadSnapshot, createProject, updateProject, deleteProject, createVersion, updateVersion, deleteVersion, createTask, updateTask, deleteTask, generateLock, prepareWorkspace, registerWorkspace, repositoryBranches, inspectWorkspace, pickDirectory, listDirectory, requestDraftInitialization, startAttempt, attachSession, registerTemporarySession, listAgentPresets, transitionTask, createSessionInWorkspace, openPath, openPathApplications, openPathWith, workspaceChanges, workspaceChangeCount, readFile, readBytes, cleanupWorkspace, acquireExecution, releaseExecution, takeoverExecution, SessionProvider, renderSlot }: LoomPanelProps) {
+export function LoomPanel({ t, useSessions, retainSession, openResource, loadSnapshot, createProject, updateProject, deleteProject, createVersion, updateVersion, deleteVersion, createTask, updateTask, deleteTask, generateLock, prepareWorkspace, prepareWorkspaceSilent, registerWorkspace, repositoryBranches, inspectWorkspace, pickDirectory, listDirectory, requestDraftInitialization, startAttempt, attachSession, registerTemporarySession, listAgentPresets, transitionTask, createSessionInWorkspace, openPath, openPathApplications, openPathWith, workspaceChanges, workspaceChangeCount, workspaceStatus, readFile, readBytes, commitWorkspace, updateWorkspace, deleteWorkspace, cleanupWorkspace, cleanupWorkspaceSilent, acquireExecution, releaseExecution, takeoverExecution, forkSession, jobs, SessionProvider, renderSlot }: LoomPanelProps) {
   const sessions = useSessions(state => state)
   const [preferences, setPreferences] = useState<LoomPreferences>(readPreferences)
   const [view, setView] = useState<View>(preferences.view)
@@ -363,6 +382,13 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
   const [version, setVersion] = useState<VersionRecord['id']>()
   const [task, setTask] = useState<TaskRecord>()
   const [selected, setSelected] = useState<SessionId>()
+  const [forking, setForking] = useState(false)
+  const [forkError, setForkError] = useState<string>()
+  const [releasingWorkspace, setReleasingWorkspace] = useState<string>()
+  const [releaseError, setReleaseError] = useState<string>()
+  const [releasingAll, setReleasingAll] = useState(false)
+  const [claiming, setClaiming] = useState(false)
+  const [claimError, setClaimError] = useState<string>()
   const [pinnedProjects, setPinnedProjects] = useState<ProjectRecord['id'][]>(readPinnedProjects)
   const [held, setHeld] = useState<{ id: SessionId; reference: SessionReference }>()
   const [pendingDraft, setPendingDraft] = useState<{ sessionId: SessionId; prompt: string }>()
@@ -371,8 +397,9 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
   const [draftAttempt, setDraftAttempt] = useState(0)
   const heldRef = useRef<{ id: SessionId; reference: SessionReference } | undefined>(undefined)
   const [failure, setFailure] = useState<SessionId>()
+  const [sessionRetry, setSessionRetry] = useState(0)
   const [search, setSearch] = useState('')
-  const [temporaryFailure, setTemporaryFailure] = useState<string>()
+  const [temporaryOpen, setTemporaryOpen] = useState(false)
   const [agentPresets, setAgentPresets] = useState<readonly AgentPresetOption[]>([])
   const presetsLoaded = useRef(false)
   const [catalog, setCatalog] = useState<CatalogState>({ status: 'loading' })
@@ -387,6 +414,7 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
   const [kbMode, setKbMode] = useState<'flat' | 'grouped'>(preferences.kanbanMode)
   const [filterProject, setFilterProject] = useState('')
   const [filterVersion, setFilterVersion] = useState('')
+  const [filterStatus, setFilterStatus] = useState<TaskRecord['status'] | ''>('')
   const [filterPriority, setFilterPriority] = useState<TaskPriority | ''>('')
   const [filterModule, setFilterModule] = useState('')
   const [kbSearch, setKbSearch] = useState('')
@@ -514,13 +542,14 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
       if (heldRef.current?.reference === reference) heldRef.current = undefined
       reference.release()
     }
-  }, [selected, retainSession])
+  }, [selected, retainSession, sessionRetry])
   const snapshot = catalog.status === 'ready' ? catalog.snapshot : undefined
   const currentProject = snapshot?.projects.find(candidate => candidate.id === project)
   const currentVersion = snapshot?.versions.find(candidate => candidate.id === version)
   const currentVersionProject = snapshot?.projects.find(candidate => candidate.id === currentVersion?.projectId)
   const boundRows = snapshot === undefined ? [] : boundSessions(snapshot)
   const liveTaskIds = new Set(boundRows.filter(row => sessions.byId[row.sessionId as SessionId]?.running === true).map(row => row.task.id))
+  const runningSessionIds = new Set(Object.entries(sessions.byId).filter(([, row]) => row?.running === true).map(([id]) => id))
   const boundIds = new Set(boundRows.map(row => row.sessionId))
   const taskSessionCandidates = [...boundIds]
     .map(id => sessions.byId[id as SessionId])
@@ -551,10 +580,16 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
   const displayPresetName = displayProject?.config.agentPreset === undefined ? undefined : agentPresets.find(candidate => candidate.id === displayProject.config.agentPreset)?.name ?? displayProject.config.agentPreset
   const displayVersion = currentVersion ?? taskVersion
   const displayVersionProject = snapshot?.projects.find(candidate => candidate.id === displayVersion?.projectId)
+  const versionContext = snapshot === undefined || displayVersion === undefined
+    ? undefined
+    : deriveVersionContext(snapshot, displayVersion.id, detailTask === undefined ? undefined : { currentTaskId: detailTask.id })
+  const failedSessions = new Set<string>(failure === undefined ? [] : [failure])
+  const detailAttemptRows = taskAttemptRows(detailTask, id => sessions.byId[id as SessionId], failedSessions)
   const detailPriority = detailTask?.priority ?? 'normal'
   const detailModules = (detailTask?.moduleIds ?? []).map(moduleId => displayProject?.config.modules.find(module => module.id === moduleId)?.path ?? moduleId)
   const detailWorkspace = snapshot === undefined ? undefined : currentWorkspace(snapshot, detailTask)
   const detailAttemptId = detailTask?.attempts.at(-1)?.id
+
   const loadTaskChanges = useCallback((request: WorkspaceChangesRequest) => workspaceChanges(detailAttemptId === undefined ? request : { ...request, attemptId: detailAttemptId }), [detailAttemptId, workspaceChanges])
   const anyPreviewOpen = preview !== undefined || review !== undefined
   const asideMin = anyPreviewOpen ? 300 : 320
@@ -570,6 +605,104 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
     ? selected ?? boundRows.find(row => row.task?.id === detailTask?.id)?.sessionId as SessionId | undefined
     : preview.sessionId as SessionId
   const taskSessions = snapshot === undefined || detailTask === undefined ? [] : boundSessions(snapshot).filter(row => row.task.id === detailTask.id)
+  const activeSessionRows: readonly LoomTaskSessionRow[] = taskSessions.map(row => {
+    const summary = sessions.byId[row.sessionId as SessionId]
+    return {
+      id: row.sessionId,
+      ...(summary?.parentId === undefined ? {} : { parentId: String(summary.parentId) }),
+      label: summary?.displayTitle ?? row.task.title,
+      running: summary?.running === true,
+      updatedAt: summary?.updatedAt ?? 0,
+    }
+  })
+  const runtimeSessionId = (selected ?? taskSessions.at(-1)?.sessionId) as SessionId | undefined
+  const runtimeCatalog = runtimeSessionId === undefined ? [] : sessions.projectionsBySession[runtimeSessionId]?.values.subagentCatalog ?? []
+  const subagentRows: readonly LoomSubagentRow[] = runtimeCatalog.map(entry => ({
+    id: entry.id,
+    label: entry.label ?? entry.id,
+    mode: entry.mode,
+    running: sessions.byId[entry.id]?.running === true,
+  }))
+  const runtimeTask = detailTask ?? boundRows.find(row => row.sessionId === runtimeSessionId)?.task
+  const runtimeWorkspace = snapshot === undefined ? undefined : currentWorkspace(snapshot, runtimeTask)
+  const workspaceDisplay = (() => {
+    const path = runtimeWorkspace?.rootPath ?? runtimeWorkspace?.path
+    if (path === undefined) return runtimeWorkspace?.id
+    const segments = path.split('/').filter(Boolean)
+    return segments.at(-1) ?? path
+  })()
+  const runtimeExecution = runtimeWorkspace === undefined ? undefined : snapshot?.executions.find(candidate => candidate.workspaceId === runtimeWorkspace.id)
+  const sessionLabel = (id: string): string => boundRows.find(row => row.sessionId === id)?.task.title ?? sessions.byId[id as SessionId]?.displayTitle ?? id.slice(0, 12)
+  const workspaceAccess = runtimeWorkspace === undefined ? undefined : {
+    workspaceLabel: workspaceName(runtimeWorkspace.rootPath ?? runtimeWorkspace.path) ?? runtimeWorkspace.path,
+    ...(runtimeExecution?.owner === null || runtimeExecution?.owner === undefined ? {} : { owner: { id: runtimeExecution.owner.sessionId, label: sessionLabel(runtimeExecution.owner.sessionId), running: sessions.byId[runtimeExecution.owner.sessionId]?.running === true } }),
+    waiting: (runtimeExecution?.waiting ?? []).map(id => ({ id, label: sessionLabel(id) })),
+  }
+  async function releaseOwner(workspaceId: string, owner: { readonly sessionId: string; readonly generation: number }): Promise<void> {
+    setReleasingWorkspace(workspaceId); setReleaseError(undefined)
+    try {
+      const result = await releaseExecution({ workspaceId, sessionId: owner.sessionId, generation: owner.generation })
+      if (!result.ok) { setReleaseError(`${t('graph.releaseFailed')}${result.error.message}`); return }
+      setAttempt(current => current + 1)
+    } catch (error) {
+      setReleaseError(`${t('graph.releaseFailed')}${error instanceof Error ? error.message : String(error)}`)
+    } finally { setReleasingWorkspace(undefined) }
+  }
+  async function releaseAllStale(): Promise<void> {
+    if (snapshot === undefined) return
+    const stale = snapshot.executions.filter(execution => execution.owner !== null && execution.owner !== undefined && runningSessionIds.has(execution.owner.sessionId) !== true)
+    if (stale.length === 0) return
+    setReleasingAll(true); setReleaseError(undefined)
+    const failures: string[] = []
+    try {
+      for (const execution of stale) {
+        const owner = execution.owner
+        if (owner === null || owner === undefined) continue
+        const result = await releaseExecution({ workspaceId: execution.workspaceId, sessionId: owner.sessionId, generation: Number(owner.generation) })
+        if (!result.ok) failures.push(`${owner.sessionId.slice(0, 8)}: ${result.error.message}`)
+      }
+      if (failures.length > 0) setReleaseError(`${t('graph.releaseFailed')}${failures.join('; ')}`)
+      setAttempt(current => current + 1)
+    } catch (error) {
+      setReleaseError(`${t('graph.releaseFailed')}${error instanceof Error ? error.message : String(error)}`)
+    } finally { setReleasingAll(false) }
+  }
+  async function claimWorkspace(): Promise<void> {
+    if (runtimeWorkspace === undefined || runtimeSessionId === undefined || runtimeExecution?.owner === null || runtimeExecution?.owner === undefined) return
+    setClaiming(true); setClaimError(undefined)
+    try {
+      const owner = runtimeExecution.owner
+      const waiting = runtimeExecution.waiting.includes(runtimeSessionId)
+      const released = await releaseExecution({ workspaceId: runtimeWorkspace.id, sessionId: owner.sessionId, generation: Number(owner.generation) })
+      if (!released.ok) { setClaimError(`${t('runtime.claimFailed')}${released.error.message}`); return }
+      if (!waiting) {
+        const acquired = await acquireExecution({ workspaceId: runtimeWorkspace.id, sessionId: runtimeSessionId })
+        if (!acquired.ok) { setClaimError(`${t('runtime.claimFailed')}${acquired.error.message}`); return }
+      }
+      setAttempt(current => current + 1)
+    } catch (error) {
+      setClaimError(`${t('runtime.claimFailed')}${error instanceof Error ? error.message : String(error)}`)
+    } finally { setClaiming(false) }
+  }
+  async function forkSessionAction(): Promise<void> {
+    if (runtimeSessionId === undefined || detailTask === undefined || detailWorkspace === undefined) return
+    setForking(true); setForkError(undefined)
+    try {
+      const committed = await commitWorkspace({ workspaceId: detailWorkspace.id, message: 'Loom: checkpoint before fork' })
+      if (!committed.ok) { setForkError(`${t('runtime.forkFailed')}${committed.error.message}`); return }
+      const failed = committed.value.repositories.find(repository => repository.error !== undefined)
+      if (failed !== undefined) { setForkError(`${t('runtime.forkFailed')}${failed.sourceId}: ${failed.error ?? ''}`); return }
+      const child = await forkSession({ sessionId: runtimeSessionId, increaseTitle: true })
+      const attached = await attachSession({ taskId: detailTask.id, sessionId: child })
+      if (!attached.ok) { setForkError(`${t('runtime.forkFailed')}${attached.error.message}`); return }
+      selectSession(child)
+      setAttempt(current => current + 1)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      setForkError(/no completed turn/iu.test(message) ? t('runtime.forkNoTurn') : `${t('runtime.forkFailed')}${message}`)
+    } finally { setForking(false) }
+  }
+
   const nativeSession = (selected ?? taskSessions.at(-1)?.sessionId) as SessionId | undefined
   const openNativeFile = (path: string, sessionId: SessionId | undefined = nativeSession): void => {
     if (sessionId !== undefined && openResource(fileAddressFor(sessionId, detailWorkspace?.path, path))) return
@@ -577,7 +710,29 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
     setAsideOpen(true)
   }
   const tokenUsage = aggregateTokenUsage(taskSessions.map(row => sessions.projectionsBySession[row.sessionId as SessionId]?.values))
-  const temporaryWorkspace = snapshot?.workspaces.filter(candidate => candidate.cleaned !== true).at(-1)
+  const sessionGroups = snapshot === undefined || detailTask === undefined || detailWorkspace === undefined
+    ? []
+    : snapshot.tasks
+        .filter(candidate => candidate.versionId === detailTask.versionId && currentWorkspace(snapshot, candidate)?.id === detailWorkspace.id)
+        .map(candidate => ({
+          taskId: candidate.id,
+          taskTitle: candidate.title,
+          rows: boundRows.filter(row => row.task.id === candidate.id).map(row => {
+            const summary = sessions.byId[row.sessionId as SessionId]
+            return {
+              id: row.sessionId,
+              ...(summary?.parentId === undefined ? {} : { parentId: String(summary.parentId) }),
+              label: summary?.displayTitle ?? candidate.title,
+              running: summary?.running === true,
+              updatedAt: summary?.updatedAt ?? 0,
+            }
+          }),
+        }))
+        .filter(group => group.rows.length > 0)
+        .sort((a, b) => a.taskId === detailTask.id ? -1 : b.taskId === detailTask.id ? 1 : 0)
+  const selectedUsage = selected === undefined
+    ? tokenUsage
+    : aggregateTokenUsage([sessions.projectionsBySession[selected]?.values])
   useEffect(() => {
     if (detailWorkspace?.id === undefined || detailWorkspace.cleaned === true) { setDiffCount(0); return }
     let active = true
@@ -624,12 +779,67 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
       return openDirectoryBrowser(startPath)
     }
   }
+  async function addVersionWorkspace(input: VersionWorkspaceInput): Promise<RemoteResult<WorkspaceRecord>> {
+    if (displayVersion === undefined || displayVersionProject === undefined || snapshot === undefined) {
+      throw new Error(t('state.error'))
+    }
+    if (input.mode !== 'auto') {
+      throw new Error(t('workspace.auto'))
+    }
+    const lock = snapshot.locks.filter(candidate => candidate.versionId === displayVersion.id).at(-1)
+    if (lock === undefined) throw new Error(t('lock.generateFirst'))
+    const parent = input.parentPath.replace(/\/+$/u, '')
+    const root = `${parent}/${input.name}`
+    const prefix = (input.branchPrefix === undefined || input.branchPrefix === '' ? 'loom' : input.branchPrefix).replace(/\/+$/u, '')
+    const branch = `${prefix}/${input.name}`
+    const branches: Record<string, string> = {}
+    const repositories = lock.repositories.map(entry => {
+      const source = displayVersionProject.config.sources.find(candidate => candidate.id === entry.sourceId)
+      if (source === undefined) throw new Error(t('error.workspaceMismatch'))
+      const subProjectId = entry.subProjectId === undefined ? 'default' : String(entry.subProjectId)
+      const path = autoWorkspaceRepositoryPath(subProjectId, source)
+      branches[String(source.id)] = branch
+      return { sourceId: String(source.id), path, targetPath: `${root}/${path}` }
+    })
+    const result = await (prepareWorkspaceSilent ?? prepareWorkspace)({ path: root, versionId: displayVersion.id, lockId: lock.id, mode: 'managed', repositories, branches, requireBranches: true })
+    if (!result.ok) return result
+    if (result.value.preparation?.status === 'failed') {
+      const failed = result.value.preparation.repositories.filter(repository => repository.status === 'failed')
+      const reason = failed.length > 0
+        ? failed.map(repository => `${repository.path ?? String(repository.sourceId)}: ${repository.error ?? 'failed'}`).join('; ')
+        : result.value.preparation.error ?? t('error.workspaceNotPrepared')
+      const cleanup = await (cleanupWorkspaceSilent ?? cleanupWorkspace)({ workspaceId: result.value.id, discardChanges: true })
+      setAttempt(current => current + 1)
+      throw new Error(cleanup.ok ? reason : `${reason}; cleanup failed: ${cleanup.error.message}`)
+    }
+    setAttempt(current => current + 1)
+    return result
+  }
+  async function renameVersionWorkspace(workspaceId: string, label: string): Promise<RemoteResult<WorkspaceRecord>> {
+    const result = await updateWorkspace({ workspaceId, label })
+    if (result.ok) setAttempt(current => current + 1)
+    return result
+  }
+  async function removeVersionWorkspace(workspaceId: string, deleteFiles = false, confirmPath?: string): Promise<RemoteResult<void>> {
+    const result = deleteFiles
+      ? await deleteWorkspace({ workspaceId, deleteFiles: true, ...(confirmPath === undefined ? {} : { confirmPath }) })
+      : await cleanupWorkspace({ workspaceId, discardChanges: true })
+    if (result.ok) setAttempt(current => current + 1)
+    return result
+  }
   const execution: ExecutionActions = {
-    prepareWorkspace, registerWorkspace, repositoryBranches, inspectWorkspace, pickDirectory: chooseDirectory, startAttempt, attachSession, transitionTask, createSessionInWorkspace, cleanupWorkspace, acquireExecution, releaseExecution, takeoverExecution,
+    prepareWorkspace, registerWorkspace, repositoryBranches, inspectWorkspace, pickDirectory: chooseDirectory, startAttempt, commitWorkspace, attachSession, transitionTask, createSessionInWorkspace, cleanupWorkspace, acquireExecution, releaseExecution, takeoverExecution, loadSnapshot,
     onSession: (id, draft) => {
       if (draft !== undefined) { setDraftAttempt(0); setPendingDraft({ sessionId: id, prompt: draft }) }
       setSelected(id); setView('workbench')
     },
+    onChanged: () => setAttempt(current => current + 1),
+  }
+  const temporary: LoomTemporaryActions = {
+    pickDirectory: chooseDirectory,
+    createSessionInWorkspace,
+    registerTemporarySession,
+    onSession: (id) => { setTask(undefined); setSelected(id); setView('workbench') },
     onChanged: () => setAttempt(current => current + 1),
   }
   const selectTask = (record: TaskRecord): void => {
@@ -642,39 +852,40 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
     setView('workbench')
   }
   const selectSession = (id: SessionId, owner?: TaskRecord): void => {
-    if (owner !== undefined) setTask(owner)
+    const bound = boundRows.find(row => row.sessionId === id)
+    const nextTask = owner ?? bound?.task
+    if (nextTask !== undefined) {
+      setTask(nextTask)
+      const nextVersion = snapshot?.versions.find(candidate => candidate.id === nextTask.versionId)
+      if (nextVersion !== undefined) { setProject(nextVersion.projectId); setVersion(nextVersion.id) }
+    }
     setSelected(id); setView('workbench')
+  }
+  /** Open one attached Session from the round list; retrying the open one re-runs retention. */
+  const openAttemptSession = (id: string): void => {
+    if (id === selected) setSessionRetry(value => value + 1)
+    else setSelected(id as SessionId)
+    setView('workbench')
+  }
+  /** Create a task for the version currently open in the detail page. */
+  const createTaskForVersion = (): void => {
+    if (displayVersionProject !== undefined) setProject(displayVersionProject.id)
+    if (displayVersion !== undefined) setVersion(displayVersion.id)
+    openCreate('task')
   }
   const toggle = (set: ReadonlySet<string>, apply: (next: ReadonlySet<string>) => void, id: string): void => {
     const next = new Set(set)
     if (next.has(id)) next.delete(id); else next.add(id)
     apply(next)
   }
-  async function transition(target: TransitionTaskRequest['target'], actor: TransitionTaskRequest['actor']): Promise<void> {
-    if (detailTask === undefined) return
-    try {
-      const result = await transitionTask({ taskId: detailTask.id, target, actor })
-      if (result.ok) setAttempt(current => current + 1)
-    } catch { /* the next snapshot keeps the authoritative status */ }
-  }
-  async function openTemporary(): Promise<void> {
-    if (temporaryWorkspace === undefined) return
-    const temporaryVersion = snapshot?.versions.find(candidate => candidate.id === temporaryWorkspace.versionId)
-    const agentPreset = snapshot?.projects.find(candidate => candidate.id === temporaryVersion?.projectId)?.config.agentPreset
-    setTemporaryFailure(undefined)
-    try {
-      const id = await createSessionInWorkspace(temporaryWorkspace.path, agentPreset)
-      const registered = await registerTemporarySession({ sessionId: id, workspacePath: temporaryWorkspace.path })
-      if (registered.ok) setAttempt(current => current + 1)
-      else setTemporaryFailure(registered.error.message)
-      setTask(undefined); setSelected(id); setView('workbench')
-    } catch (error) { setTemporaryFailure(error instanceof Error ? error.message : t('state.error')) }
-  }
   async function moveTask(record: TaskRecord, target: TaskRecord['status']): Promise<void> {
     try {
       const result = await transitionTask({ taskId: record.id, target, actor: 'human' })
       if (result.ok) setAttempt(current => current + 1)
-    } catch { /* the next snapshot keeps the authoritative status */ }
+      else reportLoomFailure(t, result.error, t('op.moveTask'))
+    } catch (error) {
+      reportLoomFailure(t, { code: 'unknown', message: error instanceof Error ? error.message : String(error) }, t('op.moveTask'))
+    }
   }
   async function removeProject(target: ProjectRecord): Promise<RemoteResult<void>> {
     const result = await deleteProject({ projectId: target.id })
@@ -729,6 +940,7 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
   const filter: ShellFilter = {
     ...(filterProject === '' ? {} : { projectId: filterProject as ProjectRecord['id'] }),
     ...(filterVersion === '' ? {} : { versionId: filterVersion as VersionRecord['id'] }),
+    ...(filterStatus === '' ? {} : { status: filterStatus }),
     ...(filterPriority === '' ? {} : { priority: filterPriority }),
     ...(filterModule === '' ? {} : { moduleId: filterModule }),
     ...(kbSearch.trim() === '' ? {} : { search: kbSearch }),
@@ -783,6 +995,11 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
       div.loom-modal-delete { width: min(480px, calc(100vw - 32px)); }
       div.loom-modal-takeover { width: min(440px, calc(100vw - 32px)); }
       .loom-row-action:hover { background: color-mix(in srgb, var(--dsw-alias-label-primary) 8%, transparent); color: var(--dsw-alias-label-primary) !important; }
+      .loom-session-row { border-radius: 5px; }
+      .loom-session-row:hover { background: color-mix(in srgb, var(--dsw-alias-label-primary) 6%, transparent); }
+      .loom-session-row:focus-within { background: color-mix(in srgb, var(--loom-selected) 65%, transparent); }
+      .loom-session-button:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary); outline-offset: -1px; }
+      @media (hover: none) { .loom-session-row:hover { background: transparent; } }
       .loom-tree-row .loom-row-actions { opacity: 0; visibility: hidden; pointer-events: none; transition: opacity .12s ease; }
       .loom-tree-row:hover .loom-row-actions, .loom-tree-row:focus-within .loom-row-actions, .loom-tree-row-active .loom-row-actions { opacity: 1; visibility: visible; pointer-events: auto; }
       .loom-top-action:focus-visible, .loom-top-new:focus-visible, .loom-view-switch button:focus-visible, .loom-menu-item:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary); outline-offset: 1px; }
@@ -869,8 +1086,8 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
             openVersions={expandedVersions}
             pinned
             t={t}
-            onProject={() => { setProject(candidate.id); setVersion(undefined); setTask(undefined); toggle(expandedProjects, setExpandedProjects, candidate.id) }}
-            onVersion={item => { setProject(candidate.id); setVersion(item.id); setTask(undefined); toggle(expandedVersions, setExpandedVersions, item.id) }}
+            onProject={() => { setProject(candidate.id); setVersion(undefined); setTask(undefined); setSelected(undefined); toggle(expandedProjects, setExpandedProjects, candidate.id) }}
+            onVersion={item => { setProject(candidate.id); setVersion(item.id); setTask(undefined); setSelected(undefined); toggle(expandedVersions, setExpandedVersions, item.id) }}
             onTask={selectTask}
             onPin={() => setPinnedProjects(current => current.filter(id => id !== candidate.id))}
             onNewVersion={() => { setProject(candidate.id); setVersion(undefined); setTask(undefined); openCreate('version') }}
@@ -892,8 +1109,8 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
             openVersions={expandedVersions}
             pinned={pinnedProjects.includes(candidate.id)}
             t={t}
-            onProject={() => { setProject(candidate.id); setVersion(undefined); setTask(undefined); toggle(expandedProjects, setExpandedProjects, candidate.id) }}
-            onVersion={item => { setProject(candidate.id); setVersion(item.id); setTask(undefined); toggle(expandedVersions, setExpandedVersions, item.id) }}
+            onProject={() => { setProject(candidate.id); setVersion(undefined); setTask(undefined); setSelected(undefined); toggle(expandedProjects, setExpandedProjects, candidate.id) }}
+            onVersion={item => { setProject(candidate.id); setVersion(item.id); setTask(undefined); setSelected(undefined); toggle(expandedVersions, setExpandedVersions, item.id) }}
             onTask={selectTask}
             onPin={() => setPinnedProjects(current => current.includes(candidate.id) ? current.filter(id => id !== candidate.id) : [...current, candidate.id])}
             onNewVersion={() => { setProject(candidate.id); setVersion(undefined); setTask(undefined); openCreate('version') }}
@@ -919,10 +1136,9 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
           </div>}
           {temporarySessionList.map(row => <SidebarSessionRow key={row.id} t={t} row={row} projectName={temporaryProjectBySession.get(row.id)} temporary active={selected === row.id}
             onSelect={() => { setSelected(row.id as SessionId); setTask(undefined); setView('workbench') }} />)}
-          {temporaryFailure !== undefined && <p role="alert" style={{ ...metaLine, margin: '2px 12px 6px', color: COLORS.error, overflowWrap: 'anywhere' }}>{temporaryFailure}</p>}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '6px 12px 8px' }}>
             <Button variant="outline" icon={<IconPlusOutlineRegular />} disabled={createDisabledTask} onClick={() => openCreate('task')} style={{ width: '100%', justifyContent: 'center' }}>{t('side.newTask')}</Button>
-            <Button variant="ghost" icon={<IconPlusOutlineRegular />} disabled={temporaryWorkspace === undefined} title={temporaryWorkspace?.path ?? t('side.newTemporary')} onClick={() => { void openTemporary() }} style={{ width: '100%', justifyContent: 'center' }}>{t('side.newTemporary')}</Button>
+            <Button variant="ghost" icon={<IconPlusOutlineRegular />} title={t('temporary.title')} onClick={() => setTemporaryOpen(true)} style={{ width: '100%', justifyContent: 'center' }}>{t('side.newTemporary')}</Button>
           </div>
         </section>
       </aside>
@@ -935,15 +1151,19 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
             mode={kbMode}
             projectValue={filterProject}
             versionValue={filterVersion}
+            statusValue={filterStatus}
             priorityValue={filterPriority}
             moduleValue={filterModule}
             searchValue={kbSearch}
+            wipLimit={preferences.wipLimit}
             onMode={mode => { setKbMode(mode); setPreferences(current => ({ ...current, kanbanMode: mode })) }}
             onProject={(value) => { setFilterProject(value); setFilterVersion(''); setFilterModule('') }}
             onVersion={(value) => { setFilterVersion(value); setFilterModule('') }}
+            onStatus={(value) => setFilterStatus(value === '' ? '' : value as TaskRecord['status'])}
             onPriority={(value) => setFilterPriority(value === '' ? '' : value as TaskPriority)}
             onModule={setFilterModule}
             onSearch={setKbSearch}
+            onClearFilters={() => { setFilterProject(''); setFilterVersion(''); setFilterStatus(''); setFilterPriority(''); setFilterModule(''); setKbSearch('') }}
             onSelect={selectTask}
             onMove={(record, target) => { void moveTask(record, target) }}
             onNewCard={(projectRecord) => {
@@ -962,15 +1182,6 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
               {shortCommit(detailTask?.attempts.at(-1)?.lock) !== undefined && <span style={pill}>🔒 {shortCommit(detailTask?.attempts.at(-1)?.lock)}</span>}
               {detailTask !== undefined && <span style={pill}>{t('task.status')}: {t(STATUS_META[detailTask.status].key)}</span>}
               <span style={{ marginLeft: 'auto', display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                {detailTask?.status === 'running' && <>
-                  <Button size="sm" variant="outline" onClick={() => { void transition('review', 'agent') }}>{t('task.review')}</Button>
-                  <Button size="sm" variant="ghost" onClick={() => { void transition('failed', 'human') }}>{t('task.fail')}</Button>
-                </>}
-                {detailTask?.status === 'review' && <>
-                  <Button size="sm" variant="outline" onClick={() => { void transition('completed', 'human') }}>{t('task.accept')}</Button>
-                  <Button size="sm" variant="outline" onClick={() => { void transition('running', 'human') }}>{t('task.continue')}</Button>
-                  <Button size="sm" variant="ghost" onClick={() => { void transition('failed', 'human') }}>{t('task.fail')}</Button>
-                </>}
                 {selected !== undefined && detailTask !== undefined && <Button size="sm" variant="ghost" onClick={() => setSelected(undefined)}>{t('task.details')}</Button>}
                 {selected !== undefined && <Button size="sm" variant="ghost" icon={<IconCloseOutlineRegular />} onClick={() => setSelected(undefined)}>{t('session.close')}</Button>}
               </span>
@@ -993,7 +1204,25 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
                     loadChanges={loadTaskChanges}
                     wrap={preferences.previewWrap}
                     onToggleWrap={togglePreviewWrap}
+                    attemptRows={detailAttemptRows}
+                    selectedSessionId={selected}
+                    onOpenSession={openAttemptSession}
                   />
+                : displayVersion !== undefined && snapshot !== undefined
+                  ? <LoomVersionDetail
+                      t={t}
+                      snapshot={snapshot}
+                      project={displayVersionProject}
+                      version={displayVersion}
+                      context={versionContext}
+                      generateLock={generateLock}
+                      onLockChanged={() => setAttempt(current => current + 1)}
+                      onCreateTask={createTaskForVersion}
+                      onEditVersion={() => openEdit('version')}
+                      onSelectTask={selectTask}
+                      loadWorkspaceStatus={workspaceStatus}
+                      liveTaskIds={liveTaskIds}
+                    />
                 : <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
                     <NextStepCard
                       t={t}
@@ -1007,7 +1236,7 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
                       onCreateVersion={() => { if (displayProject !== undefined) setProject(displayProject.id); openCreate('version') }}
                       onCreateTask={() => { if (displayVersionProject !== undefined) setProject(displayVersionProject.id); if (displayVersion !== undefined) setVersion(displayVersion.id); openCreate('task') }}
                       onSelectProject={record => { setProject(record.id); setVersion(undefined); setTask(undefined) }}
-                      onSelectVersion={record => { setVersion(record.id); setTask(undefined) }}
+                      onSelectVersion={record => { setVersion(record.id); setTask(undefined); setSelected(undefined) }}
                       onSelectTask={selectTask}
                       generateLock={generateLock}
                       onLockChanged={() => setAttempt(current => current + 1)}
@@ -1029,7 +1258,7 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
             ? <LoomFilePreview t={t} workspaceId={detailWorkspace?.id} {...(detailAttemptId === undefined ? {} : { attemptId: detailAttemptId })} sessionId={previewSessionId} filePath={preview.path} initialMode={preview.mode ?? 'diff'} loadChanges={workspaceChanges} readFile={readFile} readBytes={readBytes} openPath={openPath} applications={openPathApplications} openWith={openPathWith} onClose={() => { workspacePreview.close(); setPreviewFullscreen(false) }} fullscreen={previewFullscreen} onToggleFullscreen={() => setPreviewFullscreen(current => !current)} wrap={preferences.previewWrap} onToggleWrap={togglePreviewWrap} />
             : view === 'kanban'
             ? snapshot !== undefined && <LoomKanbanAside t={t} snapshot={snapshot} filter={filter} onSelectSession={(id) => { const row = boundRows.find(candidate => candidate.sessionId === id); selectSession(id as SessionId, row?.task) }} />
-            : <LoomContextPanel t={t} snapshot={snapshot ?? { projects: [], versions: [], locks: [], tasks: [], workspaces: [], temporarySessions: [], audit: [], executions: [] }} project={displayProject} version={displayVersion} task={detailTask} presetName={displayPresetName} usage={tokenUsage} generateLock={generateLock} onLockChanged={() => setAttempt(current => current + 1)} onEditProject={() => openEdit('project')} onNewVersion={() => { if (displayProject !== undefined) setProject(displayProject.id); openCreate('version') }} onEditVersion={() => openEdit('version')} onEditTask={() => openEdit('task')} onDeleteProject={displayProject === undefined ? undefined : () => removeProject(displayProject)} onDeleteVersion={displayVersion === undefined ? undefined : () => removeVersion(displayVersion)} onDeleteTask={detailTask === undefined ? undefined : () => removeTask(detailTask)} openPath={openPath} loadBranches={repositoryBranches} />}
+            : <LoomContextPanel t={t} snapshot={snapshot ?? { projects: [], versions: [], locks: [], tasks: [], workspaces: [], temporarySessions: [], audit: [], executions: [] }} project={displayProject} version={displayVersion} task={detailTask} versionContext={versionContext} presetName={displayPresetName} usage={tokenUsage} generateLock={generateLock} onLockChanged={() => setAttempt(current => current + 1)} onEditProject={() => openEdit('project')} onNewVersion={() => { if (displayProject !== undefined) setProject(displayProject.id); openCreate('version') }} onEditVersion={() => openEdit('version')} onEditTask={() => openEdit('task')} onDeleteProject={displayProject === undefined ? undefined : () => removeProject(displayProject)} onDeleteVersion={displayVersion === undefined ? undefined : () => removeVersion(displayVersion)} onDeleteTask={detailTask === undefined ? undefined : () => removeTask(detailTask)} openPath={openPath} loadBranches={repositoryBranches} liveTaskIds={liveTaskIds} runningSessionIds={runningSessionIds} />}
       </aside>}
     </div>
     {!bottomCollapsed && <LoomResizeHandle label={t('layout.resizeBottom')} orientation="horizontal" value={bottomHeight} min={80} max={bottomMax} invert onChange={(height) => setPreferences(current => ({ ...current, bottomHeight: height }))} />}
@@ -1039,8 +1268,13 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
       collapsed={bottomCollapsed}
       pane={pane}
       audit={auditRows}
+      sessionsContent={<LoomSessionGraph t={t} taskTitle={detailTask?.title} workspaceLabel={workspaceDisplay} rows={activeSessionRows} groups={sessionGroups} execution={runtimeExecution} currentSessionId={runtimeSessionId} onOpenSession={id => { selectSession(id) }} />}
+      runtimeContent={<LoomSessionActivity t={t} sessionId={runtimeSessionId} subagents={subagentRows} jobs={jobs} workspaceAccess={workspaceAccess} openSession={id => { selectSession(id) }} forkSession={() => { void forkSessionAction() }} forking={forking} forkError={forkError} canFork={runtimeSessionId !== undefined && detailTask !== undefined && detailWorkspace !== undefined} onClaim={() => { void claimWorkspace() }} claiming={claiming} claimError={claimError} />}
+      graphContent={snapshot !== undefined && taskVersion !== undefined ? <LoomVersionGraph t={t} snapshot={snapshot} version={taskVersion} sessionLabel={sessionLabel} runningSessionIds={runningSessionIds} onSelectTask={selectTask} onRelease={(workspaceId, owner) => { void releaseOwner(workspaceId, owner) }} releasingWorkspaceId={releasingWorkspace} releaseError={releaseError} onReleaseAll={() => { void releaseAllStale() }} releasingAll={releasingAll} /> : undefined}
+      sessionCount={activeSessionRows.length}
+      runningCount={activeSessionRows.filter(row => row.running).length}
       diffCount={diffCount}
-      usage={tokenUsage}
+      usage={selectedUsage}
       workspaceId={detailWorkspace?.id}
       {...(detailAttemptId === undefined ? {} : { attemptId: detailAttemptId })}
       loadChanges={workspaceChanges}
@@ -1060,20 +1294,27 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
       onUnpin={id => setPinnedProjects(current => current.filter(candidate => candidate !== id))}
       onClose={() => setSettingsOpen(false)}
     />
+    <LoomTemporaryDialog
+      t={t}
+      open={temporaryOpen}
+      snapshot={snapshot}
+      actions={temporary}
+      onClose={() => setTemporaryOpen(false)}
+    />
     {create !== undefined && <div style={modalOverlay}>
       <div role="dialog" aria-modal="true" aria-label={create === 'project' ? t('top.newProject') : create === 'import' ? t('project.import') : create === 'version' ? t('top.newVersion') : t('top.newTask')} style={{ ...modalCard, maxWidth: MODAL_WIDTH[create] }} onClick={event => event.stopPropagation()}>
         <div style={modalHeader}>
           <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
             <strong style={modalTitle}>{create === 'project' ? t('top.newProject') : create === 'import' ? t('project.import') : create === 'version' ? t('top.newVersion') : t('top.newTask')}</strong>
-            {create === 'version' && <span style={modalSub}>{t(versionStep === 'name' ? 'version.sub.name' : versionStep === 'refs' ? 'version.sub.refs' : 'version.sub.preview')}</span>}
+            {create === 'version' && <span style={modalSub}>{t(versionStep === 'name' ? 'version.sub.name' : versionStep === 'refs' ? 'version.sub.refs' : versionStep === 'workspace' ? 'version.sub.workspace' : 'version.sub.preview')}</span>}
           </div>
           <Button size="sm" variant="ghost" icon={<IconCloseOutlineRegular />} aria-label={t('form.close')} title={t('form.close')} onClick={() => setCreate(undefined)} style={{ marginLeft: 'auto', width: 28, height: 28, padding: 0, justifyContent: 'center' }} />
         </div>
         {create !== 'version' && <p style={modalHint}>{create === 'project' ? t('flow.project') : create === 'task' ? t('flow.task') : t('flow.import')}</p>}
         {create === 'project' && <ProjectForm t={t} open onBusyChange={setModalBusy} agentPresets={agentPresets} pickDirectory={chooseDirectory} onOpenChange={value => { if (!value) setCreate(undefined) }} create={createProject} onCreated={created => { setProject(created.id); setVersion(undefined); setTask(undefined); setSelected(undefined); setCreate(undefined); setAttempt(current => current + 1) }} />}
         {create === 'import' && <ImportProjectForm t={t} open onBusyChange={setModalBusy} onOpenChange={value => { if (!value) setCreate(undefined) }} create={createProject} onCreated={created => { setProject(created.id); setVersion(undefined); setTask(undefined); setSelected(undefined); setCreate(undefined); setAttempt(current => current + 1) }} />}
-        {create === 'version' && currentProject !== undefined && <VersionForm t={t} open onBusyChange={setModalBusy} onStepChange={setVersionStep} listBranches={repositoryBranches} onOpenChange={value => { if (!value) setCreate(undefined) }} project={currentProject} create={createVersion} onCreated={created => { setVersion(created.id); setTask(undefined); setSelected(undefined); setCreate(undefined); setAttempt(current => current + 1) }} />}
-        {create === 'task' && currentVersion !== undefined && currentVersionProject !== undefined && <TaskForm t={t} open onBusyChange={setModalBusy} onOpenChange={value => { if (!value) setCreate(undefined) }} version={currentVersion} project={currentVersionProject} create={createTask} onCreated={created => { setTask(created); setSelected(undefined); setView('workbench'); setCreate(undefined); setAttempt(current => current + 1) }} />}
+        {create === 'version' && currentProject !== undefined && <VersionForm t={t} open onBusyChange={setModalBusy} onStepChange={setVersionStep} listBranches={repositoryBranches} onOpenChange={value => { if (!value) setCreate(undefined) }} project={currentProject} pickDirectory={chooseDirectory} create={createVersion} onCreated={created => { setVersion(created.id); setTask(undefined); setSelected(undefined); setCreate(undefined); setAttempt(current => current + 1) }} />}
+        {create === 'task' && currentVersion !== undefined && currentVersionProject !== undefined && <TaskForm t={t} open onBusyChange={setModalBusy} onOpenChange={value => { if (!value) setCreate(undefined) }} version={currentVersion} project={currentVersionProject} workspaces={(snapshot?.workspaces ?? []).filter(workspace => workspace.versionId === currentVersion.id && workspace.cleaned !== true && (workspace.preparation === undefined || workspace.preparation.status === 'ready'))} create={createTask} onCreated={created => { setTask(created); setSelected(undefined); setView('workbench'); setCreate(undefined); setAttempt(current => current + 1) }} />}
         {create === 'version' && currentProject === undefined && <p style={note}>{t('project.select')}</p>}
         {create === 'task' && currentVersion === undefined && <p style={note}>{t('version.select')}</p>}
       </div>
@@ -1087,7 +1328,7 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
           <Button size="sm" variant="ghost" icon={<IconCloseOutlineRegular />} aria-label={t('form.close')} title={t('form.close')} onClick={() => setEdit(undefined)} style={{ marginLeft: 'auto', width: 28, height: 28, padding: 0, justifyContent: 'center' }} />
         </div>
         {edit === 'project' && displayProject !== undefined && <ProjectForm t={t} open onBusyChange={setModalBusy} project={displayProject} agentPresets={agentPresets} pickDirectory={chooseDirectory} create={createProject} update={updateProject} onOpenChange={value => { if (!value) setEdit(undefined) }} onCreated={updated => { setProject(updated.id); setEdit(undefined); setAttempt(current => current + 1) }} />}
-        {edit === 'version' && displayVersion !== undefined && displayVersionProject !== undefined && <VersionForm t={t} open onBusyChange={setModalBusy} version={displayVersion} project={displayVersionProject} listBranches={repositoryBranches} create={createVersion} update={updateVersion} onOpenChange={value => { if (!value) setEdit(undefined) }} onCreated={updated => { setVersion(updated.id); setEdit(undefined); setAttempt(current => current + 1) }} />}
+        {edit === 'version' && displayVersion !== undefined && displayVersionProject !== undefined && <VersionForm t={t} open onBusyChange={setModalBusy} version={displayVersion} project={displayVersionProject} listBranches={repositoryBranches} pickDirectory={chooseDirectory} boundWorkspaces={(snapshot?.workspaces ?? []).filter(workspace => workspace.versionId === displayVersion.id).map(workspace => ({ ...workspace, taskCount: (snapshot?.tasks ?? []).filter(task => task.workspaceId === workspace.id || task.attempts.some(attempt => attempt.workspaceId === workspace.id)).length, ...(snapshot?.executions.find(execution => execution.workspaceId === workspace.id)?.owner === undefined ? {} : { ownerSessionId: snapshot?.executions.find(execution => execution.workspaceId === workspace.id)?.owner?.sessionId }) }))} otherWorkspaces={(snapshot?.workspaces ?? []).filter(workspace => workspace.versionId !== displayVersion.id && workspace.cleaned !== true).map(workspace => ({ id: workspace.id, label: workspace.label, rootPath: workspace.rootPath, path: workspace.path, mode: workspace.mode, versionId: workspace.versionId, versionName: snapshot?.versions.find(version => version.id === workspace.versionId)?.name ?? '' }))} renameWorkspace={renameVersionWorkspace} deleteWorkspace={removeVersionWorkspace} cleanupWorkspace={removeVersionWorkspace} addWorkspace={addVersionWorkspace} onWorkspaceAdded={() => setAttempt(current => current + 1)} create={createVersion} update={updateVersion} onOpenChange={value => { if (!value) setEdit(undefined) }} onCreated={updated => { setVersion(updated.id); setEdit(undefined); setAttempt(current => current + 1) }} />}
         {edit === 'task' && detailTask !== undefined && displayVersion !== undefined && displayVersionProject !== undefined && <TaskForm t={t} open onBusyChange={setModalBusy} task={detailTask} version={displayVersion} project={displayVersionProject} create={createTask} update={updateTask} onOpenChange={value => { if (!value) setEdit(undefined) }} onCreated={updated => { setTask(updated); setView('workbench'); setEdit(undefined); setAttempt(current => current + 1) }} />}
       </div>
     </div>}

@@ -1,15 +1,19 @@
 /** Catalog projections for the Loom shell; pure functions with no Host runtime imports. */
-import type { CatalogSnapshot, ExecutionState, Lock, ProjectRecord, TaskPriority, TaskRecord, VersionRecord } from 'dsh-workloom/types'
+import type { CatalogSnapshot, ExecutionState, Lock, ProjectRecord, TaskPriority, TaskRecord, VersionRecord, WorkspaceRecord } from 'dsh-workloom/types'
+import type { TaskStatus } from '../domain/task.ts'
+import type { LoomKey } from './locales.ts'
 import type { BoardColumn, BoardTask } from './board.ts'
 import { projectBoard } from './board.ts'
 
-/** Board filter over task title, project, version, priority and module. */
+/** Board filter over task title, project, version, status, priority and module. */
 export interface ShellFilter {
   readonly projectId?: ProjectRecord['id']
   readonly versionId?: VersionRecord['id']
   readonly priority?: TaskPriority
   readonly moduleId?: string
   readonly search?: string
+  /** Business status; coexists with the metadata filters. */
+  readonly status?: TaskStatus
 }
 
 /** One project lane with its version labels and business-state columns. */
@@ -63,18 +67,23 @@ function matchProject(projectId: ProjectRecord['id'], filter: ShellFilter): bool
   return filter.projectId === undefined || projectId === filter.projectId
 }
 
-function matchingTasks(snapshot: CatalogSnapshot, filter: ShellFilter): BoardTask[] {
+function matchingRecords(snapshot: CatalogSnapshot, filter: ShellFilter): TaskRecord[] {
   const versions = new Map(snapshot.versions.map(version => [version.id, version]))
   return snapshot.tasks.filter((task) => {
     const version = versions.get(task.versionId)
     if (version === undefined) return false
     if (!matchProject(version.projectId, filter)) return false
     if (filter.versionId !== undefined && task.versionId !== filter.versionId) return false
+    if (filter.status !== undefined && task.status !== filter.status) return false
     if (filter.priority !== undefined && (task.priority ?? 'normal') !== filter.priority) return false
     if (filter.moduleId !== undefined && !(task.moduleIds ?? []).some(moduleId => moduleId === filter.moduleId)) return false
     const query = filter.search?.trim().toLowerCase() ?? ''
     return query === '' || `${task.title}\n${task.description ?? ''}`.toLowerCase().includes(query)
   })
+}
+
+function matchingTasks(snapshot: CatalogSnapshot, filter: ShellFilter): BoardTask[] {
+  return matchingRecords(snapshot, filter)
 }
 
 /** Group matching tasks by project for the kanban swimlanes.
@@ -123,6 +132,57 @@ export function boardMetrics(snapshot: CatalogSnapshot, filter: ShellFilter): Bo
     completed: tasks.filter(task => task.status === 'completed').length,
     activeSessions: sessions.filter(session => session.task.status === 'running').length,
   }
+}
+
+/** One card the board must surface as blocked together with the concrete cause. */
+export interface BoardBlocker {
+  readonly task: TaskRecord
+  readonly reason: LoomKey
+}
+
+/** Blocked cards grouped by what the board is waiting for. */
+export interface BoardBlockerGroups {
+  /** Human acceptance decisions, including unconfirmed Agent suggestions. */
+  readonly approval: readonly BoardBlocker[]
+  /** Preparation or execution-access waits on the card's workspace. */
+  readonly workspace: readonly BoardBlocker[]
+  /** Takeovers whose stop outcome is unknown or failed. */
+  readonly takeover: readonly BoardBlocker[]
+  /** Incomplete cleanup of a workspace the card uses. */
+  readonly other: readonly BoardBlocker[]
+}
+
+/**
+ * Project the cards that cannot move forward onto the four blocker groups the
+ * board's overview panel explains. A card is listed at most once per group, and
+ * a card can appear in more than one group when it has more than one blocker.
+ * @param snapshot - Authoritative catalog snapshot.
+ * @param filter - Project, version, status and metadata constraints.
+ * @returns blocked cards with the localized reason they wait on.
+ */
+export function boardBlockers(snapshot: CatalogSnapshot, filter: ShellFilter): BoardBlockerGroups {
+  const tasks = matchingRecords(snapshot, filter)
+  const executionByWorkspace = new Map(snapshot.executions.map(execution => [String(execution.workspaceId), execution]))
+  const workspaceById = new Map(snapshot.workspaces.map(workspace => [String(workspace.id), workspace]))
+  const approval: BoardBlocker[] = []
+  const workspace: BoardBlocker[] = []
+  const takeover: BoardBlocker[] = []
+  const other: BoardBlocker[] = []
+  for (const task of tasks) {
+    const attempt = task.attempts.at(-1)
+    const record = attempt === undefined ? undefined : workspaceById.get(String(attempt.workspaceId))
+    const execution = attempt === undefined ? undefined : executionByWorkspace.get(String(attempt.workspaceId))
+    if (task.status === 'review') approval.push({ task, reason: task.outcome?.state === 'suggested' ? 'kb.blockedBySuggestion' : 'kb.blockedByApproval' })
+    const preparation = record?.preparation
+    if (preparation !== undefined && preparation.status !== 'ready') {
+      workspace.push({ task, reason: preparation.status === 'failed' ? 'kb.blockedByPrepareFailed' : 'kb.blockedByPreparing' })
+    } else if (execution !== undefined && execution.waiting.length > 0) {
+      workspace.push({ task, reason: 'kb.blockedByWaitingExecution' })
+    }
+    if (execution?.takeover != null && execution.takeover.stopStatus !== 'requested') takeover.push({ task, reason: 'kb.blockedByTakeover' })
+    if (record?.cleanup?.status === 'partial') other.push({ task, reason: 'kb.blockedByCleanup' })
+  }
+  return { approval, workspace, takeover, other }
 }
 
 /** List every Session attached to a task attempt.
@@ -192,7 +252,9 @@ export function activeWorkspaceCount(snapshot: CatalogSnapshot): number {
  * @returns the attempt Lock, or undefined before the first execution.
  */
 export function currentLock(snapshot: CatalogSnapshot, task: TaskRecord | undefined): Lock | undefined {
-  const lockId = task?.attempts.at(-1)?.lock.id
+  const attemptLockId = task?.attempts.at(-1)?.lock.id
+  const bound = task?.workspaceId === undefined ? undefined : snapshot.workspaces.find(workspace => workspace.id === task.workspaceId)
+  const lockId = attemptLockId ?? bound?.lockId
   return lockId === undefined ? undefined : snapshot.locks.find(lock => lock.id === lockId)
 }
 
@@ -202,7 +264,7 @@ export function currentLock(snapshot: CatalogSnapshot, task: TaskRecord | undefi
  * @returns the workspace record, or undefined before the first execution.
  */
 export function currentWorkspace(snapshot: CatalogSnapshot, task: TaskRecord | undefined) {
-  const workspaceId = task?.attempts.at(-1)?.workspaceId
+  const workspaceId = task?.attempts.at(-1)?.workspaceId ?? task?.workspaceId
   return workspaceId === undefined ? undefined : snapshot.workspaces.find(workspace => workspace.id === workspaceId)
 }
 
@@ -212,7 +274,7 @@ export function currentWorkspace(snapshot: CatalogSnapshot, task: TaskRecord | u
  * @returns the persisted execution state, or undefined before the first execution.
  */
 export function currentExecution(snapshot: CatalogSnapshot, task: TaskRecord | undefined): ExecutionState | undefined {
-  const workspaceId = task?.attempts.at(-1)?.workspaceId
+  const workspaceId = task?.attempts.at(-1)?.workspaceId ?? task?.workspaceId
   return workspaceId === undefined ? undefined : snapshot.executions.find(execution => execution.workspaceId === workspaceId)
 }
 
@@ -268,4 +330,197 @@ export function aggregateTokenUsage(values: readonly (object | undefined)[]): To
     }
   }
   return total
+}
+
+/** Native Session state the workbench needs without importing the native store type. */
+export interface AttemptSessionLookup {
+  (sessionId: string): { readonly running: boolean; readonly displayTitle?: string } | undefined
+}
+
+/** Why an attached Session cannot be opened, for a localized reason line. */
+export type SessionUnavailableReason = 'missing' | 'failed'
+
+/** One attached Session under an execution round. */
+export interface AttemptSessionRow {
+  readonly sessionId: string
+  readonly title?: string
+  readonly running: boolean
+  readonly available: boolean
+  readonly unavailableReason?: SessionUnavailableReason
+}
+
+/** One execution round with every Session attached to it. */
+export interface TaskAttemptRow {
+  readonly attemptId: string
+  readonly round: number
+  readonly latest: boolean
+  readonly status: Exclude<TaskRecord['status'], 'pending'>
+  readonly lock: Lock
+  readonly workspaceId: string
+  readonly sessions: readonly AttemptSessionRow[]
+}
+
+/**
+ * Project every execution round and its Sessions for the task session list.
+ * @param task - Task whose append-only round history is shown.
+ * @param lookup - Native Session state by id; undefined means the Session is not loaded.
+ * @param failed - Sessions whose native retain call failed and may be retried.
+ * @returns rounds oldest first, with their Sessions in attach order.
+ */
+export function taskAttemptRows(task: TaskRecord | undefined, lookup: AttemptSessionLookup, failed: ReadonlySet<string>): TaskAttemptRow[] {
+  if (task === undefined) return []
+  return task.attempts.map((attempt, index) => ({
+    attemptId: attempt.id,
+    round: index + 1,
+    latest: index === task.attempts.length - 1,
+    status: attempt.status,
+    lock: attempt.lock,
+    workspaceId: attempt.workspaceId,
+    sessions: attempt.sessionIds.map((sessionId) => {
+      const state = lookup(sessionId)
+      const isFailed = failed.has(sessionId)
+      return {
+        sessionId,
+        ...(state?.displayTitle === undefined ? {} : { title: state.displayTitle }),
+        running: state?.running === true,
+        available: state !== undefined && !isFailed,
+        ...(state === undefined ? { unavailableReason: 'missing' as const } : isFailed ? { unavailableReason: 'failed' as const } : {}),
+      }
+    }),
+  }))
+}
+
+/** One repository row of a version: current ref and the commit the latest Lock pinned. */
+export interface VersionRepositoryRow {
+  readonly sourceId: string
+  readonly path: string
+  readonly repo: string
+  readonly ref: string
+  readonly commit?: string
+}
+
+/**
+ * Pair each project repository with the version ref and latest Lock commit.
+ * @param project - Project owning the version, when resolved.
+ * @param version - Version whose refs are shown.
+ * @param latestLock - Newest Lock of the version; commits are absent before one exists.
+ * @returns one row per configured repository, in project order.
+ */
+export function versionRepositoryRows(project: ProjectRecord | undefined, version: VersionRecord | undefined, latestLock: Lock | undefined): VersionRepositoryRow[] {
+  if (project === undefined || version === undefined) return []
+  const commitBySource = new Map((latestLock?.repositories ?? []).map(repository => [repository.sourceId, repository.commit]))
+  return project.config.sources.map((source) => {
+    const commit = commitBySource.get(source.id)
+    return {
+      sourceId: source.id,
+      path: source.path,
+      repo: source.repo,
+      ref: version.sources.find(entry => entry.sourceId === source.id)?.ref ?? '',
+      ...(commit === undefined ? {} : { commit }),
+    }
+  })
+}
+
+/** Locks of one version in catalog order, oldest first. */
+export function versionLocks(snapshot: CatalogSnapshot, versionId: VersionRecord['id'] | undefined): Lock[] {
+  if (versionId === undefined) return []
+  return snapshot.locks.filter(lock => lock.versionId === versionId)
+}
+
+/** Tasks whose current or historical attempt is pinned to one Lock. */
+export function lockTasks(snapshot: CatalogSnapshot, lockId: string): TaskRecord[] {
+  return snapshot.tasks.filter(task => task.attempts.some(attempt => attempt.lock.id === lockId))
+}
+
+/** Unclean workspaces still baselined on one Lock. */
+export function lockWorkspaces(snapshot: CatalogSnapshot, lockId: string): readonly WorkspaceRecord[] {
+  return snapshot.workspaces.filter(workspace => workspace.cleaned !== true && workspace.lockId === lockId)
+}
+
+/** One task attempt that lives in a workspace. */
+export interface WorkspaceTaskLink {
+  readonly task: TaskRecord
+  readonly attemptId: string
+  readonly latest: boolean
+}
+
+/** One workspace with its baseline, owning tasks and execution scheduling. */
+export interface VersionWorkspaceRow {
+  readonly workspace: WorkspaceRecord
+  readonly lock?: Lock
+  readonly tasks: readonly WorkspaceTaskLink[]
+  readonly ownerSessionId?: string
+  readonly waiting: number
+  readonly takeover: boolean
+}
+
+/**
+ * Workspaces touched by a version: its own prepared workspaces plus any reused by its tasks.
+ * @param snapshot - Authoritative catalog snapshot.
+ * @param versionId - Version whose workspaces are listed.
+ * @returns unclean workspaces first, then cleaned history, in catalog order.
+ */
+export function versionWorkspaceRows(snapshot: CatalogSnapshot, versionId: VersionRecord['id'] | undefined): VersionWorkspaceRow[] {
+  if (versionId === undefined) return []
+  const versionTasks = snapshot.tasks.filter(task => task.versionId === versionId)
+  const usedIds = new Set<string>()
+  for (const task of versionTasks) for (const attempt of task.attempts) usedIds.add(attempt.workspaceId)
+  const rows: VersionWorkspaceRow[] = []
+  for (const workspace of snapshot.workspaces) {
+    if (workspace.versionId !== versionId && !usedIds.has(workspace.id)) continue
+    const execution = snapshot.executions.find(candidate => candidate.workspaceId === workspace.id)
+    const tasks: WorkspaceTaskLink[] = []
+    for (const task of versionTasks) {
+      task.attempts.forEach((attempt, index) => {
+        if (attempt.workspaceId === workspace.id) tasks.push({ task, attemptId: attempt.id, latest: index === task.attempts.length - 1 })
+      })
+    }
+    const lock = snapshot.locks.find(candidate => candidate.id === workspace.lockId)
+    rows.push({
+      workspace,
+      ...(lock === undefined ? {} : { lock }),
+      tasks,
+      ...(execution?.owner === null || execution?.owner === undefined ? {} : { ownerSessionId: execution.owner.sessionId }),
+      waiting: execution?.waiting.length ?? 0,
+      takeover: execution?.takeover !== null && execution?.takeover !== undefined,
+    })
+  }
+  return [...rows.filter(row => row.workspace.cleaned !== true), ...rows.filter(row => row.workspace.cleaned === true)]
+}
+
+/** One occupied or queued workspace of a version, for the version-context panel. */
+export interface VersionOccupancyRow {
+  readonly workspaceId: string
+  readonly workspaceLabel: string
+  readonly taskTitles: readonly string[]
+  readonly occupied: boolean
+  /** Session holding execution access, when one does. */
+  readonly ownerSessionId?: string | undefined
+  readonly waiting: number
+  readonly takeover: boolean
+}
+
+/**
+ * Real execution occupancy for a version's workspaces.
+ * @param snapshot - Authoritative catalog snapshot.
+ * @param versionId - Version whose occupancy facts are shown.
+ * @returns rows only for workspaces with an owner, waiting Sessions or a pending takeover.
+ */
+export function versionOccupancy(snapshot: CatalogSnapshot, versionId: VersionRecord['id'] | undefined): VersionOccupancyRow[] {
+  if (versionId === undefined) return []
+  const rows: VersionOccupancyRow[] = []
+  for (const row of versionWorkspaceRows(snapshot, versionId)) {
+    const occupied = row.ownerSessionId !== undefined
+    if (!occupied && row.waiting === 0 && !row.takeover) continue
+    rows.push({
+      workspaceId: row.workspace.id,
+      workspaceLabel: workspaceName(row.workspace.rootPath ?? row.workspace.path) ?? row.workspace.path,
+      taskTitles: [...new Set(row.tasks.map(link => link.task.title))],
+      occupied,
+      ...(row.ownerSessionId === undefined ? {} : { ownerSessionId: row.ownerSessionId }),
+      waiting: row.waiting,
+      takeover: row.takeover,
+    })
+  }
+  return rows
 }

@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest'
 import {
-  openFilePreview, openReviewPreview, previewTargetFromAddress, reviewIndexFromOptions, reviewTargetFromAddress,
+  openFilePreview, openReviewPreview, previewTargetFromAddress, reviewIndexFromOptions, reviewTargetFromAddress, routeLoomResource,
   workspacePreview, workspaceReviewPreview,
 } from '../src/client/preview.ts'
 it('reads a native session file address for the workbench preview', () => {
@@ -29,4 +29,15 @@ it('shows one aside at a time', () => {
   expect(workspacePreview.getSnapshot()).toBeUndefined()
   expect(workspaceReviewPreview.getSnapshot()?.turn).toBe(2)
   workspaceReviewPreview.close()
+})
+
+it('routes native file and review addresses into the Loom preview', () => {
+  const files: unknown[] = []
+  const reviews: unknown[] = []
+  const handlers = { openFile: (target: unknown) => { files.push(target) }, openReview: (target: unknown) => { reviews.push(target) } }
+  expect(routeLoomResource('dsh-resource://file/session/s1/src/a.ts', undefined, handlers)).toBe(true)
+  expect(files).toEqual([{ sessionId: 's1', path: 'src/a.ts', mode: 'file' }])
+  expect(routeLoomResource('dsh-resource://changes-review/session/s1/9/2', { params: { index: 3 } }, handlers)).toBe(true)
+  expect(reviews).toEqual([{ sessionId: 's1', seq: 9, turn: 2, index: 3 }])
+  expect(routeLoomResource('https://example.com', undefined, handlers)).toBe(false)
 })

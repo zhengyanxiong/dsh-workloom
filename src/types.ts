@@ -10,16 +10,46 @@ export type * from './domain/execution.ts'
 export type * from './domain/workspace.ts'
 export type * from './domain/audit.ts'
 export type * from './host/catalog.ts'
+export type * from './shared/version-context.ts'
 
+/** Auto-created version workspace: parent path + worktree name + branch prefix. */
+export interface AutoVersionWorkspaceInput {
+  readonly mode: 'auto'
+  readonly parentPath: string
+  readonly name: string
+  readonly branchPrefix?: string | undefined
+}
+/** One existing repository directory mapped into a linked version workspace. */
+export interface LinkedVersionRepositoryInput {
+  readonly sourceId: string
+  readonly targetPath: string
+}
+/** Existing working directories bound to a version without copying. */
+export interface LinkedVersionWorkspaceInput {
+  readonly mode: 'linked'
+  readonly rootPath: string
+  readonly repositories: readonly LinkedVersionRepositoryInput[]
+}
+/** One workspace created or registered while saving a version. */
+export type VersionWorkspaceInput = AutoVersionWorkspaceInput | LinkedVersionWorkspaceInput
 /** Admit one project configuration. */
 export interface CreateVersionRequest {
   readonly projectId: string
   readonly name: string
+  /** Trimmed human description; omitted persists an empty string, at most `VERSION_DESCRIPTION_MAX_CHARS`. */
+  readonly description?: string
+  /** Flattened compatibility refs; new clients also send `targets`. */
   readonly sources: readonly { readonly sourceId: string; readonly ref: string }[]
+  /** Canonical V2 refs scoped to sub-projects. */
+  readonly targets?: readonly { readonly subProjectId: string; readonly sourceId: string; readonly ref: string }[]
+  /** Workspaces created/registered as part of saving the version. */
+  readonly workspaces?: readonly VersionWorkspaceInput[]
 }
 /** Create one task under a version. */
 export interface CreateTaskRequest {
   readonly versionId: string
+  /** Ready workspace bound to the version; required for V2 task creation. */
+  readonly workspaceId?: string
   readonly title: string
   readonly description?: string
   readonly moduleIds?: readonly string[]
@@ -30,11 +60,15 @@ export interface UpdateProjectRequest {
   readonly projectId: string
   readonly config: ProjectConfig
 }
-/** Replace one version's name and repository refs. */
+/** Replace one version's name, description and repository refs. */
 export interface UpdateVersionRequest {
   readonly versionId: string
   readonly name: string
+  /** Omitted preserves the stored description; an empty string clears it. */
+  readonly description?: string
   readonly sources: readonly { readonly sourceId: string; readonly ref: string }[]
+  /** Canonical V2 targets; omitted preserves the stored targets. */
+  readonly targets?: readonly { readonly subProjectId: string; readonly sourceId: string; readonly ref: string }[]
 }
 /** Replace editable task metadata without changing its version or execution history. */
 export interface UpdateTaskRequest {
@@ -69,7 +103,47 @@ export interface WorkspaceChangesRequest {
 /** Workspace ownership and uncommitted-change state. */
 export interface WorkspaceStatusResult {
   readonly running: boolean
-  readonly repositories: readonly WorkspaceRepositoryChangesRecord[]
+  readonly repositories: readonly WorkspaceRepositoryStatusRecord[]
+}
+/** One repository's changes plus its push state inside a prepared workspace. */
+export interface WorkspaceRepositoryStatusRecord extends WorkspaceRepositoryChangesRecord {
+  /** Commits HEAD has that its upstream does not; absent when no upstream is configured. */
+  readonly unpushed?: number | undefined
+  /** True when the branch has no upstream, so no ahead count exists. */
+  readonly unpushedUnavailable?: boolean | undefined
+}
+/** Commit every repository's uncommitted changes in a workspace, without pushing. */
+export interface CommitWorkspaceRequest {
+  readonly workspaceId: string
+  /** Commit subject; the Host trims and caps it. */
+  readonly message?: string
+}
+/** One repository's commit result, including a per-repository failure. */
+export interface WorkspaceCommitRepository {
+  readonly sourceId: string
+  readonly path: string
+  readonly changed: boolean
+  readonly commit?: string
+  readonly error?: string
+}
+/** Per-repository checkpoint result for a workspace commit. */
+export interface WorkspaceCommitResult {
+  readonly repositories: readonly WorkspaceCommitRepository[]
+  readonly committed: number
+}
+/** Remove a workspace, optionally deleting its on-disk directory after explicit path confirmation. */
+export interface DeleteWorkspaceRequest {
+  readonly workspaceId: string
+  /** Delete the workspace directory itself; direct/linked directories are user data. */
+  readonly deleteFiles?: boolean
+  /** Exact workspace root echoed back by the UI when deleteFiles is true. */
+  readonly confirmPath?: string
+}
+/** Update editable Workspace metadata without changing its execution identity. */
+export interface UpdateWorkspaceRequest {
+  readonly workspaceId: string
+  /** Display label; omitted or empty clears it. */
+  readonly label?: string
 }
 /** Explicit cleanup of one retained workspace. */
 export interface CleanupWorkspaceRequest {
@@ -110,7 +184,11 @@ export interface PrepareWorkspaceRequest {
   readonly branches?: Readonly<Record<string, string>>
   /** `managed` creates worktrees; `linked` creates a root of links to existing directories. */
   readonly mode?: 'managed' | 'linked'
+  /** Refuse to create worktrees on a detached HEAD; V2 version creation sets this. */
+  readonly requireBranches?: boolean
   readonly repositories?: readonly WorkspaceRepositoryInput[]
+  /** Retry a failed preparation: continues only the repositories that are not done. */
+  readonly workspaceId?: string
 }
 /** Record one prepared workspace whose directories already exist. */
 export interface RegisterWorkspaceRequest {
@@ -121,6 +199,8 @@ export interface RegisterWorkspaceRequest {
   readonly branches?: Readonly<Record<string, string>>
   /** `direct` records existing directories; `linked` records links created by prepare. */
   readonly mode?: 'direct' | 'linked'
+  /** Refuse a repository that is not currently on a branch. */
+  readonly requireBranches?: boolean
   readonly projectId?: string
   readonly rootPath?: string
   readonly rootOwner?: 'loom' | 'user'
@@ -158,6 +238,8 @@ export interface WorkspaceInspection {
 export interface StartAttemptRequest {
   readonly taskId: string
   readonly workspaceId: string
+  /** Allow a forked task to share a workspace whose execution is currently owned; execution rights still serialize. */
+  readonly allowBusy?: boolean
 }
 /** Associate a native Session with one task round. */
 export interface AttachSessionRequest {
@@ -178,6 +260,8 @@ export interface TransitionTaskRequest {
   readonly taskId: string
   readonly target: 'pending' | 'running' | 'review' | 'completed' | 'failed'
   readonly actor: 'human' | 'agent'
+  /** Human rationale recorded when a terminal transition accepts or rejects an Agent suggestion. */
+  readonly basis?: string
 }
 
 /** One Session requesting execution access to a prepared workspace. */

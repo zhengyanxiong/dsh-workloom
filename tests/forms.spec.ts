@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
 import { brandString } from '@deepseek-ai/dsh-brand'
 import { ImportProjectForm, LockButton, ProjectForm, TaskForm, VersionForm, emptySourceRow, parseImport, projectRequest, sourceIds, taskRequest, versionRequest } from '../src/client/LoomForms.tsx'
+import { VERSION_DESCRIPTION_MAX_CHARS } from '../src/shared/version-context.ts'
 import { en, zh, type LoomKey } from '../src/client/locales.ts'
 import type { ProjectRecord, VersionRecord } from 'dsh-workloom/types'
 const t = (key: LoomKey) => en[key]
@@ -117,4 +118,31 @@ it('renders free-text branch refs with a local branch picker and no default bran
   expect(html).toContain(en['branch.load'])
   expect(html).toContain(en['branch.chooseOrType'])
   expect(html).not.toContain('value="main"')
+})
+
+const tp = (key: LoomKey, params?: Readonly<Record<string, string>>) => {
+  const copy = en[key]
+  if (params === undefined) return copy
+  return Object.entries(params).reduce((text, [name, value]) => text.replaceAll(`{${name}}`, value), copy)
+}
+it('carries the trimmed version description into the create request only when set', () => {
+  expect(versionRequest(project, 'v2', { web: 'main' }, '  维护版本  ')).toMatchObject({ description: '维护版本' })
+  expect(versionRequest(project, 'v2', { web: 'main' }, '   ')).not.toHaveProperty('description')
+  expect(versionRequest(project, 'v2', { web: 'main' })).not.toHaveProperty('description')
+  expect(versionRequest(project, 'v2', { web: 'main' }, 'x'.repeat(VERSION_DESCRIPTION_MAX_CHARS + 1))).toBeUndefined()
+})
+it('renders the version description field with a character counter in both create and edit', () => {
+  const createHtml = renderToStaticMarkup(createElement(VersionForm, { t: tp, open: true, project, create: async () => ({ ok: true, value: version }), onCreated: () => {} }))
+  expect(createHtml).toContain(en['version.description'])
+  expect(createHtml).toContain(en['version.descriptionHint'])
+  expect(createHtml).toContain(`0 / ${String(VERSION_DESCRIPTION_MAX_CHARS)}`)
+  const editHtml = renderToStaticMarkup(createElement(VersionForm, { t: tp, open: true, project, version: { ...version, description: '既有说明' }, create: async () => ({ ok: true, value: version }), update: async () => ({ ok: false, error: { code: 'unused', message: 'unused' } }), onCreated: () => {} }))
+  expect(editHtml).toContain('既有说明')
+  expect(editHtml).toContain(`4 / ${String(VERSION_DESCRIPTION_MAX_CHARS)}`)
+})
+it('flags a version description over the shared limit and blocks the next step', () => {
+  const tooLong = 'x'.repeat(VERSION_DESCRIPTION_MAX_CHARS + 1)
+  const html = renderToStaticMarkup(createElement(VersionForm, { t: tp, open: true, project, version: { ...version, description: tooLong }, create: async () => ({ ok: true, value: version }), update: async () => ({ ok: false, error: { code: 'unused', message: 'unused' } }), onCreated: () => {} }))
+  expect(html).toContain(en['version.descriptionTooLong'].replace('{max}', String(VERSION_DESCRIPTION_MAX_CHARS)))
+  expect(html).toContain(`aria-invalid="true"`)
 })

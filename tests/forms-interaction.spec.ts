@@ -159,10 +159,14 @@ it('walks a new version from name through refs to preview before creating', asyn
   expect(container.textContent).toContain(en['version.allRequired'])
   expect(container.textContent).toContain(en['version.lockHelperTitle'])
   await click(en['form.next'])
+  expect(container.textContent).toContain(en['version.workspaceAuto'])
+  await setValue(container.querySelector<HTMLInputElement>(`input[aria-label="${en['version.workspaceParentPath']}"]`), '/tmp/loom-ws')
+  await setValue(container.querySelector<HTMLInputElement>(`input[aria-label="${en['version.workspaceName']}"]`), 'v2-auto')
+  await click(en['form.next'])
   expect(container.textContent).toContain(en['version.previewHint'])
   expect(created).toBeUndefined()
   await click(en['form.create'])
-  expect(created).toMatchObject({ name: 'v2', sources: [{ sourceId: 'web', ref: 'main' }] })
+  expect(created).toMatchObject({ name: 'v2', sources: [{ sourceId: 'web', ref: 'main' }], workspaces: [{ mode: 'auto', parentPath: '/tmp/loom-ws', name: 'v2-auto' }] })
 })
 
 it('walks a new task from content through optional scope to preview before creating', async () => {
@@ -251,4 +255,15 @@ it('filters the local branch list from the typed ref and still accepts free text
     release?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
   })
   expect(input?.value).toBe('release/1.0')
+  await act(async () => {
+    setter?.call(input, 'hotfix/1.0')
+    input?.dispatchEvent(new Event('input', { bubbles: true }))
+  })
+  const typedLabel = en['branch.useTyped'].replace('{value}', 'hotfix/1.0')
+  expect(labels()).toEqual([typedLabel])
+  await act(async () => {
+    const typed = [...document.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')].find(item => item.textContent === typedLabel)
+    typed?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+  })
+  expect(input?.value).toBe('hotfix/1.0')
 })

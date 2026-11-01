@@ -18,8 +18,11 @@ it('renders cleanup confirmation as a dialog with a real Diff entry point', () =
   expect(html).toContain(workspace.path)
 })
 it('makes the destructive discard option explicit after a blocked cleanup', () => {
-  const html = renderToStaticMarkup(createElement(LoomCleanupDialog, { ...props, failure: 'workspace_changes', discardAllowed: true }))
+  const html = renderToStaticMarkup(createElement(LoomCleanupDialog, { ...props, failure: { code: 'workspace_changes', message: '2 files changed' }, discardAllowed: true }))
   expect(html).toContain(en['workspace.cleanupDiscardHint'])
   expect(html).toContain(en['workspace.cleanupDiscard'])
   expect(html).not.toContain(en['workspace.cleanupConfirm'])
+  expect(html).toContain(en['workspace.cleanupDiscardHint'])
+  expect(html).toContain(en['cleanup.blocked'])
+  expect(html).toContain('2 files changed')
 })

@@ -20,12 +20,14 @@ export interface LoomPreferences {
   readonly bottomHeight: number
   /** Maximum Session rows shown in each sidebar group. */
   readonly sessionLimit: number
+  /** Board WIP hint limit; advisory only and never blocks starting a task. */
+  readonly wipLimit: number
   /** Whether comparisons wrap wide lines instead of scrolling sideways. */
   readonly previewWrap: boolean
 }
 
 /** Defaults used when storage is empty or malformed. */
-export const DEFAULT_PREFERENCES: LoomPreferences = { view: 'workbench', kanbanMode: 'grouped', contextOpen: true, asideWidth: 344, previewWidth: 560, bottomHeight: 220, sessionLimit: 5, previewWrap: true }
+export const DEFAULT_PREFERENCES: LoomPreferences = { view: 'workbench', kanbanMode: 'grouped', contextOpen: true, asideWidth: 344, previewWidth: 560, bottomHeight: 220, sessionLimit: 5, previewWrap: true, wipLimit: 3 }
 const STORAGE_KEY = 'loom.preferences'
 
 /**
@@ -42,7 +44,7 @@ export function readPreferences(): LoomPreferences {
     const kanbanMode = record.kanbanMode === 'flat' ? 'flat' : 'grouped'
     const contextOpen = record.contextOpen !== false
     const previewWrap = record.previewWrap !== false
-    const size = (key: 'asideWidth' | 'previewWidth' | 'bottomHeight' | 'sessionLimit', fallback: number, min: number, max: number): number => {
+    const size = (key: 'asideWidth' | 'previewWidth' | 'bottomHeight' | 'sessionLimit' | 'wipLimit', fallback: number, min: number, max: number): number => {
       const raw = record[key]
       return typeof raw === 'number' && Number.isFinite(raw) ? Math.min(Math.max(Math.round(raw), min), max) : fallback
     }
@@ -52,6 +54,7 @@ export function readPreferences(): LoomPreferences {
       previewWidth: size('previewWidth', DEFAULT_PREFERENCES.previewWidth, 300, 720),
       bottomHeight: size('bottomHeight', DEFAULT_PREFERENCES.bottomHeight, 80, 320),
       sessionLimit: size('sessionLimit', DEFAULT_PREFERENCES.sessionLimit, 1, 20),
+      wipLimit: size('wipLimit', DEFAULT_PREFERENCES.wipLimit, 1, 10),
     }
   } catch { return DEFAULT_PREFERENCES }
 }
@@ -71,6 +74,7 @@ const group: CSSProperties = { marginBottom: 14, paddingBottom: 14, borderBottom
 const input: CSSProperties = { background: COLORS.panel2, color: COLORS.text, border: `0.5px solid ${COLORS.border}`, borderRadius: 6, padding: '6px 8px', font: 'inherit', fontSize: 12 }
 const button: CSSProperties = { color: 'inherit', background: 'transparent', border: `0.5px solid ${COLORS.border}`, borderRadius: 6, padding: '6px 10px', cursor: 'pointer', font: 'inherit', fontSize: 12 }
 const sessionLimits = Array.from({ length: 20 }, (_value, index) => index + 1)
+const wipLimits = Array.from({ length: 10 }, (_value, index) => index + 1)
 
 /** Inputs for the Loom settings overlay. */
 export interface LoomSettingsProps {
@@ -119,6 +123,12 @@ export function LoomSettings({ t, open, preferences, pinned, onChange, onUnpin, 
             <option value="flat">{t('kb.flat')}</option>
           </select>
         </label>
+        <label style={field}><span style={label}>{t('settings.wipLimit')}</span>
+          <select aria-label={t('settings.wipLimit')} value={String(preferences.wipLimit)} onChange={event => onChange({ ...preferences, wipLimit: Number(event.target.value) })} style={input}>
+            {wipLimits.map(limit => <option key={limit} value={String(limit)}>{String(limit)}</option>)}
+          </select>
+        </label>
+        <p style={{ ...metaLine, margin: '0 0 8px' }}>{t('settings.wipLimitHint')}</p>
         <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
           <input type="checkbox" checked={preferences.contextOpen} onChange={event => onChange({ ...preferences, contextOpen: event.target.checked })} />
           {t('settings.contextOpen')}

@@ -2,6 +2,7 @@
 import type { CSSProperties } from 'react'
 import type { AuditEvent, Lock, TaskPriority } from 'dsh-workloom/types'
 import type { TaskStatus } from '../domain/task.ts'
+import type { StateDotState } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { LoomKey } from './locales.ts'
 
 /** Theme aliases shared by every Loom shell region. */
@@ -36,6 +37,15 @@ export const STATUS_META: Readonly<Record<TaskStatus, { readonly key: LoomKey; r
   failed: { key: 'task.status.failed', color: COLORS.error },
 }
 
+/** Native state-dot semantic for each business status; colour is never the only signal. */
+export const STATUS_DOT: Readonly<Record<TaskStatus, StateDotState>> = {
+  pending: 'idle',
+  running: 'ongoing',
+  review: 'warning',
+  completed: 'done',
+  failed: 'error',
+}
+
 /** Status order shown by the board and tree. */
 export const STATUS_ORDER: readonly TaskStatus[] = ['pending', 'running', 'review', 'completed', 'failed']
 
@@ -65,7 +75,12 @@ export const AUDIT_LABEL: Readonly<Record<AuditEvent, LoomKey>> = {
   'task.updated': 'audit.task.updated',
   'task.deleted': 'audit.task.deleted',
   'task.transitioned': 'audit.task.transitioned',
+  'task.review-requested': 'audit.task.review-requested',
+  'task.failure-suggested': 'audit.task.failure-suggested',
+  'task.confirmation-accepted': 'audit.task.confirmation-accepted',
+  'task.confirmation-rejected': 'audit.task.confirmation-rejected',
   'workspace.prepared': 'audit.workspace.prepared',
+  'workspace.updated': 'audit.workspace.updated',
   'workspace.cleaned': 'audit.workspace.cleaned',
   'attempt.started': 'audit.attempt.started',
   'session.attached': 'audit.session.attached',
@@ -86,8 +101,23 @@ export const ERROR_LABEL: Readonly<Record<string, LoomKey>> = {
   invalid_path: 'error.invalidPath',
   invalid_workspace_path: 'error.invalidWorkspacePath',
   invalid_form: 'error.invalidForm',
+  missing_project: 'error.missingProject',
+  missing_version: 'error.missingVersion',
+  missing_task: 'error.missingTask',
+  missing_workspace: 'error.missingWorkspace',
+  invalid_catalog: 'error.invalidCatalog',
+  invalid_workspace_label: 'error.invalidWorkspaceLabel',
+  owner_required: 'error.ownerRequired',
+  loom_disposed: 'error.loomDisposed',
+  detached_head: 'error.detachedHead',
+  empty_version: 'error.emptyVersion',
+  duplicate_source: 'error.duplicateSource',
+  unknown_source: 'error.unknownSource',
+  unknown_subproject: 'error.unknownSubproject',
   overlapping_paths: 'error.overlappingPaths',
   workspace_path_registered: 'error.pathRegistered',
+  workspace_parent_missing: 'error.workspaceParentMissing',
+  workspace_in_use: 'error.workspaceInUse',
   local_repository_required: 'error.repositoryRequired',
   invalid_repository: 'error.invalidRepository',
   dubious_ownership: 'error.dubiousOwnership',
@@ -111,6 +141,21 @@ export const ERROR_LABEL: Readonly<Record<string, LoomKey>> = {
   version_has_workspaces: 'error.versionHasWorkspaces',
   task_busy: 'error.taskBusy',
   task_workspace_uncleaned: 'error.taskWorkspaceUncleaned',
+  workspace_not_prepared: 'error.workspaceNotPrepared',
+  execution_not_owned: 'error.executionNotOwned',
+  task_not_active: 'error.taskNotActive',
+  task_not_startable: 'error.taskNotStartable',
+  version_mismatch: 'error.versionMismatch',
+  human_confirmation_required: 'error.humanConfirmationRequired',
+  invalid_transition: 'error.invalidTransition',
+  attempt_id_reused: 'error.attemptIdReused',
+  stale_owner: 'error.staleOwner',
+  takeover_pending: 'error.takeoverPending',
+  already_owner: 'error.alreadyOwner',
+  no_takeover: 'error.noTakeover',
+  generation_exhausted: 'error.generationExhausted',
+  workspace_cleaned: 'error.workspaceCleaned',
+  workspace_cleanup_failed: 'error.workspaceCleanupFailed',
 }
 
 /**
@@ -191,4 +236,15 @@ export function shortCommit(lock: Lock | undefined): string | undefined {
  */
 export function cardCount(count: number, t: (key: LoomKey) => string): string {
   return `${String(count)} ${t('kb.cardsUnit')}`
+}
+
+/** Localized date-time for an ISO timestamp, or undefined when the Host recorded none.
+ * @param value - ISO 8601 timestamp from the catalog.
+ * @returns readable local time, or undefined for legacy records without one.
+ */
+export function formatTimestamp(value: string | undefined): string | undefined {
+  if (value === undefined || value === '') return undefined
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return date.toLocaleString([], { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false })
 }

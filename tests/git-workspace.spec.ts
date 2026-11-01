@@ -4,7 +4,7 @@ import { mkdtemp, mkdir, readFile, realpath, rm, writeFile, access } from 'node:
 import { tmpdir } from 'node:os'
 import { delimiter, join, resolve } from 'node:path'
 import { afterEach, expect, it } from 'vitest'
-import { prepareWorkspace, repositoryBranches, resolveCommit, workingTreeStatus, WorkspacePreparationError } from '../src/git/workspace.ts'
+import { commitWorkingTree, prepareWorkspace, repositoryBranches, resolveCommit, workingTreeStatus, WorkspacePreparationError } from '../src/git/workspace.ts'
 
 const exec = promisify(execFile)
 const roots: string[] = []
@@ -228,4 +228,16 @@ it('fetches a missing branch from the default remote before resolving a Lock', a
   await exec('git', ['-C', f.first, 'push', '--quiet', 'origin', 'HEAD:refs/heads/release'])
   const head = (await exec('git', ['-C', f.first, 'rev-parse', 'HEAD'])).stdout.trim()
   expect(await resolveCommit(f.first, 'release')).toBe(head)
+})
+
+it('commits dirty worktree changes without pushing them', async () => {
+  const f = await fixture()
+  const before = await resolveCommit(f.first, 'HEAD')
+  await writeFile(join(f.first, 'file.txt'), 'checkpointed')
+  const commit = await commitWorkingTree(f.first, 'Loom checkpoint')
+  expect(commit).toBeDefined()
+  expect(commit).not.toBe(before)
+  expect(await workingTreeStatus(f.first)).toBe('')
+  expect(await resolveCommit(f.first, 'HEAD')).toBe(commit)
+  expect(await commitWorkingTree(f.first, 'Loom checkpoint')).toBeUndefined()
 })

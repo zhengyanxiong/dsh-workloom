@@ -29,10 +29,19 @@ export interface ExecutionState {
 /** Caller-localized rejection codes; failed transitions have no side effects. */
 export type ExecutionErrorCode = 'stale_owner' | 'takeover_pending' | 'already_owner' | 'no_takeover' | 'generation_exhausted'
 
+/** Human-readable explanation for each execution ownership failure. */
+const EXECUTION_ERROR_DESCRIPTION: Readonly<Record<ExecutionErrorCode, string>> = {
+  stale_owner: 'the execution owner token is stale or no longer matches the workspace',
+  takeover_pending: 'a takeover is already pending for this workspace',
+  already_owner: 'the session already owns this workspace execution',
+  no_takeover: 'there is no pending takeover to confirm',
+  generation_exhausted: 'the execution generation counter is exhausted',
+}
+
 /** Rejected ownership transition. */
 export class ExecutionError extends Error {
   constructor(readonly code: ExecutionErrorCode) {
-    super(code)
+    super(`${code}: ${EXECUTION_ERROR_DESCRIPTION[code]}`)
     this.name = 'ExecutionError'
   }
 }
