@@ -1,8 +1,8 @@
 /** Loom workbench shell: project tree, native conversation, context and kanban. */
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import {
-  IconChevronDownOutlineRegular, IconChevronRightOutlineRegular, IconCloseOutlineRegular, IconEditOutlineRegular, IconFolderCloseRegular, IconFolderOpenRegular, IconPanelLeftOutlineRegular, IconPinFillRegular, IconPinOutlineRegular,
-  IconPlusOutlineRegular, IconSettingsOutlineRegular, IconTrashOutlineRegular, Button, Tag, Tooltip,
+  IconBranchOutlineRegular, IconChecklistOutlineRegular, IconChevronDownOutlineRegular, IconChevronRightOutlineRegular, IconCloseOutlineRegular, IconDownloadOutlineRegular, IconEditOutlineRegular, IconFolderCloseRegular, IconFolderOpenRegular, IconPanelLeftOutlineRegular, IconPinFillRegular, IconPinOutlineRegular,
+  IconPlusOutlineRegular, IconProjectAddOutlineRegular, IconSettingsOutlineRegular, IconTrashOutlineRegular, Button, Tag, Tooltip,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { CSSProperties, ReactNode } from 'react'
 import type { InjectFace, PropsLocale, PropsRenderFactories, PropsRuntime, SessionProviderComponent } from '@deepseek-ai/dsh-client-ui-slots'
@@ -154,8 +154,13 @@ const topNew: CSSProperties = {
 }
 const topActions: CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, flex: 'none' }
 const topSpacer: CSSProperties = { flex: 1, minWidth: 8 }
-const menuItem: CSSProperties = { ...select, border: 'none', textAlign: 'left', padding: '7px 8px', fontSize: 12 }
-const topMenu: CSSProperties = { position: 'absolute', top: 36, right: 0, width: 210, background: COLORS.panel2, border: `0.5px solid ${COLORS.border}`, borderRadius: 8, padding: 4, display: 'flex', flexDirection: 'column', zIndex: 40, boxShadow: '0 8px 24px rgba(0,0,0,.35)' }
+const topMenu: CSSProperties = { position: 'absolute', top: 'calc(100% + 8px)', right: 0, width: 'min(268px, calc(100vw - 24px))', background: COLORS.panel, border: `0.5px solid ${COLORS.border}`, borderRadius: 10, padding: 6, display: 'flex', flexDirection: 'column', gap: 1, zIndex: 40, boxShadow: '0 14px 36px rgba(0, 0, 0, .24)' }
+const menuItemNew: CSSProperties = { display: 'flex', alignItems: 'center', gap: 9, width: '100%', padding: '7px 8px', border: 'none', borderRadius: 7, background: 'transparent', color: COLORS.text, cursor: 'pointer', font: 'inherit', textAlign: 'left' }
+const menuItemIcon: CSSProperties = { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 18, height: 18, flex: 'none', color: COLORS.faint }
+const menuItemText: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0 }
+const menuItemTitle: CSSProperties = { fontSize: 12, lineHeight: 1.35, color: COLORS.text }
+const menuItemDescription: CSSProperties = { fontSize: 10, lineHeight: 1.35, color: COLORS.faint }
+const menuRule: CSSProperties = { height: 1, margin: '4px 3px', background: COLORS.border, flex: 'none' }
 const sidebar: CSSProperties = { width: 320, flex: 'none', background: COLORS.panel2, borderRight: `0.5px solid ${COLORS.border}`, overflowY: 'auto', padding: '8px 0' }
 const center: CSSProperties = { flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, background: COLORS.panel }
 const aside: CSSProperties = { width: 344, flex: 'none', display: 'flex', flexDirection: 'column', borderLeft: `0.5px solid ${COLORS.border}`, background: COLORS.panel }
@@ -231,6 +236,16 @@ function TreeIconAction({ label, icon, onClick, danger = false }: { label: strin
   </button>
 }
 
+function SidebarSectionToggle({ label, count, icon, open, onToggle }: { label: string; count?: string | undefined; icon?: ReactNode | undefined; open: boolean; onToggle: () => void }) {
+  return <button type="button" className="loom-sidebar-section-head" aria-expanded={open} onClick={onToggle}
+    style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', padding: '7px 12px 4px', border: 'none', background: 'transparent', color: COLORS.faint, cursor: 'pointer', font: 'inherit', ...metaLine, fontWeight: 500 }}>
+    <span aria-hidden style={{ display: 'inline-flex', flex: 'none', opacity: .85 }}>{open ? <IconChevronDownOutlineRegular size={11} /> : <IconChevronRightOutlineRegular size={11} />}</span>
+    {icon !== undefined && <span aria-hidden style={{ display: 'inline-flex', flex: 'none' }}>{icon}</span>}
+    <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
+    {count !== undefined && <span style={{ marginLeft: 'auto', fontWeight: 400, flex: 'none' }}>{count}</span>}
+  </button>
+}
+
 function ProjectTaskRow({ task, active, t, onClick }: { task: TaskRecord; active: boolean; t: LoomPanelProps['t']; onClick: () => void }) {
   const status = STATUS_META[task.status]
   const priority = task.priority ?? 'normal'
@@ -249,7 +264,7 @@ function ProjectTaskRow({ task, active, t, onClick }: { task: TaskRecord; active
   </button>
 }
 
-function ProjectItem({ candidate, versions, tasks, activeProject, activeVersionId, activeTaskId, open, openVersions, pinned, t, onProject, onVersion, onTask, onPin, onNewVersion, onEditProject, onDeleteProject }: {
+function ProjectItem({ candidate, versions, tasks, activeProject, activeVersionId, activeTaskId, open, openVersions, pinned, t, onProject, onVersion, onTask, onPin, onNewVersion, onEditProject, onDeleteProject, onEditVersion, onDeleteVersion, onNewTask, onEditTask, onDeleteTask }: {
   candidate: ProjectRecord
   versions: VersionRecord[]
   tasks: TaskRecord[]
@@ -267,6 +282,11 @@ function ProjectItem({ candidate, versions, tasks, activeProject, activeVersionI
   onNewVersion: () => void
   onEditProject: () => void
   onDeleteProject: () => void
+  onEditVersion: (version: VersionRecord) => void
+  onDeleteVersion: (version: VersionRecord) => void
+  onNewTask: (version: VersionRecord) => void
+  onEditTask: (task: TaskRecord) => void
+  onDeleteTask: (task: TaskRecord) => void
 }) {
   return <div>
     <div className={activeProject ? 'loom-tree-row loom-tree-row-active' : 'loom-tree-row'} style={{ display: 'flex', alignItems: 'center', background: activeProject ? COLORS.panel3 : 'transparent' }}>
@@ -284,8 +304,25 @@ function ProjectItem({ candidate, versions, tasks, activeProject, activeVersionI
       const versionTasks = tasks.filter(candidateTask => candidateTask.versionId === item.id)
       const openVersion = openVersions.has(item.id)
       return <div key={item.id}>
-        <TreeRow depth={1} expanded={openVersion} label={<span style={versionChip}>{item.name}</span>} count={String(versionTasks.length)} active={activeVersionId === item.id} onClick={() => onVersion(item)} />
-        {openVersion && versionTasks.map(itemTask => <ProjectTaskRow key={itemTask.id} task={itemTask} active={activeTaskId === itemTask.id} t={t} onClick={() => onTask(itemTask)} />)}
+        <div className={activeVersionId === item.id ? 'loom-tree-row loom-tree-row-active' : 'loom-tree-row'} style={{ display: 'flex', alignItems: 'center', background: activeVersionId === item.id ? COLORS.panel3 : 'transparent' }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <TreeRow depth={1} expanded={openVersion} label={<span style={versionChip}>{item.name}</span>} count={String(versionTasks.length)} active={activeVersionId === item.id} onClick={() => onVersion(item)} />
+          </div>
+          <span className="loom-row-actions" style={{ display: 'flex', alignItems: 'center', gap: 0, flex: 'none', alignSelf: 'stretch' }}>
+            <TreeIconAction label={t('version.edit')} icon={<IconEditOutlineRegular size={13} />} onClick={() => onEditVersion(item)} />
+            <TreeIconAction label={t('task.new')} icon={<IconPlusOutlineRegular size={13} />} onClick={() => onNewTask(item)} />
+            <TreeIconAction label={t('version.delete')} icon={<IconTrashOutlineRegular size={13} />} onClick={() => onDeleteVersion(item)} danger />
+          </span>
+        </div>
+        {openVersion && versionTasks.map(itemTask => <div key={itemTask.id} className={activeTaskId === itemTask.id ? 'loom-tree-row loom-tree-row-active' : 'loom-tree-row'} style={{ display: 'flex', alignItems: 'center', background: activeTaskId === itemTask.id ? COLORS.panel3 : 'transparent' }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <ProjectTaskRow task={itemTask} active={activeTaskId === itemTask.id} t={t} onClick={() => onTask(itemTask)} />
+          </div>
+          <span className="loom-row-actions" style={{ display: 'flex', alignItems: 'center', gap: 0, flex: 'none', alignSelf: 'stretch' }}>
+            <TreeIconAction label={t('task.edit')} icon={<IconEditOutlineRegular size={13} />} onClick={() => onEditTask(itemTask)} />
+            <TreeIconAction label={t('task.delete')} icon={<IconTrashOutlineRegular size={13} />} onClick={() => onDeleteTask(itemTask)} danger />
+          </span>
+        </div>)}
         {openVersion && versionTasks.length === 0 && <p style={{ ...metaLine, padding: '2px 14px 2px 40px' }}>{t('task.empty')}</p>}
       </div>
     })}
@@ -380,6 +417,7 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
   const [narrow, setNarrow] = useState(() => typeof window !== 'undefined' && window.innerWidth <= 940)
   const [viewport, setViewport] = useState(() => ({ width: typeof window === 'undefined' ? 1440 : window.innerWidth, height: typeof window === 'undefined' ? 900 : window.innerHeight }))
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [project, setProject] = useState<ProjectRecord['id']>()
   const [version, setVersion] = useState<VersionRecord['id']>()
   const [task, setTask] = useState<TaskRecord>()
@@ -423,14 +461,30 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
   const [kbSearch, setKbSearch] = useState('')
   const [expandedProjects, setExpandedProjects] = useState<ReadonlySet<string>>(new Set())
   const [expandedVersions, setExpandedVersions] = useState<ReadonlySet<string>>(new Set())
+  const [collapsedSections, setCollapsedSections] = useState<ReadonlySet<'pinned' | 'projects' | 'sessions'>>(new Set())
   const [create, setCreate] = useState<CreateKind>()
   const [edit, setEdit] = useState<EditKind>()
   const [versionStep, setVersionStep] = useState<VersionStep>('name')
   const [modalBusy, setModalBusy] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
+  const newMenuRef = useRef<HTMLDivElement>(null)
   const [treeDelete, setTreeDelete] = useState<ProjectRecord>()
   const [treeDeleting, setTreeDeleting] = useState(false)
   const [treeDeleteFailure, setTreeDeleteFailure] = useState<FailureReport>()
+  useEffect(() => {
+    if (!menuOpen) return
+    const closeOnOutside = (event: PointerEvent): void => {
+      if (event.target instanceof Node && newMenuRef.current?.contains(event.target) === true) return
+      setMenuOpen(false)
+    }
+    const closeOnEscape = (event: KeyboardEvent): void => { if (event.key === 'Escape') setMenuOpen(false) }
+    document.addEventListener('pointerdown', closeOnOutside, true)
+    document.addEventListener('keydown', closeOnEscape)
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutside, true)
+      document.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [menuOpen])
   useEffect(() => {
     const timeout = setTimeout(() => writePreferences(preferences), 120)
     return () => clearTimeout(timeout)
@@ -936,6 +990,15 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
     } finally { setTreeDeleting(false) }
   }
   function openCreate(kind: CreateKind): void { if (kind === 'version') setVersionStep('name'); setCreate(kind); setEdit(undefined); setMenuOpen(false) }
+
+  function toggleSidebarSection(key: 'pinned' | 'projects' | 'sessions'): void {
+    setCollapsedSections(current => {
+      const next = new Set(current)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
   function openEdit(kind: EditKind): void { setEdit(kind); setCreate(undefined); setMenuOpen(false) }
   function updatePreferences(next: LoomPreferences): void {
     setPreferences(next)
@@ -972,20 +1035,18 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
         --loom-border: rgba(15, 17, 21, .10);
         --loom-border-strong: rgba(15, 17, 21, .16);
       }
-      @media (prefers-color-scheme: dark) {
-        :root {
-          --loom-canvas: #151517;
-          --loom-surface: #232324;
-          --loom-surface-2: #2c2c2e;
-          --loom-surface-3: #353638;
-          --loom-selected: #263247;
-          --loom-accent: #5686fe;
-          --loom-accent-hover: #6b98ff;
-          --loom-accent-active: #4a79ea;
-          --loom-on-accent: #0f1115;
-          --loom-border: rgba(255, 255, 255, .20);
-          --loom-border-strong: rgba(255, 255, 255, .28);
-        }
+      body[data-ds-dark-theme] {
+        --loom-canvas: #151517;
+        --loom-surface: #232324;
+        --loom-surface-2: #2c2c2e;
+        --loom-surface-3: #353638;
+        --loom-selected: #263247;
+        --loom-accent: #5686fe;
+        --loom-accent-hover: #6b98ff;
+        --loom-accent-active: #4a79ea;
+        --loom-on-accent: #0f1115;
+        --loom-border: rgba(255, 255, 255, .20);
+        --loom-border-strong: rgba(255, 255, 255, .28);
       }
       .loom-branch-menu { --dsw-menu-surface-fill: var(--loom-surface); --dsw-menu-backdrop-filter: none; width: var(--loom-branch-menu-width, 320px) !important; max-width: none !important; background: var(--loom-surface) !important; border: 0.5px solid var(--loom-border) !important; box-shadow: 0 12px 32px rgba(15, 17, 21, .16) !important; }
       .loom-workspace-switch { align-self: flex-start; }
@@ -1001,6 +1062,9 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
       .loom-top-new:hover { filter: brightness(1.08); }
       .loom-view-switch button:hover:not([aria-pressed='true']) { background: var(--dsw-alias-bg-layer-3); color: var(--dsw-alias-label-primary); }
       .loom-menu-item:hover { background: var(--dsw-alias-bg-layer-3); }
+      .loom-new-item:hover:not(:disabled) { background: var(--dsw-alias-bg-layer-3); }
+      .loom-sidebar-section-head:hover { color: var(--dsw-alias-label-secondary) !important; }
+      .loom-new-item:disabled { cursor: default; }
       div.loom-modal-delete { width: min(480px, calc(100vw - 32px)); }
       div.loom-modal-takeover { width: min(440px, calc(100vw - 32px)); }
       .loom-row-action:hover { background: color-mix(in srgb, var(--dsw-alias-label-primary) 8%, transparent); color: var(--dsw-alias-label-primary) !important; }
@@ -1028,6 +1092,7 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
         <LoomBrandMark size={22} />
         <span className="loom-brand-name">{t('brand')}</span>
       </span>
+      <button type="button" className="loom-top-action loom-sidebar-toggle" aria-label={sidebarCollapsed ? t('side.expand') : t('side.collapse')} title={sidebarCollapsed ? t('side.expand') : t('side.collapse')} aria-pressed={sidebarCollapsed} onClick={() => setSidebarCollapsed(value => !value)} style={{ ...topAction, width: 26, height: 26, marginLeft: 2 }}><IconPanelLeftOutlineRegular size={14} /></button>
       <span aria-hidden className="loom-top-divider" style={topDivider} />
       <label className="loom-top-context" style={topContext}>
         <span className="loom-top-label" style={topContextLabel}>{t('top.project')}</span>
@@ -1060,13 +1125,26 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
       </div>
       <span className="loom-top-spacer" style={topSpacer} />
       <div style={topActions}>
-        <div style={{ position: 'relative' }}>
+        <div ref={newMenuRef} style={{ position: 'relative' }}>
           <button type="button" className="loom-top-new" aria-label={t('top.new')} aria-haspopup="menu" aria-expanded={menuOpen} title={t('top.new')} onClick={() => setMenuOpen(value => !value)} style={topNew}><IconPlusOutlineRegular size={14} /><span className="loom-top-action-label">{t('top.new')}</span></button>
-          {menuOpen && <div role="menu" style={topMenu}>
-            <button type="button" role="menuitem" className="loom-menu-item" style={menuItem} onClick={() => openCreate('project')}>{t('top.newProject')}</button>
-            <button type="button" role="menuitem" className="loom-menu-item" style={menuItem} onClick={() => openCreate('import')}>{t('project.import')}</button>
-            <button type="button" role="menuitem" className="loom-menu-item" style={{ ...menuItem, opacity: createDisabledVersion ? 0.45 : 1 }} disabled={createDisabledVersion} onClick={() => openCreate('version')}>{t('top.newVersion')}</button>
-            <button type="button" role="menuitem" className="loom-menu-item" style={{ ...menuItem, opacity: createDisabledTask ? 0.45 : 1 }} disabled={createDisabledTask} onClick={() => openCreate('task')}>{t('top.newTask')}</button>
+          {menuOpen && <div role="menu" aria-label={t('top.new')} style={topMenu}>
+            <button type="button" role="menuitem" className="loom-new-item" style={menuItemNew} onClick={() => openCreate('project')}>
+              <span aria-hidden style={{ ...menuItemIcon, color: COLORS.accent }}><IconProjectAddOutlineRegular size={15} /></span>
+              <span style={menuItemText}><span style={menuItemTitle}>{t('top.newProject')}</span><span style={menuItemDescription}>{t('top.newProjectHint')}</span></span>
+            </button>
+            <button type="button" role="menuitem" className="loom-new-item" style={menuItemNew} onClick={() => openCreate('import')}>
+              <span aria-hidden style={menuItemIcon}><IconDownloadOutlineRegular size={14} /></span>
+              <span style={menuItemText}><span style={menuItemTitle}>{t('project.import')}</span><span style={menuItemDescription}>{t('top.newImportHint')}</span></span>
+            </button>
+            <span aria-hidden style={menuRule} />
+            <button type="button" role="menuitem" className="loom-new-item" style={{ ...menuItemNew, opacity: createDisabledVersion ? .45 : 1 }} disabled={createDisabledVersion} onClick={() => openCreate('version')}>
+              <span aria-hidden style={menuItemIcon}><IconBranchOutlineRegular size={14} /></span>
+              <span style={menuItemText}><span style={menuItemTitle}>{t('top.newVersion')}</span><span style={menuItemDescription}>{t('top.newVersionHint')}</span></span>
+            </button>
+            <button type="button" role="menuitem" className="loom-new-item" style={{ ...menuItemNew, opacity: createDisabledTask ? .45 : 1 }} disabled={createDisabledTask} onClick={() => openCreate('task')}>
+              <span aria-hidden style={menuItemIcon}><IconChecklistOutlineRegular size={14} /></span>
+              <span style={menuItemText}><span style={menuItemTitle}>{t('top.newTask')}</span><span style={menuItemDescription}>{t('top.newTaskHint')}</span></span>
+            </button>
           </div>}
         </div>
         <Tooltip label={t('ctx.project')} side="bottom" delayMs={300}>
@@ -1079,9 +1157,10 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
     </header>
     <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
       {narrow && sidebarOpen && <div aria-hidden className="loom-sidebar-backdrop" style={{ position: 'absolute', inset: 0, top: 48, background: 'rgba(0,0,0,.35)', zIndex: 65 }} onClick={() => setSidebarOpen(false)} />}
-      <aside className={sidebarOpen && narrow ? 'loom-sidebar loom-sidebar-open' : 'loom-sidebar'} style={sidebar}>
+      {!sidebarCollapsed && <aside className={sidebarOpen && narrow ? 'loom-sidebar loom-sidebar-open' : 'loom-sidebar'} style={sidebar}>
         <section style={{ marginBottom: 4 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px 4px', ...metaLine, fontWeight: 600 }}><IconPinFillRegular size={13} /> {t('side.pinned')}</div>
+          <SidebarSectionToggle label={t('side.pinned')} icon={<IconPinFillRegular size={12} />} open={!collapsedSections.has('pinned')} onToggle={() => { toggleSidebarSection('pinned') }} />
+          {!collapsedSections.has('pinned') && <>
           {(snapshot?.projects ?? []).filter(candidate => pinnedProjects.includes(candidate.id)).length === 0 && <p style={{ ...metaLine, padding: '2px 14px 6px' }}>{t('side.pinHint')}</p>}
           {(snapshot?.projects ?? []).filter(candidate => pinnedProjects.includes(candidate.id)).map(candidate => <ProjectItem
             key={candidate.id}
@@ -1102,10 +1181,17 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
             onNewVersion={() => { setProject(candidate.id); setVersion(undefined); setTask(undefined); openCreate('version') }}
             onEditProject={() => { setProject(candidate.id); setTask(undefined); openEdit('project') }}
             onDeleteProject={() => { setTreeDelete(candidate); setTreeDeleteFailure(undefined) }}
+            onEditVersion={item => { setProject(candidate.id); setVersion(item.id); setTask(undefined); openEdit('version') }}
+            onDeleteVersion={item => { setProject(candidate.id); setVersion(item.id); setTask(undefined); void removeVersion(item) }}
+            onNewTask={item => { setProject(candidate.id); setVersion(item.id); setTask(undefined); openCreate('task') }}
+            onEditTask={item => { setProject(candidate.id); setVersion(item.versionId); setTask(item); openEdit('task') }}
+            onDeleteTask={item => { setProject(candidate.id); setVersion(item.versionId); setTask(item); void removeTask(item) }}
           />)}
+          </>}
         </section>
         <section style={{ marginBottom: 4 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px 4px', ...metaLine, fontWeight: 500 }}>{t('side.projects')} <span style={{ marginLeft: 'auto', fontWeight: 400 }}>{String(snapshot?.projects.length ?? 0)}</span></div>
+          <SidebarSectionToggle label={t('side.projects')} count={String(snapshot?.projects.length ?? 0)} open={!collapsedSections.has('projects')} onToggle={() => { toggleSidebarSection('projects') }} />
+          {!collapsedSections.has('projects') && <>
           {(snapshot?.projects ?? []).map(candidate => <ProjectItem
             key={candidate.id}
             candidate={candidate}
@@ -1125,11 +1211,18 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
             onNewVersion={() => { setProject(candidate.id); setVersion(undefined); setTask(undefined); openCreate('version') }}
             onEditProject={() => { setProject(candidate.id); setTask(undefined); openEdit('project') }}
             onDeleteProject={() => { setTreeDelete(candidate); setTreeDeleteFailure(undefined) }}
+            onEditVersion={item => { setProject(candidate.id); setVersion(item.id); setTask(undefined); openEdit('version') }}
+            onDeleteVersion={item => { setProject(candidate.id); setVersion(item.id); setTask(undefined); void removeVersion(item) }}
+            onNewTask={item => { setProject(candidate.id); setVersion(item.id); setTask(undefined); openCreate('task') }}
+            onEditTask={item => { setProject(candidate.id); setVersion(item.versionId); setTask(item); openEdit('task') }}
+            onDeleteTask={item => { setProject(candidate.id); setVersion(item.versionId); setTask(item); void removeTask(item) }}
           />)}
           <Button variant="outline" icon={<IconPlusOutlineRegular />} onClick={() => openCreate('project')} style={{ margin: '6px 12px', width: 'calc(100% - 24px)', justifyContent: 'center' }}>{t('side.newProject')}</Button>
+          </>}
         </section>
         <section style={{ marginBottom: 4 }} aria-label={t('side.sessions')}>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, padding: '7px 12px 2px', ...metaLine, fontWeight: 500 }}>{t('side.sessions')}<span style={{ marginLeft: 'auto', fontWeight: 400 }}>{t('side.sessionLimit').replace('{limit}', String(preferences.sessionLimit))}</span></div>
+          <SidebarSectionToggle label={t('side.sessions')} count={t('side.sessionLimit').replace('{limit}', String(preferences.sessionLimit))} open={!collapsedSections.has('sessions')} onToggle={() => { toggleSidebarSection('sessions') }} />
+          {!collapsedSections.has('sessions') && <>
           <input aria-label={t('searchSessions')} placeholder={t('searchSessions')} value={search} onChange={event => setSearch(event.target.value)} style={{ ...select, cursor: 'text', width: 'calc(100% - 24px)', margin: '4px 12px 6px', boxSizing: 'border-box' }} />
           {taskSessionList.length === 0 && temporarySessionList.length === 0 && <p style={{ ...metaLine, padding: '2px 14px 6px' }}>{t('side.empty')}</p>}
           {taskSessionList.length > 0 && <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, padding: '2px 12px 3px', ...metaLine }}>
@@ -1149,8 +1242,9 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
             <Button variant="outline" icon={<IconPlusOutlineRegular />} disabled={createDisabledTask} onClick={() => openCreate('task')} style={{ width: '100%', justifyContent: 'center' }}>{t('side.newTask')}</Button>
             <Button variant="ghost" icon={<IconPlusOutlineRegular />} title={t('temporary.title')} onClick={() => setTemporaryOpen(true)} style={{ width: '100%', justifyContent: 'center' }}>{t('side.newTemporary')}</Button>
           </div>
+          </>}
         </section>
-      </aside>
+      </aside>}
       {view === 'kanban'
         ? <LoomKanban
             t={t}
@@ -1265,10 +1359,10 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
               <LoomReviewPreview t={t} sessionId={review.sessionId} seq={review.seq} initialIndex={review.index} wrap={preferences.previewWrap} onToggleWrap={togglePreviewWrap} onOpenFile={(path) => { openNativeFile(path, review.sessionId as SessionId) }} />
             </div>
           : preview !== undefined
-            ? <LoomFilePreview t={t} workspaceId={detailWorkspace?.id} {...(detailAttemptId === undefined ? {} : { attemptId: detailAttemptId })} sessionId={previewSessionId} filePath={preview.path} initialMode={preview.mode ?? 'diff'} loadChanges={workspaceChanges} readFile={readFile} readBytes={readBytes} openPath={openPath} applications={openPathApplications} openWith={openPathWith} onClose={() => { workspacePreview.close(); setPreviewFullscreen(false) }} fullscreen={previewFullscreen} onToggleFullscreen={() => setPreviewFullscreen(current => !current)} wrap={preferences.previewWrap} onToggleWrap={togglePreviewWrap} />
+            ? <LoomFilePreview t={t} workspaceId={detailWorkspace?.id} workspaceRoot={(previewSessionId === undefined ? undefined : sessions.byId[previewSessionId]?.cwd) ?? detailWorkspace?.rootPath ?? detailWorkspace?.path} {...(detailAttemptId === undefined ? {} : { attemptId: detailAttemptId })} sessionId={previewSessionId} filePath={preview.path} initialMode={preview.mode ?? 'diff'} loadChanges={workspaceChanges} readFile={readFile} readBytes={readBytes} openPath={openPath} applications={openPathApplications} openWith={openPathWith} onClose={() => { workspacePreview.close(); setPreviewFullscreen(false) }} fullscreen={previewFullscreen} onToggleFullscreen={() => setPreviewFullscreen(current => !current)} wrap={preferences.previewWrap} onToggleWrap={togglePreviewWrap} />
             : view === 'kanban'
             ? snapshot !== undefined && <LoomKanbanAside t={t} snapshot={snapshot} filter={filter} onSelectSession={(id) => { const row = boundRows.find(candidate => candidate.sessionId === id); selectSession(id as SessionId, row?.task) }} />
-            : <LoomContextPanel t={t} snapshot={snapshot ?? { projects: [], versions: [], locks: [], tasks: [], workspaces: [], temporarySessions: [], audit: [], executions: [] }} project={displayProject} version={displayVersion} task={detailTask} versionContext={versionContext} presetName={displayPresetName} usage={tokenUsage} generateLock={generateLock} onLockChanged={() => setAttempt(current => current + 1)} onEditProject={() => openEdit('project')} onNewVersion={() => { if (displayProject !== undefined) setProject(displayProject.id); openCreate('version') }} onEditVersion={() => openEdit('version')} onEditTask={() => openEdit('task')} onDeleteProject={displayProject === undefined ? undefined : () => removeProject(displayProject)} onDeleteVersion={displayVersion === undefined ? undefined : () => removeVersion(displayVersion)} onDeleteTask={detailTask === undefined ? undefined : () => removeTask(detailTask)} openPath={openPath} loadBranches={repositoryBranches} liveTaskIds={liveTaskIds} runningSessionIds={runningSessionIds} />}
+            : <LoomContextPanel t={t} snapshot={snapshot ?? { projects: [], versions: [], locks: [], tasks: [], workspaces: [], temporarySessions: [], audit: [], executions: [] }} project={displayProject} version={displayVersion} task={detailTask} versionContext={versionContext} presetName={displayPresetName} usage={tokenUsage} generateLock={generateLock} onLockChanged={() => setAttempt(current => current + 1)} onEditProject={() => openEdit('project')} onNewVersion={() => { if (displayProject !== undefined) setProject(displayProject.id); openCreate('version') }} onEditVersion={() => openEdit('version')} onEditTask={() => openEdit('task')} onDeleteProject={displayProject === undefined ? undefined : () => removeProject(displayProject)} onDeleteVersion={displayVersion === undefined ? undefined : () => removeVersion(displayVersion)} onDeleteTask={detailTask === undefined ? undefined : () => removeTask(detailTask)} openPath={openPath} openPathApplications={openPathApplications} openPathWith={openPathWith} loadBranches={repositoryBranches} liveTaskIds={liveTaskIds} runningSessionIds={runningSessionIds} />}
       </aside>}
     </div>
     {!bottomCollapsed && <LoomResizeHandle label={t('layout.resizeBottom')} orientation="horizontal" value={bottomHeight} min={80} max={bottomMax} invert onChange={(height) => setPreferences(current => ({ ...current, bottomHeight: height }))} />}

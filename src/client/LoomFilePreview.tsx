@@ -1,7 +1,7 @@
 /** Workspace Diff and full-file preview for one file selected in the Loom aside. */
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react'
 import {
-  CodeBlock, FileTypeIcon, IconCloseOutlineRegular, IconFullscreenOutlineRegular, ImageLightbox, MarkdownDelegateProvider, MarkdownText, PathLabel, languageForPath,
+  CodeBlock, FileTypeIcon, IconChevronDownOutlineRegular, IconCloseOutlineRegular, IconFolderOpenRegular, IconFullscreenOutlineRegular, ImageLightbox, MarkdownDelegateProvider, MarkdownText, Menu, PathLabel, languageForPath, type MenuEntry,
   type ImageLightboxLabels, type MarkdownLabels,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
@@ -11,6 +11,7 @@ import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { WorkspaceFileChangeRecord, WorkspaceRepositoryChangesRecord } from 'dsh-workloom/types'
 import type { LoadWorkspaceChanges, LoomFileDiffInput } from './LoomDiff.tsx'
 import { LoomHunks } from './LoomHunks.tsx'
+import { LoomSpreadsheetPreview } from './LoomSpreadsheetPreview.tsx'
 import { LoomWrapToggle } from './LoomWrapToggle.tsx'
 import { diffViewport } from './shell.ts'
 import type { LoomKey } from './locales.ts'
@@ -26,6 +27,8 @@ export type ReadWorkspaceApplications = (path: string, signal: AbortSignal) => P
 export interface LoomFilePreviewProps {
   readonly t: Translate
   readonly workspaceId: string | undefined
+  /** Root used to resolve a workspace-relative file before native open/reveal. */
+  readonly workspaceRoot?: string | undefined
   /** Attempt whose start HEAD is the comparison baseline. */
   readonly attemptId?: string | undefined
   readonly sessionId: SessionId | undefined
@@ -80,7 +83,7 @@ async function readWholeFile(readFile: ReadWorkspaceFile, sessionId: SessionId, 
   return { kind: 'ready', text, truncated: true }
 }
 
-type FileViewKind = 'markdown' | 'image' | 'binary' | 'text'
+type FileViewKind = 'markdown' | 'image' | 'spreadsheet' | 'binary' | 'text'
 
 const IMAGE_TYPES: Readonly<Record<string, string>> = {
   png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp',
@@ -97,8 +100,15 @@ function fileViewKind(path: string): FileViewKind {
   const extension = extensionOf(path)
   if (extension === 'md' || extension === 'mdx' || extension === 'markdown') return 'markdown'
   if (IMAGE_TYPES[extension] !== undefined) return 'image'
+  if (extension === 'xlsx' || extension === 'xlsm') return 'spreadsheet'
   if (BINARY_EXTENSIONS.has(extension)) return 'binary'
   return 'text'
+}
+
+function joinPath(root: string, path: string): string {
+  const base = root.replace(/[\\/]+$/u, '')
+  const relative = path.replace(/^[.][\\/]+/u, '').replaceAll('\\', '/')
+  return `${base}/${relative}`
 }
 
 function isAbsolutePath(path: string): boolean {
@@ -145,22 +155,54 @@ const fileIdentity: CSSProperties = { display: 'flex', flexDirection: 'column', 
 const fileName: CSSProperties = { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12, color: 'var(--dsw-alias-label-primary)' }
 const filePathLabel: CSSProperties = { fontSize: 10, minWidth: 0 }
 const fileTypeBadge: CSSProperties = { flex: 'none', color: 'var(--dsw-alias-label-tertiary)', fontSize: 9.5, fontFamily: 'ui-monospace, monospace' }
-const fileActionRow: CSSProperties = { display: 'flex', alignItems: 'center', gap: 4, minHeight: 20, flexWrap: 'wrap' }
 const fileAction: CSSProperties = {
   display: 'inline-flex', alignItems: 'center', gap: 4, border: '0.5px solid var(--dsw-alias-border-l3)',
   borderRadius: 5, background: 'transparent', color: 'var(--dsw-alias-label-secondary)', cursor: 'pointer',
   font: 'inherit', fontSize: 10, lineHeight: '18px', padding: '0 6px',
 }
 const iconAction: CSSProperties = { ...fileAction, padding: '0 5px' }
-const appMenu: CSSProperties = {
-  position: 'absolute', top: 22, right: 0, zIndex: 20, minWidth: 168, maxHeight: 240, overflow: 'auto',
-  background: 'var(--dsw-alias-bg-layer-2)', border: '0.5px solid var(--dsw-alias-border-l3)',
-  borderRadius: 7, boxShadow: '0 8px 24px rgba(0,0,0,.28)', padding: 3,
-}
-const appMenuItem: CSSProperties = { display: 'block', width: '100%', textAlign: 'left', border: 'none', background: 'transparent', color: 'var(--dsw-alias-label-primary)', cursor: 'pointer', font: 'inherit', fontSize: 11, padding: '5px 7px', borderRadius: 4 }
+const openControl: CSSProperties = { display: 'inline-flex', alignItems: 'center', flex: 'none' }
+const openMain: CSSProperties = { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 21, padding: 0, border: '0.5px solid var(--dsw-alias-border-l3)', borderTopLeftRadius: 5, borderBottomLeftRadius: 5, background: 'transparent', color: 'var(--dsw-alias-label-secondary)', cursor: 'pointer' }
+const openChevron: CSSProperties = { ...openMain, width: 15, marginLeft: -0.5, borderLeft: 'none', borderTopLeftRadius: 0, borderBottomLeftRadius: 0, borderTopRightRadius: 5, borderBottomRightRadius: 5 }
+const appIcon: CSSProperties = { width: 13, height: 13, objectFit: 'contain', display: 'block', borderRadius: 2 }
+const appBadge: CSSProperties = { display: 'grid', placeItems: 'center', width: 13, height: 13, borderRadius: 3, background: 'var(--dsw-alias-bg-layer-3)', color: 'var(--dsw-alias-label-secondary)', fontSize: 7, fontWeight: 500, lineHeight: 1 }
 
 function fileNameOf(path: string): string {
   return path.replaceAll('\\', '/').split('/').at(-1) ?? path
+}
+
+function ApplicationIcon({ application }: { application: SessionWorkspacePathApplication }): ReactNode {
+  const [failed, setFailed] = useState(false)
+  if (application.icon === null || application.icon === undefined || application.icon === '' || failed) {
+    return <span style={appBadge} aria-hidden>{application.name.slice(0, 2).toUpperCase()}</span>
+  }
+  return <img src={application.icon} alt="" width={13} height={13} style={appIcon} onError={() => setFailed(true)} />
+}
+
+function FileOpenControl({ t, path, applications, openPath, openWith }: {
+  t: Translate
+  path: string
+  applications: readonly SessionWorkspacePathApplication[]
+  openPath?: ((path: string, action?: 'open' | 'reveal') => Promise<boolean>) | undefined
+  openWith?: ((path: string, application: string) => Promise<boolean>) | undefined
+}): ReactNode {
+  const [menuOpen, setMenuOpen] = useState(false)
+  const preferred = applications.find(application => application.default) ?? applications[0]
+  const launch = (application: string | undefined): void => {
+    if (application !== undefined && openWith !== undefined) void openWith(path, application)
+    else if (openPath !== undefined) void openPath(path)
+  }
+  const items: MenuEntry[] = applications.map(application => ({ id: application.id, label: application.name, icon: <ApplicationIcon application={application} /> }))
+  const footer: MenuEntry[] = openPath === undefined ? [] : [{ id: '__reveal', label: t('diff.reveal') }]
+  if (applications.length === 0 && openPath === undefined) return null
+  return <span style={openControl}>
+    <button type="button" style={openMain} aria-label={preferred === undefined ? t('diff.openExternal') : `${t('diff.openExternal')} · ${preferred.name}`} title={preferred === undefined ? t('diff.openExternal') : `${t('diff.openExternal')} · ${preferred.name}`} onClick={() => launch(preferred?.id)}>
+      {preferred === undefined ? <IconFolderOpenRegular size={13} /> : <ApplicationIcon application={preferred} />}
+    </button>
+    {(items.length > 0 || footer.length > 0) && <Menu open={menuOpen} onClose={() => setMenuOpen(false)} items={items} footer={footer} selectedId={preferred?.id} align="end" portal
+      onSelect={(id) => { setMenuOpen(false); if (id === '__reveal') { if (openPath !== undefined) void openPath(path, 'reveal') } else launch(id) }}
+      anchor={<button type="button" style={openChevron} aria-label={t('diff.openWith')} title={t('diff.openWith')} aria-expanded={menuOpen} onClick={() => setMenuOpen(value => !value)}><IconChevronDownOutlineRegular size={10} /></button>} />}
+  </span>
 }
 
 /**
@@ -171,7 +213,7 @@ function fileNameOf(path: string): string {
  * @returns the selected preview, or the state that explains why it is unavailable.
  */
 export function LoomFilePreview({
-  t, workspaceId, attemptId, sessionId, filePath, initialMode = 'diff', loadChanges, readFile,
+  t, workspaceId, workspaceRoot, attemptId, sessionId, filePath, initialMode = 'diff', loadChanges, readFile,
   readBytes, openPath, applications, openWith, onClose, fullscreen, onToggleFullscreen, wrap, onToggleWrap,
 }: LoomFilePreviewProps): ReactNode {
   const [mode, setMode] = useState<'diff' | 'file'>(initialMode)
@@ -180,7 +222,6 @@ export function LoomFilePreview({
   const [image, setImage] = useState<{ readonly kind: 'loading' } | { readonly kind: 'ready'; readonly url: string; readonly mediaType: string } | { readonly kind: 'error' }>()
   const [lightbox, setLightbox] = useState(false)
   const [applicationsState, setApplicationsState] = useState<readonly SessionWorkspacePathApplication[]>([])
-  const [applicationsOpen, setApplicationsOpen] = useState(false)
   const [markdownImages, setMarkdownImages] = useState<ReadonlyMap<string, string>>(new Map())
   const [zoom, setZoom] = useState(1)
   const kind = fileViewKind(filePath)
@@ -195,9 +236,12 @@ export function LoomFilePreview({
     return () => { live = false }
   }, [workspaceId, attemptId, loadChanges])
   const match = Array.isArray(changes) ? findFile(changes, filePath) : undefined
-  const fileReadPath = filePath.startsWith('/') || match === undefined
-    ? filePath
+  const resolvedWorkspacePath = match === undefined
+    ? undefined
     : `${match.directory.replace(/\/$/u, '')}/${match.file.path}`
+  const fileReadPath = isAbsolutePath(filePath)
+    ? filePath
+    : resolvedWorkspacePath ?? (workspaceRoot === undefined ? filePath : joinPath(workspaceRoot, filePath))
   const absoluteFile = isAbsolutePath(fileReadPath)
   useEffect(() => {
     if (mode !== 'file' || sessionId === undefined || kind === 'image' || kind === 'binary') { setFileText({ kind: 'loading' }); return }
@@ -283,15 +327,7 @@ export function LoomFilePreview({
         <PathLabel path={fileReadPath} style={filePathLabel} />
       </div>
       <span style={fileTypeBadge}>{extensionOf(filePath).toUpperCase() || t('diff.tabFile')}</span>
-    </div>
-    <div style={fileActionRow}>
-      {openPath !== undefined && absoluteFile && <button type="button" style={fileAction} onClick={() => { void openPath(fileReadPath) }}>{t('diff.openExternal')}</button>}
-      {openPath !== undefined && absoluteFile && <button type="button" style={fileAction} onClick={() => { void openPath(fileReadPath, 'reveal') }}>{t('diff.reveal')}</button>}
-      {applicationsState.length > 0 && openWith !== undefined && <div style={{ position: 'relative' }}>
-        <button type="button" style={fileAction} aria-expanded={applicationsOpen} onClick={() => setApplicationsOpen(current => !current)}>{t('diff.openWith')} ▾</button>
-        {applicationsOpen && <div style={appMenu}>{applicationsState.map(application => <button key={application.id} type="button" style={appMenuItem} onClick={() => { setApplicationsOpen(false); void openWith(fileReadPath, application.id) }}>{application.name}{application.default ? ` · ${t('diff.defaultApp')}` : ''}</button>)}</div>}
-      </div>}
-      {kind === 'markdown' && <span style={{ ...fileAction, border: 'none', padding: 0, cursor: 'default' }}>Markdown</span>}
+      {absoluteFile && <FileOpenControl t={t} path={fileReadPath} applications={applicationsState} openPath={openPath} openWith={openWith} />}
     </div>
   </div>
   if (mode === 'file') {
@@ -306,8 +342,16 @@ export function LoomFilePreview({
           : <div style={{ flex: 1, minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'auto', padding: 12, background: 'var(--dsw-alias-bg-layer-1)' }}>
               <img src={image.url} alt={fileNameOf(filePath)} title={t('diff.imagePreview')} onClick={() => setLightbox(true)} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', cursor: 'zoom-in', borderRadius: 4 }} />
             </div>
+      : kind === 'spreadsheet'
+        ? sessionId === undefined || readBytes === undefined
+          ? <div role="status" style={{ display: 'flex', flex: 1, minHeight: 0, flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 18, color: 'var(--dsw-alias-label-secondary)', fontSize: 12 }}><FileTypeIcon path={filePath} size={28} /><p style={{ margin: 0, fontSize: 12 }}>{t('diff.noSession')}</p></div>
+          : <LoomSpreadsheetPreview t={t} sessionId={sessionId} filePath={filePath} readBytes={readBytes} onOpenPath={openPath !== undefined && absoluteFile ? () => { void openPath(fileReadPath) } : undefined} />
       : kind === 'binary'
-        ? <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 16, color: 'var(--dsw-alias-label-secondary)' }}><FileTypeIcon path={filePath} size={28} /><p style={{ margin: 0, fontSize: 12 }}>{t('diff.binaryNoPreview')}</p></div>
+        ? <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, padding: 16, color: 'var(--dsw-alias-label-secondary)' }}>
+            <FileTypeIcon path={filePath} size={30} />
+            <p style={{ margin: 0, fontSize: 12 }}>{t('diff.binaryNoPreview')}</p>
+            {absoluteFile && <FileOpenControl t={t} path={fileReadPath} applications={applicationsState} openPath={openPath} openWith={openWith} />}
+          </div>
         : fileText.kind === 'loading'
           ? <p role="status" style={{ margin: 0, padding: 12 }}>{t('diff.fileLoading')}</p>
           : fileText.kind === 'error'

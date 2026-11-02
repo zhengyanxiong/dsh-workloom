@@ -1335,7 +1335,7 @@ export function LockButton({ t, version, generate, onCreated, existing = false, 
       setFailure(error instanceof Error ? error.message : String(error))
     } finally { setBusy(false) }
   }
-  return <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 6 }}>
+  return <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: size === 'md' ? 0 : 6 }}>
     <Button size={size ?? (existing ? 'sm' : 'md')} variant={existing ? 'outline' : 'primary'} className={existing ? undefined : 'loom-primary'} disabled={busy || disabled} onClick={() => { void run() }}>
       {busy ? t('lock.resolving') : existing ? t('lock.regenerate') : t('lock.new')}
     </Button>

@@ -12,6 +12,7 @@ import { LockButton } from './LoomForms.tsx'
 import { LoomDeleteDialog, type DeleteKind } from './LoomDeleteDialog.tsx'
 import { COLORS, failureReport, sectionTitle, shortCommit, thrownFailureReport, type FailureReport, PRIORITY_META, STATUS_META } from './shell.ts'
 import { TaskStatusDot } from './LoomStatusDot.tsx'
+import { LoomWorkspaceOpen } from './LoomWorkspaceOpen.tsx'
 import type { LoomKey } from './locales.ts'
 
 type Translate = (key: LoomKey, params?: Readonly<Record<string, string>>) => string
@@ -36,8 +37,11 @@ export interface LoomContextPanelProps {
   readonly onDeleteProject?: (() => Promise<RemoteResult<void>>) | undefined
   readonly onDeleteVersion?: (() => Promise<RemoteResult<void>>) | undefined
   readonly onDeleteTask?: (() => Promise<RemoteResult<void>>) | undefined
-  /** Opens a mapped repository in the desktop's default tool. */
+  /** Opens a mapped repository through the native desktop catalog. */
   readonly openPath?: ((path: string) => void) | undefined
+  /** Native file-association readers used to bridge WSL/Windows IDE handlers into the directory menu. */
+  readonly openPathApplications?: ((path: string, signal: AbortSignal) => Promise<RemoteResult<readonly { id: string; name: string; icon?: string | null }[]>>) | undefined
+  readonly openPathWith?: ((path: string, application: string) => Promise<boolean>) | undefined
   /** Native repository branch read, used to show the workspace's actual checkout. */
   readonly loadBranches?: ((request: RepositoryBranchesRequest) => Promise<RemoteResult<RepositoryBranches>>) | undefined
   /** Tasks with a bound native Session that is actually running; only these animate. */
@@ -188,7 +192,7 @@ function VersionContextSection({ t, context, occupancy, liveTaskIds, runningSess
  * @param props - catalog records, current selection and owner actions.
  * @returns the aside content for the workbench view.
  */
-export function LoomContextPanel({ t, snapshot, project, version, task, versionContext, usage, generateLock, onLockChanged, onEditProject, onNewVersion, onEditVersion, onEditTask, onDeleteProject, onDeleteVersion, onDeleteTask, openPath, loadBranches, liveTaskIds, runningSessionIds, sessionRuntime, versionGraph }: LoomContextPanelProps) {
+export function LoomContextPanel({ t, snapshot, project, version, task, versionContext, usage, generateLock, onLockChanged, onEditProject, onNewVersion, onEditVersion, onEditTask, onDeleteProject, onDeleteVersion, onDeleteTask, openPath, openPathApplications, openPathWith, loadBranches, liveTaskIds, runningSessionIds, sessionRuntime, versionGraph }: LoomContextPanelProps) {
   const [pendingDelete, setPendingDelete] = useState<DeleteKind>()
   const [deleting, setDeleting] = useState(false)
   const [deleteFailure, setDeleteFailure] = useState<FailureReport>()
@@ -282,18 +286,20 @@ export function LoomContextPanel({ t, snapshot, project, version, task, versionC
         <Row k={t('task.name')} v={task.title} mono={false} />
         <Row k={t('ctx.status')} v={t(STATUS_META[task.status].key)} mono={false} />
         <Row k={t('task.priority')} v={t(PRIORITY_META[task.priority ?? 'normal'].key)} mono={false} />
-        <Row k={t('attempt.current')} v={String(task.attempts.length)} />
       </section>}
       {task !== undefined && <section style={section}>
         <SectionHeading title={t('ctx.workspace')} />
         {workspace === undefined ? <p style={muted}>{t('workspace.empty')}</p> : <>
-          <Row k={t('ctx.workspaceRoot')} v={workspace.path} wrap={false} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+            <div style={{ flex: 1, minWidth: 0 }}><Row k={t('ctx.workspaceRoot')} v={workspace.rootPath ?? workspace.path} wrap={false} /></div>
+            <LoomWorkspaceOpen t={t} path={workspace.rootPath ?? workspace.path} openPath={openPath} applications={openPathApplications} openWith={openPathWith} probePaths={[`${workspace.rootPath ?? workspace.path}/README.md`, `${workspace.rootPath ?? workspace.path}/package.json`]} />
+          </div>
           <Row k={t('workspace.mode')} v={t(`workspace.mode.${workspace.mode ?? 'managed'}`)} mono={false} />
           <Row k={t('ctx.lock')} v={shortCommit(snapshot.locks.find(lock => lock.id === workspace.lockId)) ?? workspace.lockId} />
           {(workspace.repositories ?? []).map(binding => <div key={binding.sourceId} style={sourceRow}>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, minWidth: 0 }}>
               <span style={sourceTitle}>{binding.path === '.' ? t('ctx.repoRoot') : binding.path}</span>
-              {openPath !== undefined && <button type="button" aria-label={`${t('ctx.open')} ${binding.path}`} title={binding.targetPath} onClick={() => { openPath(binding.targetPath) }} style={{ marginLeft: 'auto', border: 'none', background: 'transparent', padding: 0, color: COLORS.accent, font: 'inherit', fontSize: 9.5, cursor: 'pointer', flex: 'none' }}>{t('ctx.open')}</button>}
+              <div style={{ marginLeft: 'auto', flex: 'none' }}><LoomWorkspaceOpen t={t} path={binding.targetPath} openPath={openPath} applications={openPathApplications} openWith={openPathWith} probePaths={[`${binding.targetPath}/README.md`, `${binding.targetPath}/package.json`, `${binding.targetPath}/.gitignore`]} /></div>
             </div>
             <span style={mono} title={binding.targetPath}>{binding.targetPath}</span>
             <span style={sourceMeta}>{t('ctx.workspaceBranch')}: {branchLabel(binding.sourceId)}</span>
