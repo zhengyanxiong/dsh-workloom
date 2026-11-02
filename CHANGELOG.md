@@ -8,6 +8,44 @@ Releases start at 0.1.8 in this repository.
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-11-02
+
+### Added
+
+- Excel workbook preview in the file aside: reads real `.xlsx` bytes, switches
+  between worksheets, preserves Chinese text and numeric amounts, and renders
+  cached formula values instead of formula text.
+- One native split open control for file previews and workspace folders: the
+  default application opens from the main button and the menu lists registered
+  handlers with icons plus "Show in folder".
+- Workspace open menu now merges Windows file handlers discovered from a real
+  workspace probe file, so WSL installations expose IntelliJ IDEA, PyCharm,
+  DataGrip and Visual Studio Code alongside the directory catalog.
+- Right-click-free version and task actions on hover in the project tree:
+  version edit/new task/delete and task edit/delete.
+
+### Changed
+
+- Workloom follows the selected DSH light/dark theme through
+  `body[data-ds-dark-theme]` instead of the operating-system color scheme.
+- The settings modal and New menu were rebuilt with grouped cards, custom
+  selects, switches and clearer disabled states.
+- The left project sidebar and its pinned/project/session sections can be
+  collapsed independently; the new-header button hides the complete sidebar.
+- File previews now use the shared split open control instead of three separate
+  text actions.
+- Version detail actions share one baseline, and the Lock button no longer
+  offsets itself from Edit version and New task.
+- Workspace open requests report a visible failure or success notice instead of
+  silently disappearing.
+
+### Fixed
+
+- WSL Windows file-association queries submit a compressed encoded PowerShell
+  command because Windows PowerShell cannot read Linux `-File` temp paths.
+- Selecting a workspace application updates the split button immediately,
+  including when browser storage is unavailable.
+
 ## [0.2.0] - 2026-11-01
 
 Workloom V2: versions own Locks and workspaces, tasks only select a workspace,
