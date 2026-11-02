@@ -50,8 +50,15 @@ build output and is ignored.
 
 ## Code style
 
+The mandatory standard is [TYPESCRIPT.md](TYPESCRIPT.md);
+the target module layout and migration phases are in
+[ARCHITECTURE.md](ARCHITECTURE.md). Read both
+before adding a module or changing a DSH boundary.
+
 - TypeScript with the strict settings in `tsconfig.base.json`.
 - `.ts` in local relative imports; package names across packages.
+- Only `src/platform/dsh` imports `@deepseek-ai/dsh-*` service packages; feature
+  code uses `src/ports` and the platform adapter.
 - English comments and JSDoc; user-visible copy goes through the locale
   dictionaries in `locale/` and `src/client/locales.ts`.
 - Files end with exactly one trailing newline.
