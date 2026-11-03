@@ -10,7 +10,8 @@ import { createCatalog, findSessionAttempt, findWorkspaceByPath, type Catalog, t
 import type { ContextConfig, Config } from './service/config.ts'
 import { configSchema } from './service/config.ts'
 import { serviceError } from './service/errors.ts'
-import { inspectWorkspace, sameHostPath, sameRepositoryMappings } from './service/inspection.ts'
+import { inspectWorkspace, sameRepositoryMappings } from './service/inspection.ts'
+import { VersionContextRegistry } from './service/version-context.ts'
 import {
   attemptRequest, cleanupWorkspaceRequest, commitWorkspaceRequest, deleteProjectRequest, deleteTaskRequest, deleteVersionRequest,
   executionRequest, forgetTemporarySessionRequest, inspectWorkspaceRequest, lockRequest, registerWorkspaceRequest,
@@ -36,14 +37,8 @@ import type {} from './events.ts'
 import type { LoomAgent, LoomAgentRegistry } from './events.ts'
 import {
   VERSION_CONTEXT_DEFAULTS,
-  deriveVersionContext, renderVersionContext, withCurrentTask,
-  type VersionContext, type VersionContextLimits,
+  type VersionContextLimits,
 } from '../shared/version-context.ts'
-
-/** Runtime-context name registered on each Agent bound to a Loom task. */
-const VERSION_CONTEXT_NAME = 'loom:version-context'
-/** Ordering above workspace repository hints, below identity sections. */
-const VERSION_CONTEXT_ORDER = 40
 
 /** Native runtime-context registration subset the Host calls. */
 interface PromptContextRegistrar {
@@ -54,13 +49,6 @@ interface PromptContextRegistrar {
     readonly interpolate?: boolean | undefined
     readonly text: string | (() => string)
   }): () => void
-}
-
-/** One Session's live version-context registration. */
-interface VersionContextRegistration {
-  readonly taskId: string
-  readonly versionId: string
-  readonly dispose: () => void
 }
 
 /** Resolve context limits from optional Cordis config, ignoring unusable values. */
@@ -90,11 +78,8 @@ export default class LoomService extends TypertRemoteService {
   private closed = false
   private readonly contextEnabled: boolean
   private readonly contextLimits: VersionContextLimits
-  /** Derived version-level contexts for the current snapshot; cleared whenever the snapshot refreshes. */
-  private readonly versionContexts = new Map<string, VersionContext>()
-  private readonly sessionVersionContexts = new Map<string, VersionContextRegistration>()
-  /** Last pointer text per Session, returned when derivation temporarily cannot read the snapshot. */
-  private readonly sessionPointerText = new Map<string, string>()
+  /** Version-context caches and per-Session prompt registrations. */
+  private readonly versionContext: VersionContextRegistry
 
   constructor(ctx: Context, config: Config) {
     super(ctx, 'loom')
@@ -102,6 +87,13 @@ export default class LoomService extends TypertRemoteService {
     this.workspacesDir = admitted.workspacesDir ?? join(dirname(admitted.catalogFile), 'workspaces')
     this.contextEnabled = admitted.context?.enabled !== false
     this.contextLimits = resolveContextLimits(admitted.context)
+    this.versionContext = new VersionContextRegistry({
+      isEnabled: () => this.contextEnabled,
+      isClosed: () => this.closed,
+      snapshot: () => this.current,
+      limits: () => this.contextLimits,
+      getAgent: sessionId => (this.ctx.get('agents') as LoomAgentRegistry | undefined)?.get(sessionId),
+    })
     mkdirSync(dirname(admitted.catalogFile), { recursive: true })
     mkdirSync(this.workspacesDir, { recursive: true })
     this.catalog = createCatalog(admitted.catalogFile, resolveCommit)
@@ -111,7 +103,7 @@ export default class LoomService extends TypertRemoteService {
       this.closed = true
       // Drop runtime-context registrations on the still-live Agents before the
       // service disappears, so a reloaded Host cannot inherit stale pointers.
-      for (const sessionId of [...this.sessionVersionContexts.keys()]) this.disposeVersionContext(brandString<Branded<'SessionId'>>(sessionId))
+      this.versionContext.disposeAll()
       await Promise.allSettled([this.catalog, ...this.pending])
     }, 'loom: settle catalog operations')
   }
@@ -120,7 +112,7 @@ export default class LoomService extends TypertRemoteService {
   private refreshSnapshot(catalog: Catalog): void {
     try {
       this.current = catalog.snapshot()
-      this.versionContexts.clear()
+      this.versionContext.clearDerived()
     } catch {
       // Keep the previous snapshot; a transient read failure must not fail a Remote reply or an Agent turn.
     }
@@ -136,7 +128,7 @@ export default class LoomService extends TypertRemoteService {
       if (workspace !== undefined) session.append('sandbox/mode', { mode: 'danger-full-access' })
     })
     this.ctx.on('agent/created', ({ agent }) => {
-      this.syncVersionContext(agent.session.id)
+      this.versionContext.syncVersionContext(agent.session.id)
       const cwd = agent.session.header.cwd
       if (cwd === undefined) return
       const workspace = this.current?.workspaces.find(candidate => candidate.cleaned !== true && (candidate.rootPath ?? candidate.path) === cwd)
@@ -163,7 +155,7 @@ export default class LoomService extends TypertRemoteService {
     this.refreshSnapshot(catalog)
     // Recover contexts for Agents that already exist when the service reloads.
     const agents = this.ctx.get('agents') as LoomAgentRegistry | undefined
-    for (const agent of agents?.list?.() ?? []) this.syncVersionContext(agent.session.id)
+    for (const agent of agents?.list?.() ?? []) this.versionContext.syncVersionContext(agent.session.id)
     this.ctx.on('tools/pre-execute', async (exec, next) => {
       if (exec.agent === undefined) return next()
       if (exec.name === 'loom_request_takeover') {
@@ -186,7 +178,7 @@ export default class LoomService extends TypertRemoteService {
       if (status === 'running') void this.claimIdleExecution(agent.session.id)
     })
     this.ctx.on('session/disposed', session => {
-      this.disposeVersionContext(session.id)
+      this.versionContext.disposeVersionContext(session.id)
       void this.releaseSession(session.id)
     })
     this.registerAgentTools(catalog)
@@ -307,108 +299,6 @@ export default class LoomService extends TypertRemoteService {
       await catalog.releaseSession(sessionId)
     } catch {
       // Teardown cleanup is best effort; the tool gate still refuses a non-owner.
-    }
-  }
-
-  /** Derive (or reuse) the version-level context for the current snapshot. */
-  private versionContextFor(versionId: string): VersionContext | undefined {
-    const cached = this.versionContexts.get(versionId)
-    if (cached !== undefined) return cached
-    const snapshot = this.current
-    if (snapshot === undefined) return undefined
-    const context = deriveVersionContext(snapshot, versionId, { limits: this.contextLimits })
-    if (context !== undefined) this.versionContexts.set(versionId, context)
-    return context
-  }
-
-  /**
-   * Resolve the task a Session is attached to, as recorded by the Host catalog.
-   * Temporary Sessions and Sessions without a live workspace have no binding.
-   */
-  private findSessionBinding(sessionId: Branded<'SessionId'>): { taskId: string; versionId: string; workspacePath: string } | undefined {
-    const snapshot = this.current
-    if (snapshot === undefined) return undefined
-    for (let taskIndex = snapshot.tasks.length - 1; taskIndex >= 0; taskIndex -= 1) {
-      const task = snapshot.tasks[taskIndex]!
-      for (let attemptIndex = task.attempts.length - 1; attemptIndex >= 0; attemptIndex -= 1) {
-        const attempt = task.attempts[attemptIndex]!
-        if (!attempt.sessionIds.includes(sessionId)) continue
-        const workspace = snapshot.workspaces.find(candidate => candidate.id === attempt.workspaceId && candidate.cleaned !== true)
-        if (workspace === undefined) return undefined
-        if (!snapshot.versions.some(candidate => candidate.id === task.versionId)) return undefined
-        return { taskId: task.id, versionId: task.versionId, workspacePath: workspace.rootPath ?? workspace.path }
-      }
-    }
-    return undefined
-  }
-
-  /** Synchronous model-request provider; returns the last pointer when the snapshot cannot be read. */
-  private versionContextPointer(sessionId: Branded<'SessionId'>): string {
-    try {
-      if (!this.contextEnabled || this.closed) return ''
-      const binding = this.findSessionBinding(sessionId)
-      if (binding === undefined) {
-        this.sessionPointerText.delete(sessionId)
-        return ''
-      }
-      const base = this.versionContextFor(binding.versionId)
-      if (base === undefined) return this.sessionPointerText.get(sessionId) ?? ''
-      const context = withCurrentTask(base, binding.taskId, { limits: this.contextLimits })
-      const text = renderVersionContext(context, { limits: this.contextLimits })
-      this.sessionPointerText.set(sessionId, text)
-      return text
-    } catch {
-      return this.sessionPointerText.get(sessionId) ?? ''
-    }
-  }
-
-  /** Register, refresh or remove one Session's Agent-scoped version context. */
-  private syncVersionContext(sessionId: Branded<'SessionId'>): void {
-    try {
-      if (!this.contextEnabled || this.closed) return
-      const binding = this.findSessionBinding(sessionId)
-      if (binding === undefined || this.versionContextFor(binding.versionId) === undefined) {
-        this.disposeVersionContext(sessionId)
-        return
-      }
-      const agents = this.ctx.get('agents') as LoomAgentRegistry | undefined
-      const agent = agents?.get(sessionId)
-      // An Agent created before the task attachment registers on `agent/created`.
-      if (agent === undefined) return
-      if (!sameHostPath(agent.session.header.cwd, binding.workspacePath)) {
-        this.disposeVersionContext(sessionId)
-        return
-      }
-      const existing = this.sessionVersionContexts.get(sessionId)
-      if (existing !== undefined && existing.taskId === binding.taskId && existing.versionId === binding.versionId) return
-      const prompt = agent.ctx.get('systemPrompt') as PromptContextRegistrar | undefined
-      if (prompt === undefined || typeof prompt.context !== 'function') return
-      existing?.dispose()
-      this.sessionVersionContexts.delete(sessionId)
-      this.sessionPointerText.delete(sessionId)
-      const dispose = prompt.context({
-        name: VERSION_CONTEXT_NAME,
-        order: VERSION_CONTEXT_ORDER,
-        required: true,
-        interpolate: false,
-        text: () => this.versionContextPointer(sessionId),
-      })
-      this.sessionVersionContexts.set(sessionId, { taskId: binding.taskId, versionId: binding.versionId, dispose })
-    } catch {
-      // Agent creation and Remote replies must never fail because context registration did.
-    }
-  }
-
-  /** Drop one Session's registration and cached pointer after teardown or a lost binding. */
-  private disposeVersionContext(sessionId: Branded<'SessionId'>): void {
-    const existing = this.sessionVersionContexts.get(sessionId)
-    this.sessionVersionContexts.delete(sessionId)
-    this.sessionPointerText.delete(sessionId)
-    if (existing === undefined) return
-    try {
-      existing.dispose()
-    } catch {
-      // The Agent scope may already be disposed; its registration disappeared with it.
     }
   }
 
@@ -857,7 +747,7 @@ export default class LoomService extends TypertRemoteService {
     const call = this.run(catalog => catalog.attachSession(brandString<TaskRecord['id']>(parsed.taskId), sessionId))
     // The Agent may predate the attachment; register after the catalog write and
     // its snapshot refresh, without delaying the Remote reply.
-    void call.then(() => this.syncVersionContext(sessionId), () => undefined)
+    void call.then(() => this.versionContext.syncVersionContext(sessionId), () => undefined)
     return call
   }
 
@@ -868,7 +758,7 @@ export default class LoomService extends TypertRemoteService {
     const sessionId = brandString<Branded<'SessionId'>>(parsed.sessionId)
     const call = this.run(catalog => catalog.registerTemporarySession(sessionId, parsed.workspacePath))
     // Temporary Sessions are never task-bound; drop any stale registration.
-    void call.then(() => this.syncVersionContext(sessionId), () => undefined)
+    void call.then(() => this.versionContext.syncVersionContext(sessionId), () => undefined)
     return call
   }
 
