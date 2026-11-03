@@ -1,8 +1,12 @@
-/** Workloom client entry: exposes the plugin hook, keeps DSH wiring in the platform adapter. */
+/**
+ * Workloom client entry: exposes the plugin hook, keeps DSH wiring in the platform adapter.
+ */
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import { installLoomClient } from '../platform/dsh/client-plugin.ts'
 
-/** The generated Remote namespace is mounted by the platform adapter. */
+/**
+ * The generated Remote namespace is mounted by the platform adapter.
+ */
 export const inject = ['remote']
 
 /**

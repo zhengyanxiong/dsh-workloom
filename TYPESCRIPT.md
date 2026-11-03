@@ -131,7 +131,8 @@ domain        -> 仅本地品牌类型（最终不依赖 DSH）
 
 ## 9. DSH 兼容规则
 
-- 只有 `src/platform/dsh` 可以直接导入 `@deepseek-ai/dsh-*`。
+- 只有 `src/platform/dsh` 可以导入 DSH 的**运行时服务**；`src/api` 和 `src/ports` 只允许 `import type` 使用 DSH 类型，禁止运行时导入。
+- `src/client` 的 DSH UI primitives 和 type-only 类型在 Phase 3 前视为存量例外；新增 DSH 服务调用必须经过 `ports` / `platform`。
 - 每一处 DSH 能力必须有 port 接口；没有接口的能力不允许直接进入 feature。
 - DSH 升级时先运行 contracts 测试，再改 adapter；不得在整个 `client` 中散改。
 - `lib/typert.*` 是生成文件；修改 Host Remote 后必须重新生成并提交，不手改。

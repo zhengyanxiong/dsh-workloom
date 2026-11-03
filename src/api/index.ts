@@ -1,4 +1,6 @@
-/** Public Workloom API types; never re-export Host implementation modules. */
+/**
+ * Public Workloom API types; never re-export Host implementation modules.
+ */
 export type * from './records.ts'
 export type * from './requests.ts'
 export type * from '../domain/project.ts'

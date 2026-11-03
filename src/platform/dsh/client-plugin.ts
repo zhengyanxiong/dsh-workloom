@@ -1,4 +1,6 @@
-/** Workloom's only DSH client integration: slots, layout, sessions and Remote wiring. */
+/**
+ * Workloom's only DSH client integration: slots, layout, sessions and Remote wiring.
+ */
 import { createElement } from 'react'
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import type { MainPanelId } from '@deepseek-ai/dsh-client-ui-layout/client'
@@ -32,13 +34,17 @@ import { NS, en, zh, type LoomKey } from '../../client/locales.ts'
 
 const PANEL_ID = 'loom' as MainPanelId
 
-/** The workspace-files read this bundle calls through the native Remote carrier. */
+/**
+ * The workspace-files read this bundle calls through the native Remote carrier.
+ */
 interface WorkspaceFilesFace {
   read(sessionId: SessionId, path: string, range: { readonly offset: number }, signal?: AbortSignal): Promise<RemoteResult<WorkspaceFileText>>
   readBytes(sessionId: SessionId, path: string, options: Record<string, never>, signal?: AbortSignal): Promise<RemoteResult<WorkspaceFileBytes>>
 }
 
-/** One native Agent preset as the project form offers it. */
+/**
+ * One native Agent preset as the project form offers it.
+ */
 interface AgentPresetRowFace {
   readonly id: string
   readonly isDefault: boolean
@@ -47,28 +53,38 @@ interface AgentPresetRowFace {
   readonly broken?: string
 }
 
-/** The Agent-preset roster read used by Workloom project settings. */
+/**
+ * The Agent-preset roster read used by Workloom project settings.
+ */
 interface AgentPresetsFace {
   list(): Promise<RemoteResult<{ presets: readonly AgentPresetRowFace[] }>>
 }
 
 declare module '@deepseek-ai/dsh-api-gateway/client' {
   interface ClientRemote {
-    /** Native workspace file reads, used by the Loom preview. */
+    /**
+     * Native workspace file reads, used by the Loom preview.
+     */
     readonly workspaceFiles: WorkspaceFilesFace
-    /** Native Agent-preset roster, used by project settings. */
+    /**
+     * Native Agent-preset roster, used by project settings.
+     */
     readonly agentPresets: AgentPresetsFace
   }
 }
 
-/** The right-Sidebar navigation method this bundle decorates while Loom is on screen. */
+/**
+ * The right-Sidebar navigation method this bundle decorates while Loom is on screen.
+ */
 interface SidebarRightFace {
   openResource(address: string, options?: unknown): void
 }
 
 declare module '@deepseek-ai/cordis' {
   interface Context {
-    /** Right-Sidebar navigation face; only the method Loom forwards is named here. */
+    /**
+     * Right-Sidebar navigation face; only the method Loom forwards is named here.
+     */
     sidebarRight: SidebarRightFace
   }
 }
@@ -76,7 +92,9 @@ declare module '@deepseek-ai/cordis' {
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface LocaleNamespaceMap { loom: LoomKey }
   interface SlotMap {
-    /** Native conversation hosted by Loom's explicit SessionProvider. */
+    /**
+     * Native conversation hosted by Loom's explicit SessionProvider.
+     */
     'loom.conversation': { kind: 'single'; scope: 'session' }
   }
 }
@@ -84,9 +102,9 @@ declare module '@deepseek-ai/dsh-api-session-controller/client' {
   interface SessionReferenceSourceMap { loom: unknown }
 }
 
-/** The generated namespace is mounted here, so only the carrier is required up front. */
-export const inject = ['remote']
-
+/**
+ * The generated namespace is mounted here, so only the carrier is required up front.
+ */
 /** Register an isolated Loom page without changing the current panel selection.
  * @param ctx - Client registration context.
  */
@@ -245,7 +263,11 @@ export function installLoomClient(ctx: ClientContext): void {
     // per page load: selecting the panel needs the main slot to exist, and the
     // sidebar starts at its default width, so a single toggle collapses it.
     ui.effect(() => {
-      if (typeof window === 'undefined') return () => { /* no startup preferences without a page */ }
+      if (typeof window === 'undefined') {
+        return () => {
+          /* No startup preferences without a page. */
+        }
+      }
       let cancelled = false
       let timer = 0
       let attempts = 0
@@ -270,7 +292,9 @@ export function installLoomClient(ctx: ClientContext): void {
   })
 }
 
-/** Sidebar entry mark; the surrounding button owns active color. */
+/**
+ * Sidebar entry mark; the surrounding button owns active color.
+ */
 function LoomSidebarIcon({ size = 16 }: { readonly size?: number }) {
   return createElement(LoomMark, { size })
 }

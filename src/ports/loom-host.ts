@@ -24,10 +24,15 @@ import type {
 import type { AgentPresetOption } from '../api/agent.ts'
 import type { LoomJobsFace } from './loom-jobs.ts'
 
-/** Host catalog and native runtime capabilities owned by the registration context. */
+/**
+ * Host catalog and native runtime capabilities owned by the registration context.
+ */
 export interface LoomHostPort {
   retainSession(id: SessionId): SessionReference
-  /** Opens a native resource when a session surface is mounted; false lets the caller use the Loom preview. */
+  /**
+   * Opens a native resource when a session surface is mounted; false lets the caller use the
+   * Loom preview.
+   */
   openResource(address: string): boolean
   loadSnapshot(): Promise<RemoteResult<CatalogSnapshot>>
   createProject(request: ProjectConfig): Promise<RemoteResult<ProjectRecord>>
@@ -41,7 +46,9 @@ export interface LoomHostPort {
   deleteTask(request: DeleteTaskRequest): Promise<RemoteResult<void>>
   generateLock(request: GenerateLockRequest): Promise<RemoteResult<Lock>>
   prepareWorkspace(request: PrepareWorkspaceRequest): Promise<RemoteResult<WorkspaceRecord>>
-  /** Preparation used for inline add-workspace failures; must not emit a toast. */
+  /**
+   * Preparation used for inline add-workspace failures; must not emit a toast.
+   */
   prepareWorkspaceSilent?(request: PrepareWorkspaceRequest): Promise<RemoteResult<WorkspaceRecord>>
   startAttempt(request: StartAttemptRequest): Promise<RemoteResult<TaskRecord>>
   attachSession(request: AttachSessionRequest): Promise<RemoteResult<TaskRecord>>
@@ -65,12 +72,16 @@ export interface LoomHostPort {
   readFile(sessionId: SessionId, path: string, offset: number, signal: AbortSignal): Promise<RemoteResult<WorkspaceFileText>>
   commitWorkspace(request: CommitWorkspaceRequest): Promise<RemoteResult<WorkspaceCommitResult>>
   forkSession(request: { readonly sessionId: SessionId; readonly increaseTitle?: boolean }): Promise<SessionId>
-  /** Native jobs service, when the jobs client plugin is installed. */
+  /**
+   * Native jobs service, when the jobs client plugin is installed.
+   */
   readonly jobs?: LoomJobsFace | undefined
   updateWorkspace(request: UpdateWorkspaceRequest): Promise<RemoteResult<WorkspaceRecord>>
   deleteWorkspace(request: DeleteWorkspaceRequest): Promise<RemoteResult<void>>
   cleanupWorkspace(request: CleanupWorkspaceRequest): Promise<RemoteResult<void>>
-  /** Cleanup used for rollback; must not emit a user-facing success toast. */
+  /**
+   * Cleanup used for rollback; must not emit a user-facing success toast.
+   */
   cleanupWorkspaceSilent?(request: CleanupWorkspaceRequest): Promise<RemoteResult<void>>
   acquireExecution(request: ExecutionRequest): Promise<RemoteResult<ExecutionState>>
   cancelExecution(request: ExecutionRequest): Promise<RemoteResult<ExecutionState>>
