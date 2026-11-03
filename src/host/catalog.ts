@@ -2,69 +2,37 @@
 import { randomUUID } from 'node:crypto'
 import { lstat } from 'node:fs/promises'
 import { brandString, type Branded } from '@deepseek-ai/dsh-brand'
-import { parseProject, type ProjectConfig } from '../domain/project.ts'
-import { resolveLock, type VersionTarget } from '../domain/version.ts'
+import { parseProject } from '../domain/project.ts'
+import { resolveLock } from '../domain/version.ts'
 import { isAbsolute, normalize, resolve } from 'node:path'
-import { createTask as pendingTask, startAttempt, attachSession, transitionTask, type Task, type Lock, type TaskEvidence, type TaskOutcome, type TaskStatus } from '../domain/task.ts'
+import { createTask as pendingTask, startAttempt, attachSession, transitionTask, type Task, type Lock, type TaskEvidence, type TaskOutcome } from '../domain/task.ts'
 import { createJsonStore, JsonStoreError } from '../storage/json-store.ts'
 import { CatalogError } from './catalog/errors.ts'
 import { admitVersionDescription, distinct, nowIso, projectOf, projectOfWorkspace, text, validVersion, versionSchema, workspaceBindings } from './catalog/schema.ts'
 import { parseCatalog } from './catalog/admission.ts'
+import type { Catalog, WorkspaceCommitRepository, WorkspaceStatusRepository } from './catalog/contract.ts'
+export type { Catalog, CreateTaskOptions, TaskConfirmation, TaskSuggestion, WorkspaceCommitRepository, WorkspaceCommitResult, WorkspaceStatusRepository } from './catalog/contract.ts'
 export { findSessionAttempt, findWorkspaceByPath } from './catalog/selectors.ts'
 import { migrateCatalog } from './catalog/migrations.ts'
 export { CatalogError } from './catalog/errors.ts'
 export { migrateCatalog } from './catalog/migrations.ts'
 export { parseCatalog } from './catalog/admission.ts'
-import type { CatalogSnapshot, ProjectRecord, TaskPriority, TaskRecord, TemporarySessionRecord, VersionRecord, WorkspaceCleanup, WorkspaceCleanupRepository, WorkspaceCleanupRepositoryStatus, WorkspacePreparation, WorkspaceRecord } from '../api/records.ts'
+import type { CatalogSnapshot, ProjectRecord, TaskRecord, TemporarySessionRecord, VersionRecord, WorkspaceCleanup, WorkspaceCleanupRepository, WorkspaceCleanupRepositoryStatus, WorkspacePreparation, WorkspaceRecord } from '../api/records.ts'
 export type { CatalogSnapshot, ProjectRecord, TaskPriority, TaskRecord, TemporarySessionRecord, VersionRecord, WorkspaceCleanup, WorkspaceCleanupRepository, WorkspaceCleanupRepositoryStatus, WorkspaceCleanupStatus, WorkspacePreparation, WorkspacePreparationRepository, WorkspacePreparationRepositoryStatus, WorkspacePreparationStatus, WorkspaceRecord } from '../api/records.ts'
 import {
   addLinkedWorkspaceLink, addWorkspaceWorktree, commitsSince, createWorkspaceRoot, ensureWorktreeBranch, linkWorkspaceSkills,
   planLinkedWorkspace, planWorkspace, removeLinkedWorkspaceLink, removeLinkedWorkspaceRoot, removeWorkspaceRoot, removeWorkspaceSkills,
   commitWorkingTree, removeWorkspaceWorktree, resolveHead, unpushedCommits, workingTreeChangeCount, workingTreeChanges, workingTreeDirty,
   WorkspacePreparationError,
-  type LinkedRepositoryPlan, type WorkspaceRepositoryChanges, type WorkspaceRepositoryPlan,
+  type LinkedRepositoryPlan, type WorkspaceRepositoryPlan,
 } from '../git/workspace.ts'
 import { admitWorkspaceLayout, WorkspaceLayoutError, type WorkspaceLayout, type WorkspaceMode, type WorkspaceRepositoryBinding, type WorkspaceRepositoryKind } from '../domain/workspace.ts'
 import type { AuditEntry, AuditEvent } from '../domain/audit.ts'
 import {
   cancelExecutionRequest, confirmStop, reorderWaiting, createExecution, releaseExecution as releaseExecutionState, requestExecution,
-  requestTakeover, type ExecutionOwner, type ExecutionState, type StopOutcome,
+  requestTakeover, type ExecutionState,
 } from '../domain/execution.ts'
 
-/** A Session's advisory completion report; only a human transition confirms it. */
-export interface TaskSuggestion extends TaskEvidence {
-  /** Session whose Agent produced the report. */
-  readonly sessionId: Branded<'SessionId'>
-  /** `review` asks for human review; `failed` suggests the round cannot complete. */
-  readonly suggestedStatus: 'review' | 'failed'
-  /** Stated reason for the suggestion. */
-  readonly basis?: string | undefined
-}
-/** Human metadata supplied with a terminal transition that decides a suggestion. */
-export interface TaskConfirmation {
-  /** Human rationale recorded with the confirmation decision. */
-  readonly basis?: string | undefined
-}
-/** Per-repository push state reported alongside change counts. */
-/** One repository checkpoint created by a workspace commit. */
-export interface WorkspaceCommitRepository {
-  readonly sourceId: Branded<'loom.source'>
-  readonly path: string
-  readonly changed: boolean
-  readonly commit?: string
-  readonly error?: string
-}
-/** Per-repository checkpoint result for a workspace commit. */
-export interface WorkspaceCommitResult {
-  readonly repositories: readonly WorkspaceCommitRepository[]
-  readonly committed: number
-}
-export interface WorkspaceStatusRepository extends WorkspaceRepositoryChanges {
-  /** Commits HEAD has that its upstream does not; absent when no upstream is configured. */
-  readonly unpushed?: number | undefined
-  /** True when the branch has no upstream, so no ahead count exists. */
-  readonly unpushedUnavailable?: boolean | undefined
-}
 /** Trim and bound one Agent report; empty strings become absent, never placeholder evidence. */
 function admitEvidence(input: TaskEvidence): TaskEvidence {
   const summary = input.agentSummary?.trim()
@@ -103,7 +71,6 @@ function admitEvidence(input: TaskEvidence): TaskEvidence {
     ...(tests === undefined || tests.length === 0 ? {} : { testResults: tests }),
   }
 }
-/** Whether one path equals or lives below a directory, using host path semantics. */
 /** True when a filesystem entry exists; a broken link still counts as present. */
 async function pathExists(path: string): Promise<boolean> {
   try { await lstat(path); return true } catch { return false }
@@ -115,55 +82,6 @@ function preparationFailure(error: unknown): { error: string, rollback: string |
     return { error: detail.slice(0, 1000), rollback: error.rollbackErrors.length === 0 ? undefined : error.rollbackErrors.join('; ').slice(0, 1000) }
   }
   return { error: String(error).slice(0, 1000), rollback: undefined }
-}
-/** Optional task metadata admitted with the title. */
-export interface CreateTaskOptions {
-  readonly workspaceId?: WorkspaceRecord['id'] | undefined
-  readonly description?: string | undefined
-  readonly moduleIds?: readonly Branded<'loom.module'>[] | undefined
-  readonly priority?: TaskPriority | undefined
-}
-
-/** Persistent catalog operations. Writes are committed before snapshots change. */
-export interface Catalog {
-  snapshot(): CatalogSnapshot
-  createProject(config: unknown): Promise<ProjectRecord>
-  updateProject(projectId: ProjectRecord['id'], config: ProjectConfig): Promise<ProjectRecord>
-  deleteProject(projectId: ProjectRecord['id']): Promise<void>
-  createVersion(projectId: ProjectRecord['id'], name: string, sources: readonly { sourceId: Branded<'loom.source'>; ref: string }[], description?: string, targets?: readonly VersionTarget[]): Promise<VersionRecord>
-  updateVersion(versionId: VersionRecord['id'], name: string, sources: readonly { sourceId: Branded<'loom.source'>; ref: string }[], description?: string, targets?: readonly VersionTarget[]): Promise<VersionRecord>
-  deleteVersion(versionId: VersionRecord['id']): Promise<void>
-  generateLock(versionId: VersionRecord['id']): Promise<Lock>
-  createTask(versionId: VersionRecord['id'], title: string, options?: CreateTaskOptions): Promise<TaskRecord>
-  updateTask(taskId: TaskRecord['id'], title: string, options?: CreateTaskOptions): Promise<TaskRecord>
-  deleteTask(taskId: TaskRecord['id']): Promise<void>
-  prepareWorkspace(input: { path: string; versionId: Lock['versionId']; lockId: Lock['id']; branches?: Readonly<Record<string, string>>; mode?: 'managed' | 'linked'; repositories?: readonly { sourceId: Branded<'loom.source'>; path: string; targetPath: string }[]; workspaceId?: WorkspaceRecord['id']; requireBranches?: boolean }): Promise<WorkspaceRecord>
-  workspaceChanges(workspaceId: WorkspaceRecord['id'], attemptId?: Branded<'loom.attempt'>): Promise<{ repositories: WorkspaceRepositoryChanges[] }>
-  workspaceChangeCount(workspaceId: WorkspaceRecord['id'], attemptId?: Branded<'loom.attempt'>): Promise<number>
-  workspaceStatus(workspaceId: WorkspaceRecord['id'], attemptId?: Branded<'loom.attempt'>): Promise<{ running: boolean; repositories: WorkspaceStatusRepository[] }>
-  /** Commit every repository's uncommitted changes without pushing. */
-  commitWorkspace(workspaceId: WorkspaceRecord['id'], message: string): Promise<WorkspaceCommitResult>
-  workspaceDirty(workspaceId: WorkspaceRecord['id']): Promise<boolean>
-  updateWorkspace(workspaceId: WorkspaceRecord['id'], label: string): Promise<WorkspaceRecord>
-  deleteWorkspace(workspaceId: WorkspaceRecord['id'], deleteFiles: boolean, confirmPath?: string): Promise<void>
-  cleanupWorkspace(workspaceId: WorkspaceRecord['id'], discardChanges: boolean): Promise<void>
-  ensureWorkspaceBranches(workspaceId: WorkspaceRecord['id']): Promise<WorkspaceRecord>
-  ensureWorkspaceSkillLinks(workspaceId: WorkspaceRecord['id']): Promise<WorkspaceRecord>
-  registerPreparedWorkspace(input: { path: string; versionId: Lock['versionId']; lockId: Lock['id']; branches?: Readonly<Record<string, string>>; projectId?: Branded<'loom.project'>; mode?: WorkspaceMode; rootPath?: string; rootOwner?: 'loom' | 'user'; repositories?: readonly Omit<WorkspaceRepositoryBinding, 'kind'>[] }): Promise<WorkspaceRecord>
-  startAttempt(taskId: TaskRecord['id'], workspaceId: WorkspaceRecord['id'], options?: { readonly allowBusy?: boolean }): Promise<TaskRecord>
-  attachSession(taskId: TaskRecord['id'], sessionId: Branded<'SessionId'>): Promise<TaskRecord>
-  registerTemporarySession(sessionId: Branded<'SessionId'>, workspacePath: string): Promise<TemporarySessionRecord>
-  forgetTemporarySession(sessionId: Branded<'SessionId'>): Promise<void>
-  transitionTask(taskId: TaskRecord['id'], target: TaskStatus, actor: 'human' | 'agent', confirmation?: TaskConfirmation): Promise<TaskRecord>
-  /** Record one Agent report; a review suggestion may move running→review, never to completed. */
-  suggestTaskOutcome(taskId: TaskRecord['id'], suggestion: TaskSuggestion): Promise<TaskRecord>
-  acquireExecution(workspaceId: WorkspaceRecord['id'], sessionId: Branded<'SessionId'>): Promise<ExecutionState>
-  cancelExecution(workspaceId: WorkspaceRecord['id'], sessionId: Branded<'SessionId'>): Promise<ExecutionState>
-  reorderExecutionQueue(workspaceId: WorkspaceRecord['id'], sessionIds: readonly Branded<'SessionId'>[]): Promise<ExecutionState>
-  releaseExecution(workspaceId: WorkspaceRecord['id'], expected: ExecutionOwner): Promise<ExecutionState>
-  beginTakeover(workspaceId: WorkspaceRecord['id'], sessionId: Branded<'SessionId'>): Promise<{ state: ExecutionState; owner: ExecutionOwner }>
-  finishTakeover(workspaceId: WorkspaceRecord['id'], expected: ExecutionOwner, outcome: StopOutcome): Promise<ExecutionState>
-  releaseSession(sessionId: Branded<'SessionId'>): Promise<void>
 }
 /** Open an existing catalog or initialize a missing one; corrupt data is never overwritten.
  * @param file - File in an existing parent directory, owned exclusively by this catalog instance.
