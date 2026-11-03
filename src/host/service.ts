@@ -1,14 +1,24 @@
 /** Owner-only Loom catalog Remote service with quiescent disposal. */
 import { Context, Service } from '@deepseek-ai/cordis'
-import Schema from '@deepseek-ai/schemastery'
 import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import type {} from '@deepseek-ai/dsh-api-remote-access'
 import { brandString, type Branded } from '@deepseek-ai/dsh-brand'
 import { mkdirSync } from 'node:fs'
-import { dirname, isAbsolute, join, normalize, resolve, win32 } from 'node:path'
+import { dirname, isAbsolute, join, normalize } from 'node:path'
 import { randomUUID } from 'node:crypto'
-import { z } from 'zod'
 import { createCatalog, findSessionAttempt, findWorkspaceByPath, type Catalog, type TemporarySessionRecord } from './catalog.ts'
+import type { ContextConfig, Config } from './service/config.ts'
+import { configSchema } from './service/config.ts'
+import { serviceError } from './service/errors.ts'
+import { inspectWorkspace, sameHostPath, sameRepositoryMappings } from './service/inspection.ts'
+import {
+  attemptRequest, cleanupWorkspaceRequest, commitWorkspaceRequest, deleteProjectRequest, deleteTaskRequest, deleteVersionRequest,
+  executionRequest, forgetTemporarySessionRequest, inspectWorkspaceRequest, lockRequest, registerWorkspaceRequest,
+  releaseExecutionRequest, reorderExecutionQueueRequest, repositoryBranchesRequest, sessionRequest, taskRequest,
+  temporarySessionRequest, transitionRequest, updateProjectRequest, updateTaskRequest, updateVersionRequest,
+  updateWorkspaceRequest, deleteWorkspaceRequest, versionRequest, workspaceChangesRequest, workspaceRequest,
+} from './service/requests.ts'
+export type { ContextConfig, Config } from './service/config.ts'
 import { registerLoomAgentTools, type LoomToolRegistrar } from './tools.ts'
 import { parseProject } from '../domain/project.ts'
 import type {
@@ -25,94 +35,10 @@ import { repositoryBranches, resolveCommit } from '../git/workspace.ts'
 import type {} from './events.ts'
 import type { LoomAgent, LoomAgentRegistry } from './events.ts'
 import {
-  VERSION_CONTEXT_DEFAULTS, VERSION_DESCRIPTION_MAX_CHARS,
+  VERSION_CONTEXT_DEFAULTS,
   deriveVersionContext, renderVersionContext, withCurrentTask,
   type VersionContext, type VersionContextLimits,
 } from '../shared/version-context.ts'
-
-/** Human-readable service failure with a stable code prefix. */
-const SERVICE_ERROR_DESCRIPTION: Readonly<Record<string, string>> = {
-  owner_required: 'Loom operations require the workspace owner',
-  loom_disposed: 'the Loom host has been disposed; reload the panel',
-  missing_project: 'the requested project does not exist',
-  missing_version: 'the requested version does not exist',
-  missing_workspace: 'the requested workspace does not exist',
-  workspace_mismatch: 'the workspace does not belong to this version or Lock',
-  invalid_workspace_path: 'the workspace path is invalid',
-  workspace_cleaned: 'the workspace has already been cleaned',
-  workspace_not_prepared: 'the workspace preparation is not ready',
-  workspace_changes: 'the workspace has uncommitted changes',
-  stale_owner: 'the execution owner token is stale',
-  detached_head: 'the directory is on a detached HEAD; choose a branch',
-}
-function serviceError(code: string, detail?: string): Error {
-  const description = SERVICE_ERROR_DESCRIPTION[code] ?? 'the Loom operation failed'
-  return new Error(`${code}: ${description}${detail === undefined || detail === '' ? '' : ` (${detail})`}`)
-}
-
-/** Optional version-context injection limits; every value defaults from the shared module. */
-export interface ContextConfig {
-  readonly enabled?: boolean
-  readonly maxTasks?: number
-  readonly maxTitleChars?: number
-  readonly maxPathChars?: number
-  readonly maxDescriptionChars?: number
-  readonly maxTokens?: number
-}
-
-/** Absolute catalog file, optional workspace parent and optional context limits; the service creates missing directories. */
-export interface Config { catalogFile: string; workspacesDir?: string; context?: ContextConfig }
-const absolute = Schema.transform(Schema.string().required(), value => {
-  if (!isAbsolute(value) || normalize(value) !== value) throw new Error('path must be absolute and normalized')
-  return value
-})
-const contextConfigSchema = Schema.object({
-  enabled: Schema.boolean(),
-  maxTasks: Schema.natural(),
-  maxTitleChars: Schema.natural(),
-  maxPathChars: Schema.natural(),
-  maxDescriptionChars: Schema.natural(),
-  maxTokens: Schema.natural(),
-})
-const configSchema: Schema<Config> = Schema.object({
-  catalogFile: absolute.required(),
-  workspacesDir: absolute,
-  context: contextConfigSchema,
-})
-const nonempty = z.string().trim().min(1)
-const versionDescription = z.string().max(VERSION_DESCRIPTION_MAX_CHARS).optional()
-const versionTarget = z.strictObject({ subProjectId: nonempty, sourceId: nonempty, ref: nonempty })
-const versionWorkspaceInput = z.discriminatedUnion('mode', [
-  z.strictObject({ mode: z.literal('auto'), parentPath: nonempty, name: nonempty, branchPrefix: nonempty.optional() }),
-  z.strictObject({ mode: z.literal('linked'), rootPath: nonempty, repositories: z.array(z.strictObject({ sourceId: nonempty, targetPath: nonempty })).min(1) }),
-])
-const versionRequest = z.strictObject({ projectId: nonempty, name: nonempty, description: versionDescription, sources: z.array(z.strictObject({ sourceId: nonempty, ref: nonempty })).min(1), targets: z.array(versionTarget).min(1).optional(), workspaces: z.array(versionWorkspaceInput).min(1).optional() })
-const updateProjectRequest = z.strictObject({ projectId: nonempty, config: z.unknown() })
-const updateVersionRequest = z.strictObject({ versionId: nonempty, name: nonempty, description: versionDescription, sources: z.array(z.strictObject({ sourceId: nonempty, ref: nonempty })).min(1), targets: z.array(versionTarget).min(1).optional() })
-const taskRequest = z.strictObject({ versionId: nonempty, workspaceId: nonempty.optional(), title: nonempty, description: z.string().max(4000).optional(), moduleIds: z.array(nonempty).max(50).optional(), priority: z.enum(['low', 'normal', 'high']).optional() })
-const updateTaskRequest = z.strictObject({ taskId: nonempty, title: nonempty, description: z.string().max(4000).optional(), moduleIds: z.array(nonempty).max(50).optional(), priority: z.enum(['low', 'normal', 'high']).optional() })
-const deleteProjectRequest = z.strictObject({ projectId: nonempty })
-const deleteVersionRequest = z.strictObject({ versionId: nonempty })
-const deleteTaskRequest = z.strictObject({ taskId: nonempty })
-const lockRequest = z.strictObject({ versionId: nonempty })
-const workspaceRepositoryInput = z.strictObject({ sourceId: nonempty, path: nonempty, targetPath: nonempty })
-const workspaceRequest = z.strictObject({ path: nonempty.optional(), versionId: nonempty, lockId: nonempty, branches: z.record(z.string(), nonempty).optional(), mode: z.enum(['managed', 'linked']).optional(), repositories: z.array(workspaceRepositoryInput).min(1).optional(), workspaceId: nonempty.optional(), requireBranches: z.boolean().optional() })
-const registerWorkspaceRequest = z.strictObject({ path: nonempty, versionId: nonempty, lockId: nonempty, branches: z.record(z.string(), nonempty).optional(), mode: z.enum(['direct', 'linked']).optional(), projectId: nonempty.optional(), rootPath: nonempty.optional(), rootOwner: z.enum(['loom', 'user']).optional(), repositories: z.array(workspaceRepositoryInput).min(1).optional(), requireBranches: z.boolean().optional() })
-const repositoryBranchesRequest = z.strictObject({ repo: nonempty })
-const inspectWorkspaceRequest = z.strictObject({ path: nonempty, versionId: nonempty })
-const attemptRequest = z.strictObject({ taskId: nonempty, workspaceId: nonempty, allowBusy: z.boolean().optional() })
-const sessionRequest = z.strictObject({ taskId: nonempty, sessionId: nonempty })
-const temporarySessionRequest = z.strictObject({ sessionId: nonempty, workspacePath: nonempty })
-const forgetTemporarySessionRequest = z.strictObject({ sessionId: nonempty })
-const transitionRequest = z.strictObject({ taskId: nonempty, target: z.enum(['pending', 'running', 'review', 'completed', 'failed']), actor: z.enum(['human', 'agent']), basis: z.string().max(2000).optional() })
-const workspaceChangesRequest = z.strictObject({ workspaceId: nonempty, attemptId: nonempty.optional() })
-const commitWorkspaceRequest = z.strictObject({ workspaceId: nonempty, message: z.string().max(500).optional() })
-const updateWorkspaceRequest = z.strictObject({ workspaceId: nonempty, label: z.string().max(80).optional() })
-const deleteWorkspaceRequest = z.strictObject({ workspaceId: nonempty, deleteFiles: z.boolean().optional(), confirmPath: z.string().optional() })
-const cleanupWorkspaceRequest = z.strictObject({ workspaceId: nonempty, discardChanges: z.boolean().optional() })
-const executionRequest = z.strictObject({ workspaceId: nonempty, sessionId: nonempty })
-const reorderExecutionQueueRequest = z.strictObject({ workspaceId: nonempty, sessionIds: z.array(nonempty) })
-const releaseExecutionRequest = z.strictObject({ workspaceId: nonempty, sessionId: nonempty, generation: z.number().int().nonnegative() })
 
 /** Runtime-context name registered on each Agent bound to a Loom task. */
 const VERSION_CONTEXT_NAME = 'loom:version-context'
@@ -148,52 +74,6 @@ function resolveContextLimits(config: ContextConfig | undefined): VersionContext
     maxDescriptionChars: description !== undefined && Number.isSafeInteger(description) && description >= 0 ? description : VERSION_CONTEXT_DEFAULTS.maxDescriptionChars,
     maxTokens: positive(config?.maxTokens, VERSION_CONTEXT_DEFAULTS.maxTokens),
   }
-}
-
-/** Compare the Agent's working directory with a catalog workspace in its own path spelling. */
-function sameHostPath(left: string | undefined, right: string): boolean {
-  if (left === undefined || left === '') return false
-  const windows = /^[A-Za-z]:[\\/]/u.test(left) || /^\\\\/u.test(left) || /^[A-Za-z]:[\\/]/u.test(right) || /^\\\\/u.test(right)
-  try {
-    if (windows) return win32.isAbsolute(left) && win32.isAbsolute(right) && win32.resolve(left).toLowerCase() === win32.resolve(right).toLowerCase()
-    return isAbsolute(left) && isAbsolute(right) && resolve(left) === resolve(right)
-  } catch {
-    // Path comparison must never break Agent creation for a malformed inherited path.
-    return left === right
-  }
-}
-
-
-/** Compare client-requested direct bindings with the persisted workspace before reusing it. */
-function sameRepositoryMappings(
-  requested: readonly { readonly sourceId: string; readonly path: string; readonly targetPath: string }[] | undefined,
-  existing: readonly WorkspaceRepositoryBinding[] | undefined,
-): boolean {
-  if (requested === undefined || existing === undefined) return true
-  return requested.length === existing.length
-    && requested.every(repository => existing.some(binding => binding.sourceId === repository.sourceId
-      && binding.path === repository.path && binding.targetPath === repository.targetPath))
-}
-
-
-/** Inspect each version repository inside an existing workspace root. */
-async function inspectWorkspace(snapshot: CatalogSnapshot, path: string, versionId: string): Promise<WorkspaceInspection> {
-  const version = snapshot.versions.find(candidate => candidate.id === versionId)
-  if (version === undefined) throw serviceError('missing_version')
-  const project = snapshot.projects.find(candidate => candidate.id === version.projectId)
-  if (project === undefined) throw serviceError('missing_project')
-  const repositories: WorkspaceInspection['repositories'][number][] = []
-  for (const source of project.config.sources) {
-    const directory = join(path, source.path)
-    try {
-      const branches = await repositoryBranches(directory)
-      repositories.push({ sourceId: source.id, repo: source.repo, directory, topLevel: branches.topLevel, ...(branches.current === undefined ? {} : { current: branches.current }), branches: branches.branches })
-    } catch (error) {
-      const detail = error instanceof Error ? error.message.split(/\r?\n/u)[0] : String(error)
-      repositories.push({ sourceId: source.id, repo: source.repo, directory, branches: [], error: detail ?? 'not_git' })
-    }
-  }
-  return { path, repositories }
 }
 
 declare module '@deepseek-ai/cordis' { interface Context { loom: LoomService } }
