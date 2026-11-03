@@ -6,20 +6,13 @@ import {
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { CSSProperties, ReactNode } from 'react'
 import type { InjectFace, PropsLocale, PropsRenderFactories, PropsRuntime, SessionProviderComponent } from '@deepseek-ai/dsh-client-ui-slots'
-import type { SessionBinding, SessionReference } from '@deepseek-ai/dsh-api-session-controller/client'
-import type { DraftInitializationOptions, DraftInitializationResult } from '@deepseek-ai/dsh-client-ui-conversation/client'
+import type { SessionReference } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import type { WorkspaceFileBytes, WorkspaceFileText } from '@deepseek-ai/dsh-api-workspace-files/types'
-import type { SessionWorkspacePathApplication } from '@deepseek-ai/dsh-api-session-controller/types'
 import { fileAddressFor } from '@deepseek-ai/dsh-util-workspace-path'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import type {
-  AttachSessionRequest, CommitWorkspaceRequest, WorkspaceCommitResult, CatalogSnapshot, CleanupWorkspaceRequest, CreateTaskRequest, CreateVersionRequest, GenerateLockRequest, Lock,
-  PrepareWorkspaceRequest, ProjectConfig, ProjectRecord, StartAttemptRequest, TaskPriority, TaskRecord, TransitionTaskRequest, VersionRecord,
-  WorkspaceChangesRequest, WorkspaceRecord, WorkspaceRepositoryChangesRecord, ExecutionRequest, ReleaseExecutionRequest, ExecutionState,
-  UpdateProjectRequest, UpdateVersionRequest, UpdateTaskRequest, UpdateWorkspaceRequest, DeleteWorkspaceRequest, ReorderExecutionQueueRequest, DeleteProjectRequest, DeleteVersionRequest, DeleteTaskRequest, VersionWorkspaceInput,
-  RegisterTemporarySessionRequest, TemporarySessionRecord, RegisterWorkspaceRequest, RepositoryBranchesRequest, RepositoryBranches,
-  InspectWorkspaceRequest, WorkspaceInspection, DirectoryListing, WorkspaceStatusResult,
+  CatalogSnapshot, GenerateLockRequest, Lock, ProjectRecord, TaskPriority, TaskRecord, VersionRecord,
+  WorkspaceChangesRequest, WorkspaceRecord, VersionWorkspaceInput,
 } from 'dsh-workloom/types'
 import { ImportProjectForm, LockButton, ProjectForm, TaskForm, VersionForm, type AgentPresetOption, type VersionStep } from './LoomForms.tsx'
 import { LoomSettings, readPreferences, writePreferences, type LoomPreferences } from './LoomSettings.tsx'
@@ -37,7 +30,7 @@ import { LoomKanban, LoomKanbanAside } from './LoomKanban.tsx'
 import { LoomTemporaryDialog, type LoomTemporaryActions } from './LoomTemporaryDialog.tsx'
 import { LoomTaskWorkbench } from './LoomTaskWorkbench.tsx'
 import { LoomVersionDetail } from './LoomVersionDetail.tsx'
-import { LoomSessionActivity, type LoomJobsFace, type LoomSubagentRow } from './LoomSessionActivity.tsx'
+import { LoomSessionActivity, type LoomSubagentRow } from './LoomSessionActivity.tsx'
 import { LoomVersionGraph } from './LoomVersionGraph.tsx'
 import { LoomSessionGraph, type LoomTaskSessionRow } from './LoomSessionGraph.tsx'
 import { autoWorkspaceRepositoryPath } from '../domain/workspace.ts'
@@ -47,6 +40,7 @@ import { COLORS, failureReport, metaLine, pill, select, shortCommit, thrownFailu
 import { reportLoomFailure } from './feedback.ts'
 import { NS, type LoomKey } from './locales.ts'
 import { presetDisplayText, type BuiltInPresetCopyKey } from '@deepseek-ai/dsh-agent-preset-registry/display'
+import type { LoomHostPort as LoomInjected } from '../ports/loom-host.ts'
 
 const PRESET_COPY: Readonly<Record<BuiltInPresetCopyKey, LoomKey>> = {
   presetStandardName: 'preset.standardName', presetStandardDescription: 'preset.standardDescription',
@@ -55,60 +49,6 @@ const PRESET_COPY: Readonly<Record<BuiltInPresetCopyKey, LoomKey>> = {
   presetCordisName: 'preset.cordisName', presetCordisDescription: 'preset.cordisDescription',
 }
 
-/** Host catalog access owned by the registration context. */
-export interface LoomInjected {
-  retainSession(id: SessionId): SessionReference
-  /** Opens a native resource when a session surface is mounted; false lets the caller use the Loom preview. */
-  openResource(address: string): boolean
-  loadSnapshot(): Promise<RemoteResult<CatalogSnapshot>>
-  createProject(request: ProjectConfig): Promise<RemoteResult<ProjectRecord>>
-  updateProject(request: UpdateProjectRequest): Promise<RemoteResult<ProjectRecord>>
-  deleteProject(request: DeleteProjectRequest): Promise<RemoteResult<void>>
-  createVersion(request: CreateVersionRequest): Promise<RemoteResult<VersionRecord>>
-  updateVersion(request: UpdateVersionRequest): Promise<RemoteResult<VersionRecord>>
-  deleteVersion(request: DeleteVersionRequest): Promise<RemoteResult<void>>
-  createTask(request: CreateTaskRequest): Promise<RemoteResult<TaskRecord>>
-  updateTask(request: UpdateTaskRequest): Promise<RemoteResult<TaskRecord>>
-  deleteTask(request: DeleteTaskRequest): Promise<RemoteResult<void>>
-  generateLock(request: GenerateLockRequest): Promise<RemoteResult<Lock>>
-  prepareWorkspace(request: PrepareWorkspaceRequest): Promise<RemoteResult<WorkspaceRecord>>
-  /** Preparation used for inline add-workspace failures; must not emit a toast. */
-  prepareWorkspaceSilent?(request: PrepareWorkspaceRequest): Promise<RemoteResult<WorkspaceRecord>>
-  startAttempt(request: StartAttemptRequest): Promise<RemoteResult<TaskRecord>>
-  attachSession(request: AttachSessionRequest): Promise<RemoteResult<TaskRecord>>
-  registerTemporarySession(request: RegisterTemporarySessionRequest): Promise<RemoteResult<TemporarySessionRecord>>
-  listAgentPresets(): Promise<RemoteResult<{ presets: readonly AgentPresetOption[] }>>
-  transitionTask(request: TransitionTaskRequest): Promise<RemoteResult<TaskRecord>>
-  registerWorkspace(request: RegisterWorkspaceRequest): Promise<RemoteResult<WorkspaceRecord>>
-  repositoryBranches(request: RepositoryBranchesRequest): Promise<RemoteResult<RepositoryBranches>>
-  inspectWorkspace(request: InspectWorkspaceRequest): Promise<RemoteResult<WorkspaceInspection>>
-  pickDirectory(): Promise<string | null>
-  listDirectory(path: string | undefined, signal: AbortSignal): Promise<RemoteResult<DirectoryListing>>
-  requestDraftInitialization(binding: SessionBinding, options: DraftInitializationOptions): DraftInitializationResult
-  createSessionInWorkspace(path: string, agentPreset?: string): Promise<SessionId>
-  openPath(path: string, action?: 'open' | 'reveal'): Promise<boolean>
-  openPathApplications(path: string, signal: AbortSignal): Promise<RemoteResult<readonly SessionWorkspacePathApplication[]>>
-  openPathWith(path: string, application: string): Promise<boolean>
-  readBytes(sessionId: SessionId, path: string, signal: AbortSignal): Promise<RemoteResult<WorkspaceFileBytes>>
-  workspaceChanges(request: WorkspaceChangesRequest): Promise<RemoteResult<{ repositories: WorkspaceRepositoryChangesRecord[] }>>
-  workspaceChangeCount(request: WorkspaceChangesRequest): Promise<RemoteResult<number>>
-  workspaceStatus(request: WorkspaceChangesRequest): Promise<RemoteResult<WorkspaceStatusResult>>
-  readFile(sessionId: SessionId, path: string, offset: number, signal: AbortSignal): Promise<RemoteResult<WorkspaceFileText>>
-  commitWorkspace(request: CommitWorkspaceRequest): Promise<RemoteResult<WorkspaceCommitResult>>
-  forkSession(request: { readonly sessionId: SessionId; readonly increaseTitle?: boolean }): Promise<SessionId>
-  /** Native jobs service, when the jobs client plugin is installed. */
-  readonly jobs?: LoomJobsFace | undefined
-  updateWorkspace(request: UpdateWorkspaceRequest): Promise<RemoteResult<WorkspaceRecord>>
-  deleteWorkspace(request: DeleteWorkspaceRequest): Promise<RemoteResult<void>>
-  cleanupWorkspace(request: CleanupWorkspaceRequest): Promise<RemoteResult<void>>
-  /** Cleanup used for rollback; must not emit a user-facing success toast. */
-  cleanupWorkspaceSilent?(request: CleanupWorkspaceRequest): Promise<RemoteResult<void>>
-  acquireExecution(request: ExecutionRequest): Promise<RemoteResult<ExecutionState>>
-  cancelExecution(request: ExecutionRequest): Promise<RemoteResult<ExecutionState>>
-  reorderExecutionQueue(request: ReorderExecutionQueueRequest): Promise<RemoteResult<ExecutionState>>
-  releaseExecution(request: ReleaseExecutionRequest): Promise<RemoteResult<ExecutionState>>
-  takeoverExecution(request: ExecutionRequest): Promise<RemoteResult<ExecutionState>>
-}
 interface LoomSeat {
   SessionProvider: SessionProviderComponent
   renderSlot(key: 'loom.conversation', owner: object): ReactNode

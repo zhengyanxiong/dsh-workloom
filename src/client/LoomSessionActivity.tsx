@@ -2,21 +2,12 @@
 import { useEffect, useSyncExternalStore, type CSSProperties, type ReactNode } from 'react'
 import { Button, StateDot, Tag } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import type { LoomJobsFace, LoomJobView } from '../ports/loom-jobs.ts'
+export type { LoomJobsFace, LoomJobView } from '../ports/loom-jobs.ts'
 import { COLORS } from './shell.ts'
 import type { LoomKey } from './locales.ts'
 
 type Translate = (key: LoomKey, params?: Readonly<Record<string, string>>) => string
-
-/** The subset of a background job the right rail renders. */
-export interface LoomJobView {
-  readonly id: string
-  readonly label: string
-  readonly status: 'running' | 'stopping' | 'completed' | 'killed' | 'failed'
-  readonly progress?: string
-  readonly detail?: string
-  readonly startedAt: number
-  readonly finishedAt?: number
-}
 
 /** One direct subagent of the active native Session. */
 export interface LoomSubagentRow {
@@ -26,7 +17,6 @@ export interface LoomSubagentRow {
   readonly running: boolean
 }
 
-/** The native jobs service face the right rail reads; absent when that plugin is not installed. */
 /** One Session's current workspace execution ownership. */
 export interface LoomWorkspaceAccess {
   readonly workspaceLabel?: string | undefined
@@ -34,14 +24,6 @@ export interface LoomWorkspaceAccess {
   readonly waiting: readonly { readonly id: string; readonly label: string }[]
 }
 
-/** The native jobs service face the right rail reads; absent when that plugin is not installed. */
-export interface LoomJobsFace {
-  readonly state: {
-    getSnapshot(): { readonly rows: Readonly<Record<string, readonly LoomJobView[]>> }
-    subscribe(listener: () => void): () => void
-  }
-  watchRows(sessionId: SessionId): () => void
-}
 
 /** Inputs for the right-rail Session runtime section. */
 export interface LoomSessionActivityProps {

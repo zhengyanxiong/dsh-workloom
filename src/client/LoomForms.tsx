@@ -5,6 +5,8 @@ import {
   type MenuEntry,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
+import type { AgentPresetOption } from '../api/agent.ts'
+export type { AgentPresetOption } from '../api/agent.ts'
 import type {
   CreateTaskRequest, CreateVersionRequest, GenerateLockRequest, Lock, ModuleConfig,
   ProjectConfig, ProjectRecord, SourceConfig, SubProjectConfig, TaskRecord, TaskPriority, VersionRecord, VersionWorkspaceInput, WorkspaceRecord,
@@ -284,14 +286,6 @@ export function taskRequest(version: VersionRecord, title: string, metadata?: Ta
   }
 }
 
-/** One native Agent preset offered by the project form. */
-export interface AgentPresetOption {
-  readonly id: string
-  readonly isDefault: boolean
-  readonly name?: string
-  readonly description?: string
-  readonly broken?: string
-}
 
 function PresetOptionLabel({ name, description }: { readonly name: string; readonly description: string }) {
   return <span style={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: 280 }}>
