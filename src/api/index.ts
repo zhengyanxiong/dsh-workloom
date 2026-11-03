@@ -2,7 +2,8 @@
  * Public Workloom API types; never re-export Host implementation modules.
  */
 export type * from './records.ts'
-export type * from './requests.ts'
+export type * from './core-requests.ts'
+export type * from './workspace-requests.ts'
 export type * from '../domain/project.ts'
 export type * from '../domain/task.ts'
 export type * from '../domain/version.ts'
