@@ -9,14 +9,14 @@ it('declares the independent remote services used by the main panel', async () =
 })
 
 it('wires the existing Host workspace reads instead of leaving them idle', async () => {
-  const source = await readFile(new URL('../src/platform/dsh/client-plugin.ts', import.meta.url), 'utf8')
+  const source = await readFile(new URL('../src/platform/dsh/host-adapter.ts', import.meta.url), 'utf8')
   expect(source).toContain('ui.remote.loom.workspaceStatus(request)')
   expect(source).toContain('ui.remote.loom.registerWorkspace(request)')
   expect(source).toContain('WorkspaceStatusResult')
 })
 
 it('routes native file addresses to the Loom preview while Loom is active', async () => {
-  const source = await readFile(new URL('../src/platform/dsh/client-plugin.ts', import.meta.url), 'utf8')
+  const source = await readFile(new URL('../src/platform/dsh/client-surface.ts', import.meta.url), 'utf8')
   expect(source).toContain('routeLoomResource')
   expect(source).toContain('activePanelId === PANEL_ID')
 })

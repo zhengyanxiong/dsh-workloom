@@ -19,7 +19,9 @@ it('keeps the public type surface off the Host implementation', async () => {
 })
 
 it('routes DSH integration through the platform adapter', async () => {
-  const platform = await source('src/platform/dsh/client-plugin.ts')
-  expect(platform).toContain('installLoomClient')
-  expect(platform).toContain('ui.remote.loom')
+  const entry = await source('src/platform/dsh/client-plugin.ts')
+  const adapter = await source('src/platform/dsh/host-adapter.ts')
+  expect(entry).toContain('installLoomClient')
+  expect(entry).toContain('createLoomHost')
+  expect(adapter).toContain('ui.remote.loom')
 })
