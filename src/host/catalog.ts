@@ -4,12 +4,13 @@ import { lstat } from 'node:fs/promises'
 import { brandString, type Branded } from '@deepseek-ai/dsh-brand'
 import { parseProject, type ProjectConfig } from '../domain/project.ts'
 import { resolveLock, type VersionTarget } from '../domain/version.ts'
-import { isAbsolute, normalize, resolve, sep } from 'node:path'
-import { createTask as pendingTask, startAttempt, attachSession, transitionTask, type Attempt, type Task, type Lock, type TaskEvidence, type TaskOutcome, type TaskStatus } from '../domain/task.ts'
+import { isAbsolute, normalize, resolve } from 'node:path'
+import { createTask as pendingTask, startAttempt, attachSession, transitionTask, type Task, type Lock, type TaskEvidence, type TaskOutcome, type TaskStatus } from '../domain/task.ts'
 import { createJsonStore, JsonStoreError } from '../storage/json-store.ts'
 import { CatalogError } from './catalog/errors.ts'
 import { admitVersionDescription, distinct, nowIso, projectOf, projectOfWorkspace, text, validVersion, versionSchema, workspaceBindings } from './catalog/schema.ts'
 import { parseCatalog } from './catalog/admission.ts'
+export { findSessionAttempt, findWorkspaceByPath } from './catalog/selectors.ts'
 import { migrateCatalog } from './catalog/migrations.ts'
 export { CatalogError } from './catalog/errors.ts'
 export { migrateCatalog } from './catalog/migrations.ts'
@@ -64,21 +65,6 @@ export interface WorkspaceStatusRepository extends WorkspaceRepositoryChanges {
   /** True when the branch has no upstream, so no ahead count exists. */
   readonly unpushedUnavailable?: boolean | undefined
 }
-/** Find the active workspace whose root equals or contains one host path. */
-export function findWorkspaceByPath(snapshot: CatalogSnapshot, path: string): WorkspaceRecord | undefined {
-  return snapshot.workspaces.find(workspace => workspace.cleaned !== true && pathWithin(workspace.rootPath ?? workspace.path, path))
-}
-/** Resolve the task and its current round for one attached Session; newest records win. */
-export function findSessionAttempt(snapshot: CatalogSnapshot, sessionId: string): { task: TaskRecord; attempt: Attempt } | undefined {
-  for (let taskIndex = snapshot.tasks.length - 1; taskIndex >= 0; taskIndex -= 1) {
-    const task = snapshot.tasks[taskIndex]!
-    for (let attemptIndex = task.attempts.length - 1; attemptIndex >= 0; attemptIndex -= 1) {
-      const attempt = task.attempts[attemptIndex]!
-      if (attempt.sessionIds.some(candidate => candidate === sessionId)) return { task, attempt }
-    }
-  }
-  return undefined
-}
 /** Trim and bound one Agent report; empty strings become absent, never placeholder evidence. */
 function admitEvidence(input: TaskEvidence): TaskEvidence {
   const summary = input.agentSummary?.trim()
@@ -118,13 +104,6 @@ function admitEvidence(input: TaskEvidence): TaskEvidence {
   }
 }
 /** Whether one path equals or lives below a directory, using host path semantics. */
-function pathWithin(root: string, candidate: string): boolean {
-  const normalizedRoot = resolve(root)
-  const normalized = resolve(candidate)
-  if (normalized === normalizedRoot) return true
-  if (process.platform === 'win32') return normalized.toLowerCase().startsWith(`${normalizedRoot.toLowerCase()}${sep}`)
-  return normalized.startsWith(`${normalizedRoot}${sep}`)
-}
 /** True when a filesystem entry exists; a broken link still counts as present. */
 async function pathExists(path: string): Promise<boolean> {
   try { await lstat(path); return true } catch { return false }
