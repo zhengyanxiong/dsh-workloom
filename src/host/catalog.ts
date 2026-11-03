@@ -5,11 +5,13 @@ import { brandString, type Branded } from '@deepseek-ai/dsh-brand'
 import { parseProject } from '../domain/project.ts'
 import { resolveLock } from '../domain/version.ts'
 import { isAbsolute, normalize, resolve } from 'node:path'
-import { createTask as pendingTask, startAttempt, attachSession, transitionTask, type Task, type Lock, type TaskEvidence, type TaskOutcome } from '../domain/task.ts'
+import { createTask as pendingTask, startAttempt, attachSession, transitionTask, type Task, type Lock, type TaskOutcome } from '../domain/task.ts'
 import { createJsonStore, JsonStoreError } from '../storage/json-store.ts'
 import { CatalogError } from './catalog/errors.ts'
 import { admitVersionDescription, distinct, nowIso, projectOf, projectOfWorkspace, text, validVersion, versionSchema, workspaceBindings } from './catalog/schema.ts'
 import { parseCatalog } from './catalog/admission.ts'
+import { admitEvidence } from './catalog/task-evidence.ts'
+import { pathExists, preparationFailure, repositoryRequests } from './catalog/workspace-prep.ts'
 import type { Catalog, WorkspaceCommitRepository, WorkspaceStatusRepository } from './catalog/contract.ts'
 export type { Catalog, CreateTaskOptions, TaskConfirmation, TaskSuggestion, WorkspaceCommitRepository, WorkspaceCommitResult, WorkspaceStatusRepository } from './catalog/contract.ts'
 export { findSessionAttempt, findWorkspaceByPath } from './catalog/selectors.ts'
@@ -33,56 +35,6 @@ import {
   requestTakeover, type ExecutionState,
 } from '../domain/execution.ts'
 
-/** Trim and bound one Agent report; empty strings become absent, never placeholder evidence. */
-function admitEvidence(input: TaskEvidence): TaskEvidence {
-  const summary = input.agentSummary?.trim()
-  if (summary !== undefined && summary.length > 4000) throw new CatalogError('invalid_task', 'agentSummary is too long')
-  const admitList = (values: readonly string[] | undefined): readonly string[] | undefined => {
-    if (values === undefined) return undefined
-    const trimmed = values.map(value => value.trim()).filter(value => value !== '')
-    if (trimmed.length > 50 || trimmed.some(value => value.length > 500)) throw new CatalogError('invalid_task', 'an evidence list is too long')
-    return trimmed.length === 0 ? undefined : trimmed
-  }
-  const tests = input.testResults?.map(result => {
-    const name = result.name.trim()
-    if (name === '' || name.length > 500) throw new CatalogError('invalid_task', 'a test result needs a bounded name')
-    const command = result.command?.trim()
-    const detail = result.detail?.trim()
-    if (command !== undefined && command.length > 1000) throw new CatalogError('invalid_task', 'a test command is too long')
-    if (detail !== undefined && detail.length > 2000) throw new CatalogError('invalid_task', 'a test detail is too long')
-    return {
-      name,
-      status: result.status,
-      ...(command === undefined || command === '' ? {} : { command }),
-      ...(detail === undefined || detail === '' ? {} : { detail }),
-    }
-  })
-  if (tests !== undefined && tests.length > 50) throw new CatalogError('invalid_task', 'too many test results')
-  const completed = admitList(input.completed)
-  const notDone = admitList(input.notDone)
-  const risks = admitList(input.risks)
-  const impact = admitList(input.impact)
-  return {
-    ...(summary === undefined || summary === '' ? {} : { agentSummary: summary }),
-    ...(completed === undefined ? {} : { completed }),
-    ...(notDone === undefined ? {} : { notDone }),
-    ...(risks === undefined ? {} : { risks }),
-    ...(impact === undefined ? {} : { impact }),
-    ...(tests === undefined || tests.length === 0 ? {} : { testResults: tests }),
-  }
-}
-/** True when a filesystem entry exists; a broken link still counts as present. */
-async function pathExists(path: string): Promise<boolean> {
-  try { await lstat(path); return true } catch { return false }
-}
-/** One preparation step failure rendered for persistence. */
-function preparationFailure(error: unknown): { error: string, rollback: string | undefined } {
-  if (error instanceof WorkspacePreparationError) {
-    const detail = error.detail === undefined || error.detail === '' ? error.code : `${error.code}: ${error.detail}`
-    return { error: detail.slice(0, 1000), rollback: error.rollbackErrors.length === 0 ? undefined : error.rollbackErrors.join('; ').slice(0, 1000) }
-  }
-  return { error: String(error).slice(0, 1000), rollback: undefined }
-}
 /** Open an existing catalog or initialize a missing one; corrupt data is never overwritten.
  * @param file - File in an existing parent directory, owned exclusively by this catalog instance.
  * @param resolveCommit - Local repository ref resolver; failures abort Lock generation.
@@ -196,16 +148,6 @@ export async function createCatalog(file: string, resolveCommit: (repo: string, 
   /** Detached copy of one current workspace record. */
   function currentWorkspace(workspaceId: WorkspaceRecord['id']): WorkspaceRecord {
     return structuredClone(workspaceIn(state, workspaceId))
-  }
-  /** Repository worktree requests for the bindings that are still pending. */
-  function repositoryRequests(project: ProjectRecord, lock: Lock, bindings: readonly WorkspaceRepositoryBinding[], pending?: ReadonlySet<string>): { repo: string; path: string; commit: string; branch?: string }[] {
-    return bindings.filter(binding => pending === undefined || pending.has(binding.sourceId)).map(binding => {
-      const source = project.config.sources.find(item => item.id === binding.sourceId)
-      if (source === undefined) throw new CatalogError('workspace_mismatch')
-      const pinned = lock.repositories.find(repository => repository.sourceId === binding.sourceId)
-      if (pinned === undefined) throw new CatalogError('workspace_mismatch')
-      return { repo: source.repo, path: binding.path, commit: pinned.commit, ...(binding.branch === undefined ? {} : { branch: binding.branch }) }
-    })
   }
 
   const api: Catalog = {
