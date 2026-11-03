@@ -15,6 +15,7 @@ import { ensureWorkspaceBranches, ensureWorkspaceSkillLinks, updateWorkspace } f
 import { cleanupWorkspace, deleteWorkspace } from './catalog/workspace-lifecycle.ts'
 import { registerPreparedWorkspace } from './catalog/workspace-register.ts'
 import { prepareWorkspace } from './catalog/workspace-prepare.ts'
+import { acquireExecution, beginTakeover, cancelExecution, finishTakeover, releaseExecution, releaseSession, reorderExecutionQueue } from './catalog/execution-queue.ts'
 import type { Catalog } from './catalog/contract.ts'
 export type { Catalog, CreateTaskOptions, PrepareWorkspaceInput, RegisterPreparedWorkspaceInput, TaskConfirmation, TaskSuggestion, WorkspaceCommitRepository, WorkspaceCommitResult, WorkspaceStatusRepository } from './catalog/contract.ts'
 export { findSessionAttempt, findWorkspaceByPath } from './catalog/selectors.ts'
@@ -27,8 +28,7 @@ export type { CatalogSnapshot, ProjectRecord, TaskPriority, TaskRecord, Temporar
 import { resolveHead } from '../git/workspace.ts'
 import type { AuditEntry, AuditEvent } from '../domain/audit.ts'
 import {
-  cancelExecutionRequest, confirmStop, reorderWaiting, createExecution, releaseExecution as releaseExecutionState, requestExecution,
-  requestTakeover, type ExecutionState,
+  confirmStop, createExecution, releaseExecution as releaseExecutionState, requestExecution, type ExecutionState,
 } from '../domain/execution.ts'
 
 /** Open an existing catalog or initialize a missing one; corrupt data is never overwritten.
@@ -139,6 +139,15 @@ export async function createCatalog(file: string, resolveCommit: (repo: string, 
     currentWorkspace,
     patchPreparation,
     updateWorkspaceIn,
+    recordAudit,
+  }
+
+  const executionQueue = {
+    snapshot: (): CatalogSnapshot => state,
+    transaction: <T,>(operation: (draft: CatalogSnapshot) => Promise<T> | T): Promise<T> => transaction(operation),
+    executionIn,
+    storeExecution,
+    releaseSessionInDraft,
     recordAudit,
   }
 
@@ -290,67 +299,13 @@ export async function createCatalog(file: string, resolveCommit: (repo: string, 
       })
       return updated
     }),
-    acquireExecution: (workspaceId, sessionId) => {
-      const existing = state.executions.find(execution => execution.workspaceId === workspaceId)
-      if (existing !== undefined && (existing.owner?.sessionId === sessionId || existing.waiting.includes(sessionId))) {
-        return Promise.resolve(structuredClone(existing))
-      }
-      return transaction(draft => {
-        const previous = executionIn(draft, workspaceId)
-        const next = requestExecution(previous, sessionId)
-        storeExecution(draft, next)
-        if (next.owner?.sessionId === sessionId) recordAudit(draft, 'execution.acquired', 'agent', { workspaceId, sessionId })
-        else recordAudit(draft, 'execution.queued', 'agent', { workspaceId, sessionId })
-        return next
-      })
-    },
-    releaseExecution: (workspaceId, expected) => transaction(draft => {
-      const next = releaseExecutionState(executionIn(draft, workspaceId), expected)
-      storeExecution(draft, next)
-      recordAudit(draft, 'execution.released', 'agent', { workspaceId, sessionId: expected.sessionId, detail: next.owner?.sessionId })
-      return next
-    }),
-    cancelExecution: (workspaceId, sessionId) => transaction(draft => {
-      const previous = executionIn(draft, workspaceId)
-      const next = cancelExecutionRequest(previous, sessionId)
-      if (next !== previous) {
-        storeExecution(draft, next)
-        recordAudit(draft, 'execution.released', 'human', { workspaceId, sessionId, detail: 'left waiting queue' })
-      }
-      return next
-    }),
-    reorderExecutionQueue: (workspaceId, sessionIds) => transaction(draft => {
-      const previous = executionIn(draft, workspaceId)
-      const next = reorderWaiting(previous, sessionIds)
-      storeExecution(draft, next)
-      recordAudit(draft, 'execution.released', 'human', { workspaceId, detail: `reordered waiting queue: ${sessionIds.join(', ')}` })
-      return next
-    }),
-    beginTakeover: (workspaceId, sessionId) => transaction(draft => {
-      const previous = executionIn(draft, workspaceId)
-      if (!previous.owner) throw new CatalogError('workspace_busy')
-      const owner = previous.owner
-      const next = requestTakeover(previous, sessionId, owner)
-      storeExecution(draft, next)
-      recordAudit(draft, 'execution.takeover-requested', 'human', { workspaceId, sessionId, detail: owner.sessionId })
-      return { state: next, owner }
-    }),
-    finishTakeover: (workspaceId, expected, outcome) => transaction(draft => {
-      const next = confirmStop(executionIn(draft, workspaceId), expected, outcome)
-      storeExecution(draft, next)
-      recordAudit(draft, outcome === 'stopped' ? 'execution.takeover-stopped' : 'execution.takeover-blocked', 'system', { workspaceId, sessionId: next.owner?.sessionId, detail: outcome })
-      return next
-    }),
-    releaseSession: sessionId => {
-      const ownsExecution = state.executions.some(execution => execution.owner?.sessionId === sessionId || execution.waiting.includes(sessionId))
-      // A disposed Session also drops any temporary-work registration it still holds.
-      const registeredTemporary = state.temporarySessions.some(record => record.sessionId === sessionId)
-      if (!ownsExecution && !registeredTemporary) return Promise.resolve()
-      return transaction(draft => {
-        draft.temporarySessions = draft.temporarySessions.filter(record => record.sessionId !== sessionId)
-        releaseSessionInDraft(draft, sessionId)
-      })
-    },
+    acquireExecution: (workspaceId, sessionId) => acquireExecution(executionQueue, workspaceId, sessionId),
+    releaseExecution: (workspaceId, expected) => releaseExecution(executionQueue, workspaceId, expected),
+    cancelExecution: (workspaceId, sessionId) => cancelExecution(executionQueue, workspaceId, sessionId),
+    reorderExecutionQueue: (workspaceId, sessionIds) => reorderExecutionQueue(executionQueue, workspaceId, sessionIds),
+    beginTakeover: (workspaceId, sessionId) => beginTakeover(executionQueue, workspaceId, sessionId),
+    finishTakeover: (workspaceId, expected, outcome) => finishTakeover(executionQueue, workspaceId, expected, outcome),
+    releaseSession: sessionId => releaseSession(executionQueue, sessionId),
     snapshot: () => structuredClone(state),
     createProject: async input => {
       const config = parseProject(input)
