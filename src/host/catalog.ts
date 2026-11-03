@@ -1,13 +1,14 @@
-/** Persistent Loom catalog; one instance owns and serializes all mutations of its file. */
+/**
+ * Persistent Loom catalog; one instance owns and serializes all mutations of its file.
+ */
 import { randomUUID } from 'node:crypto'
-import { brandString, type Branded } from '@deepseek-ai/dsh-brand'
-import { createTask as pendingTask, type Task } from '../domain/task.ts'
+import type { Branded } from '@deepseek-ai/dsh-brand'
 import { createJsonStore, JsonStoreError } from '../storage/json-store.ts'
 import { CatalogError } from './catalog/errors.ts'
-import { distinct, nowIso, text } from './catalog/schema.ts'
+import { nowIso } from './catalog/schema.ts'
 import { parseCatalog } from './catalog/admission.ts'
 import { commitWorkspace, workspaceChangeCount, workspaceChanges, workspaceDirty, workspaceStatus } from './catalog/workspace-git.ts'
-import { versionIn, workspaceIn } from './catalog/selectors.ts'
+import { workspaceIn } from './catalog/selectors.ts'
 import { ensureWorkspaceBranches, ensureWorkspaceSkillLinks, updateWorkspace } from './catalog/workspace-write.ts'
 import { cleanupWorkspace, deleteWorkspace } from './catalog/workspace-lifecycle.ts'
 import { registerPreparedWorkspace } from './catalog/workspace-register.ts'
@@ -15,6 +16,7 @@ import { prepareWorkspace } from './catalog/workspace-prepare.ts'
 import { acquireExecution, beginTakeover, cancelExecution, finishTakeover, releaseExecution, releaseSession, reorderExecutionQueue } from './catalog/execution-queue.ts'
 import { attachSession, forgetTemporarySession, registerTemporarySession, startAttempt, suggestTaskOutcome, transitionTask } from './catalog/task-lifecycle.ts'
 import { createProject, createVersion, deleteProject, deleteVersion, generateLock, updateProject, updateVersion } from './catalog/project-version-ops.ts'
+import { createTask, deleteTask, updateTask } from './catalog/task-crud.ts'
 import type { Catalog } from './catalog/contract.ts'
 export type { Catalog, CreateTaskOptions, PrepareWorkspaceInput, RegisterPreparedWorkspaceInput, TaskConfirmation, TaskSuggestion, WorkspaceCommitRepository, WorkspaceCommitResult, WorkspaceStatusRepository } from './catalog/contract.ts'
 export { findSessionAttempt, findWorkspaceByPath } from './catalog/selectors.ts'
@@ -22,7 +24,7 @@ import { migrateCatalog } from './catalog/migrations.ts'
 export { CatalogError } from './catalog/errors.ts'
 export { migrateCatalog } from './catalog/migrations.ts'
 export { parseCatalog } from './catalog/admission.ts'
-import type { CatalogSnapshot, TaskRecord, WorkspaceCleanup, WorkspacePreparation, WorkspaceRecord } from '../api/records.ts'
+import type { CatalogSnapshot, WorkspaceCleanup, WorkspacePreparation, WorkspaceRecord } from '../api/records.ts'
 export type { CatalogSnapshot, ProjectRecord, TaskPriority, TaskRecord, TemporarySessionRecord, VersionRecord, WorkspaceCleanup, WorkspaceCleanupRepository, WorkspaceCleanupRepositoryStatus, WorkspaceCleanupStatus, WorkspacePreparation, WorkspacePreparationRepository, WorkspacePreparationRepositoryStatus, WorkspacePreparationStatus, WorkspaceRecord } from '../api/records.ts'
 import type { AuditEntry, AuditEvent } from '../domain/audit.ts'
 import {
@@ -59,11 +61,6 @@ export async function createCatalog(file: string, resolveCommit: (repo: string, 
     if (draft.audit.length > 500) draft.audit.splice(0, draft.audit.length - 500)
   }
 
-  function taskIn(draft: CatalogSnapshot, taskId: TaskRecord['id']): TaskRecord {
-    const task = draft.tasks.find(item => item.id === taskId)
-    if (!task) throw new CatalogError('missing_task')
-    return task
-  }
 
   function executionIn(draft: CatalogSnapshot, workspaceId: WorkspaceRecord['id']): ExecutionState {
     workspaceIn(draft, workspaceId)
@@ -74,7 +71,9 @@ export async function createCatalog(file: string, resolveCommit: (repo: string, 
     if (index === -1) draft.executions.push(execution)
     else draft.executions[index] = execution
   }
-  /** Drop one Session from every ownership queue; a confirmed takeover target stops first. */
+  /**
+   * Drop one Session from every ownership queue; a confirmed takeover target stops first.
+   */
   function releaseSessionInDraft(draft: CatalogSnapshot, sessionId: Branded<'SessionId'>): void {
     for (const previous of [...draft.executions]) {
       if (previous.owner?.sessionId !== sessionId && !previous.waiting.includes(sessionId)) continue
@@ -86,7 +85,9 @@ export async function createCatalog(file: string, resolveCommit: (repo: string, 
       recordAudit(draft, 'execution.released', 'system', { workspaceId: previous.workspaceId, sessionId, detail: next.owner?.sessionId })
     }
   }
-  /** Replace one workspace record inside a transaction. */
+  /**
+   * Replace one workspace record inside a transaction.
+   */
   function updateWorkspaceIn(draft: CatalogSnapshot, workspaceId: WorkspaceRecord['id'], mutate: (workspace: WorkspaceRecord) => WorkspaceRecord): WorkspaceRecord {
     const index = draft.workspaces.findIndex(item => item.id === workspaceId)
     if (index === -1) throw new CatalogError('missing_workspace')
@@ -94,21 +95,27 @@ export async function createCatalog(file: string, resolveCommit: (repo: string, 
     draft.workspaces[index] = next
     return next
   }
-  /** Patch preparation progress and stamp its update time. */
+  /**
+   * Patch preparation progress and stamp its update time.
+   */
   function patchPreparation(draft: CatalogSnapshot, workspaceId: WorkspaceRecord['id'], patch: (preparation: WorkspacePreparation, workspace: WorkspaceRecord) => WorkspacePreparation): WorkspaceRecord {
     return updateWorkspaceIn(draft, workspaceId, workspace => {
       if (workspace.preparation === undefined) throw new CatalogError('invalid_catalog')
       return { ...workspace, preparation: { ...patch(workspace.preparation, workspace), updatedAt: nowIso() } }
     })
   }
-  /** Patch cleanup progress and stamp its update time. */
+  /**
+   * Patch cleanup progress and stamp its update time.
+   */
   function patchCleanup(draft: CatalogSnapshot, workspaceId: WorkspaceRecord['id'], patch: (cleanup: WorkspaceCleanup, workspace: WorkspaceRecord) => WorkspaceCleanup): WorkspaceRecord {
     return updateWorkspaceIn(draft, workspaceId, workspace => {
       if (workspace.cleanup === undefined) throw new CatalogError('invalid_catalog')
       return { ...workspace, cleanup: { ...patch(workspace.cleanup, workspace), updatedAt: nowIso() } }
     })
   }
-  /** Detached copy of one current workspace record. */
+  /**
+   * Detached copy of one current workspace record.
+   */
   function currentWorkspace(workspaceId: WorkspaceRecord['id']): WorkspaceRecord {
     return structuredClone(workspaceIn(state, workspaceId))
   }
@@ -163,6 +170,11 @@ export async function createCatalog(file: string, resolveCommit: (repo: string, 
     recordAudit,
   }
 
+  const taskCrud = {
+    transaction: <T,>(operation: (draft: CatalogSnapshot) => Promise<T> | T): Promise<T> => transaction(operation),
+    recordAudit,
+  }
+
   const api: Catalog = {
     prepareWorkspace: input => prepareWorkspace(workspacePrepare, input),
     ensureWorkspaceBranches: workspaceId => ensureWorkspaceBranches(workspaceWrite, workspaceId),
@@ -197,70 +209,9 @@ export async function createCatalog(file: string, resolveCommit: (repo: string, 
     updateVersion: (versionId, name, sources, description, targets) => updateVersion(projectVersion, versionId, name, sources, description, targets),
     deleteVersion: versionId => deleteVersion(projectVersion, versionId),
     generateLock: versionId => generateLock(projectVersion, versionId),
-    createTask: async (versionId, title, options = {}) => {
-      const admittedTitle = text.parse(title)
-      const description = options.description?.trim() ?? ''
-      if (description.length > 4000) throw new CatalogError('invalid_task')
-      const moduleIds = [...(options.moduleIds ?? [])]
-      if (!distinct(moduleIds)) throw new CatalogError('invalid_task')
-      const priority = options.priority ?? 'normal'
-      return transaction(draft => {
-        const version = versionIn(draft, versionId)
-        const project = draft.projects.find(p => p.id === version.projectId)
-        if (project === undefined || moduleIds.some(moduleId => !project.config.modules.some(module => module.id === moduleId))) throw new CatalogError('invalid_task')
-        if (options.workspaceId !== undefined) {
-          const workspace = draft.workspaces.find(candidate => candidate.id === options.workspaceId)
-          if (workspace === undefined || workspace.cleaned === true) throw new CatalogError('missing_workspace')
-          if (workspace.versionId !== versionId) throw new CatalogError('workspace_mismatch')
-          if (workspace.preparation !== undefined && workspace.preparation.status !== 'ready') throw new CatalogError('workspace_not_prepared')
-        }
-        const record: TaskRecord = {
-          ...pendingTask(brandString<Task['id']>(randomUUID()), versionId),
-          ...(options.workspaceId === undefined ? {} : { workspaceId: options.workspaceId }),
-          title: admittedTitle,
-          description,
-          moduleIds,
-          priority,
-          updatedAt: nowIso(),
-        }
-        draft.tasks.push(record)
-        recordAudit(draft, 'task.created', 'human', { taskId: record.id, detail: admittedTitle })
-        return record
-      })
-    },
-    updateTask: async (taskId, title, options = {}) => {
-      const admittedTitle = text.parse(title)
-      const description = options.description?.trim() ?? ''
-      if (description.length > 4000) throw new CatalogError('invalid_task')
-      const moduleIds = [...(options.moduleIds ?? [])]
-      if (!distinct(moduleIds)) throw new CatalogError('invalid_task')
-      const priority = options.priority ?? 'normal'
-      return transaction(draft => {
-        const task = taskIn(draft, taskId)
-        const version = versionIn(draft, task.versionId)
-        const project = draft.projects.find(candidate => candidate.id === version.projectId)
-        if (project === undefined || moduleIds.some(moduleId => !project.config.modules.some(module => module.id === moduleId))) throw new CatalogError('invalid_task')
-        const next: TaskRecord = { ...task, title: admittedTitle, description, moduleIds, priority, updatedAt: nowIso() }
-        draft.tasks[draft.tasks.indexOf(task)] = next
-        recordAudit(draft, 'task.updated', 'human', { taskId: next.id, detail: admittedTitle })
-        return next
-      })
-    },
-    deleteTask: async taskId => transaction(draft => {
-      const task = taskIn(draft, taskId)
-      if (task.status === 'running') throw new CatalogError('task_busy')
-      const workspaceIds = new Set<TaskRecord['attempts'][number]['workspaceId']>(task.attempts.map(attempt => attempt.workspaceId))
-      // A workspace can be shared by attempts of several tasks, so only the
-      // records no remaining task references may disappear with this task.
-      const remaining = new Set(draft.tasks.filter(candidate => candidate !== task).flatMap(candidate => candidate.attempts.map(attempt => attempt.workspaceId)))
-      const removed = new Set([...workspaceIds].filter(workspaceId => !remaining.has(workspaceId)))
-      if (draft.executions.some(execution => removed.has(execution.workspaceId) && (execution.owner !== null || execution.waiting.length > 0))) throw new CatalogError('task_busy')
-      if (draft.workspaces.some(workspace => removed.has(workspace.id) && workspace.cleaned !== true)) throw new CatalogError('task_workspace_uncleaned')
-      draft.tasks.splice(draft.tasks.indexOf(task), 1)
-      draft.workspaces = draft.workspaces.filter(workspace => !removed.has(workspace.id))
-      draft.executions = draft.executions.filter(execution => !removed.has(execution.workspaceId))
-      recordAudit(draft, 'task.deleted', 'human', { taskId, detail: task.title })
-    }),
+    createTask: (versionId, title, options) => createTask(taskCrud, versionId, title, options),
+    updateTask: (taskId, title, options) => updateTask(taskCrud, taskId, title, options),
+    deleteTask: taskId => deleteTask(taskCrud, taskId),
   }
   return api
 }
