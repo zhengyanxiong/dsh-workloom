@@ -6,12 +6,13 @@ import { brandString, type Branded } from '@deepseek-ai/dsh-brand'
 import { mkdirSync } from 'node:fs'
 import { dirname, isAbsolute, join, normalize } from 'node:path'
 import { randomUUID } from 'node:crypto'
-import { createCatalog, findSessionAttempt, findWorkspaceByPath, type Catalog, type TemporarySessionRecord } from './catalog.ts'
+import { createCatalog, type Catalog, type TemporarySessionRecord } from './catalog.ts'
 import type { ContextConfig, Config } from './service/config.ts'
 import { configSchema } from './service/config.ts'
 import { serviceError } from './service/errors.ts'
 import { inspectWorkspace, sameRepositoryMappings } from './service/inspection.ts'
 import { VersionContextRegistry } from './service/version-context.ts'
+import { ExecutionOwnership } from './service/execution-runtime.ts'
 import {
   attemptRequest, cleanupWorkspaceRequest, commitWorkspaceRequest, deleteProjectRequest, deleteTaskRequest, deleteVersionRequest,
   executionRequest, forgetTemporarySessionRequest, inspectWorkspaceRequest, lockRequest, registerWorkspaceRequest,
@@ -31,10 +32,10 @@ import type {
 } from '../types.ts'
 import type { Lock } from '../domain/task.ts'
 import { autoWorkspaceRepositoryPath, type WorkspaceRepositoryBinding } from '../domain/workspace.ts'
-import { ExecutionError, type ExecutionState, type StopOutcome } from '../domain/execution.ts'
+import { ExecutionError, type ExecutionState } from '../domain/execution.ts'
 import { repositoryBranches, resolveCommit } from '../git/workspace.ts'
 import type {} from './events.ts'
-import type { LoomAgent, LoomAgentRegistry } from './events.ts'
+import type { LoomAgentRegistry } from './events.ts'
 import {
   VERSION_CONTEXT_DEFAULTS,
   type VersionContextLimits,
@@ -80,6 +81,7 @@ export default class LoomService extends TypertRemoteService {
   private readonly contextLimits: VersionContextLimits
   /** Version-context caches and per-Session prompt registrations. */
   private readonly versionContext: VersionContextRegistry
+  private readonly execution: ExecutionOwnership
 
   constructor(ctx: Context, config: Config) {
     super(ctx, 'loom')
@@ -93,6 +95,13 @@ export default class LoomService extends TypertRemoteService {
       snapshot: () => this.current,
       limits: () => this.contextLimits,
       getAgent: sessionId => (this.ctx.get('agents') as LoomAgentRegistry | undefined)?.get(sessionId),
+    })
+    this.execution = new ExecutionOwnership({
+      catalog: () => this.catalog,
+      isClosed: () => this.closed,
+      snapshot: () => this.current,
+      refresh: catalog => this.refreshSnapshot(catalog),
+      getAgents: () => this.ctx.get('agents') as LoomAgentRegistry | undefined,
     })
     mkdirSync(dirname(admitted.catalogFile), { recursive: true })
     mkdirSync(this.workspacesDir, { recursive: true })
@@ -168,18 +177,18 @@ export default class LoomService extends TypertRemoteService {
           },
         }
       }
-      const decision = await this.admitExecution(exec.agent.session.id, exec.agent.session.header.cwd)
+      const decision = await this.execution.admitExecution(exec.agent.session.id, exec.agent.session.header.cwd)
       return decision ?? next()
     })
     // Execution rights are held per Session, not per turn: a running turn
     // claims a free workspace, and only session disposal or an explicit release
     // gives it back. Idling between turns keeps the owner.
     this.ctx.on('agent/status', ({ agent, status }) => {
-      if (status === 'running') void this.claimIdleExecution(agent.session.id)
+      if (status === 'running') void this.execution.claimIdleExecution(agent.session.id)
     })
     this.ctx.on('session/disposed', session => {
       this.versionContext.disposeVersionContext(session.id)
-      void this.releaseSession(session.id)
+      void this.execution.releaseSession(session.id)
     })
     this.registerAgentTools(catalog)
   }
@@ -187,7 +196,7 @@ export default class LoomService extends TypertRemoteService {
   /** Expose the Loom reporting tools once a native tools registry exists. */
   private registerAgentTools(catalog: Catalog): void {
     const attach = (registry: LoomToolRegistrar): void => {
-      this.ctx.effect(() => registerLoomAgentTools(registry, catalog, () => this.refreshSnapshot(catalog), sessionId => this.takeoverForAgent(sessionId)), 'loom: register Agent tools')
+      this.ctx.effect(() => registerLoomAgentTools(registry, catalog, () => this.refreshSnapshot(catalog), sessionId => this.execution.takeoverForAgent(sessionId)), 'loom: register Agent tools')
     }
     const tools = this.ctx.get('tools') as LoomToolRegistrar | undefined
     if (tools !== undefined) { attach(tools); return }
@@ -225,152 +234,6 @@ export default class LoomService extends TypertRemoteService {
     this.pending.add(call)
     void call.then(() => this.pending.delete(call), () => this.pending.delete(call))
     return call
-  }
-
-  /**
-   * Acquire or enqueue execution access for a Session that is explicitly bound
-   * to a task round or registered as a temporary Session.
-   *
-   * A native Session whose cwd merely lives inside a Loom workspace is not part
-   * of Loom's execution model and keeps its normal tool access.
-   * @param sessionId - Session observed on the Agent runtime.
-   * @param cwd - the Agent's working directory, used to resolve a temporary Session's workspace.
-   * @returns a denial when the bound Session may not write, otherwise undefined.
-   */
-  private async admitExecution(sessionId: Branded<'SessionId'>, cwd: string | undefined): Promise<{ readonly kind: 'deny'; readonly reason: string } | undefined> {
-    try {
-      const catalog = await this.catalog
-      if (this.closed) return undefined
-      const snapshot = catalog.snapshot()
-      const binding = findSessionAttempt(snapshot, sessionId)
-      if (binding === undefined) {
-        const temporary = cwd === undefined ? undefined : findWorkspaceByPath(snapshot, cwd)
-        if (temporary === undefined || !snapshot.temporarySessions.some(record => record.sessionId === sessionId
-          && (record.workspacePath === (temporary.rootPath ?? temporary.path) || record.workspacePath === temporary.path))) return undefined
-        return this.admitWorkspaceExecution(catalog, temporary, sessionId)
-      }
-      const workspace = snapshot.workspaces.find(candidate => candidate.id === binding.attempt.workspaceId && candidate.cleaned !== true)
-      if (workspace === undefined) return undefined
-      return this.admitWorkspaceExecution(catalog, workspace, sessionId)
-    } catch {
-      return { kind: 'deny', reason: 'Loom execution state is unavailable; the tool call was not executed.' }
-    }
-  }
-
-  /** Apply the workspace owner/waiting rule for one already-authorized Session. */
-  private async admitWorkspaceExecution(catalog: Catalog, workspace: WorkspaceRecord, sessionId: Branded<'SessionId'>): Promise<{ readonly kind: 'deny'; readonly reason: string } | undefined> {
-    const current = catalog.snapshot().executions.find(execution => execution.workspaceId === workspace.id)
-    if (current?.owner?.sessionId === sessionId) return undefined
-    if (current?.waiting.includes(sessionId) === true) return { kind: 'deny', reason: 'Loom workspace execution is queued behind another session.' }
-    const state = await catalog.acquireExecution(workspace.id, sessionId)
-    if (state.owner?.sessionId === sessionId) return undefined
-    return { kind: 'deny', reason: 'Loom workspace execution is held by another session. Wait for handoff or request takeover.' }
-  }
-
-  /**
-   * Claim a free workspace as soon as its bound Session starts a running turn,
-   * so the execution gate shows the owner before the first tool call.
-   * An owned, waiting or takeover-pending workspace is left to the tool gate.
-   * @param sessionId - Session whose Agent just transitioned to running.
-   */
-  private async claimIdleExecution(sessionId: Branded<'SessionId'>): Promise<void> {
-    try {
-      const catalog = await this.catalog
-      if (this.closed) return
-      const snapshot = catalog.snapshot()
-      const binding = findSessionAttempt(snapshot, sessionId)
-      if (binding === undefined) return
-      const workspace = snapshot.workspaces.find(candidate => candidate.id === binding.attempt.workspaceId && candidate.cleaned !== true)
-      if (workspace === undefined) return
-      const execution = snapshot.executions.find(candidate => candidate.workspaceId === workspace.id)
-      if (execution?.owner !== null && execution?.owner !== undefined) return
-      if (execution?.takeover !== null && execution?.takeover !== undefined) return
-      const state = await catalog.acquireExecution(workspace.id, sessionId)
-      if (state.owner?.sessionId === sessionId) this.refreshSnapshot(catalog)
-    } catch {
-      // The tool gate still enforces ownership; an early claim is best effort.
-    }
-  }
-
-  private async releaseSession(sessionId: Branded<'SessionId'>): Promise<void> {
-    try {
-      const catalog = await this.catalog
-      if (this.closed) return
-      await catalog.releaseSession(sessionId)
-    } catch {
-      // Teardown cleanup is best effort; the tool gate still refuses a non-owner.
-    }
-  }
-
-  /**
-   * Stop the owning Agent turn, cancel live descendants, and wait for observable idleness.
-   * Descendant ownership is read from the live Agent registry; a child that disappears
-   * during cancellation no longer contributes stop evidence.
-   * @param sessionId - Session holding the current workspace execution token.
-   * @returns the trusted stop outcome used to confirm or block handoff.
-   */
-  /** Take over for an Agent tool after the human approved the native confirmation prompt. */
-  private async takeoverForAgent(sessionIdValue: string): Promise<Record<string, unknown>> {
-    const catalog = await this.catalog
-    if (this.closed) throw serviceError('loom_disposed')
-    const sessionId = brandString<Branded<'SessionId'>>(sessionIdValue)
-    const snapshot = catalog.snapshot()
-    const binding = findSessionAttempt(snapshot, sessionId)
-    if (binding === undefined) throw new Error('this Session is not attached to a Loom task round; takeover was not performed')
-    const workspace = snapshot.workspaces.find(candidate => candidate.id === binding.attempt.workspaceId && candidate.cleaned !== true)
-    if (workspace === undefined) throw new Error('the task workspace is no longer active')
-    const previous = snapshot.executions.find(candidate => candidate.workspaceId === workspace.id)
-    if (previous?.owner === null || previous?.owner === undefined) {
-      const state = await catalog.acquireExecution(workspace.id, sessionId)
-      return { workspaceId: workspace.id, owner: state.owner?.sessionId ?? null, sessionId }
-    }
-    if (previous.owner.sessionId === sessionId) return { workspaceId: workspace.id, owner: sessionId, sessionId }
-    const begun = await catalog.beginTakeover(workspace.id, sessionId)
-    const outcome = await this.stopOwner(begun.owner.sessionId)
-    try {
-      const state = await catalog.finishTakeover(workspace.id, begun.owner, outcome)
-      return { workspaceId: workspace.id, owner: state.owner?.sessionId ?? null, sessionId, previousOwner: begun.owner.sessionId }
-    } finally {
-      this.refreshSnapshot(catalog)
-    }
-  }
-
-  private async stopOwner(sessionId: Branded<'SessionId'>): Promise<StopOutcome> {
-    const agents = this.ctx.get('agents') as LoomAgentRegistry | undefined
-    if (agents === undefined) return 'unknown'
-    const agent = agents.get(sessionId)
-    if (agent === undefined || agent.status !== 'running') return 'stopped'
-    const targets = new Set<LoomAgent>([agent])
-    const listed = agents.list?.()
-    const ownedBy = agents.isOwnedBy
-    if (listed !== undefined && ownedBy !== undefined) {
-      let changed = true
-      while (changed) {
-        changed = false
-        for (const candidate of listed) {
-          if (targets.has(candidate)) continue
-          if ([...targets].some(owner => ownedBy(candidate.session.id, owner))) {
-            targets.add(candidate)
-            changed = true
-          }
-        }
-      }
-    }
-    try {
-      agent.cancel({ kind: 'user' }, { keepInbox: true })
-    } catch {
-      return 'failed'
-    }
-    for (const target of targets) {
-      if (target === agent) continue
-      try { target.cancel({ kind: 'user' }, { keepInbox: true }) } catch { /* the child may have stopped with its owner */ }
-    }
-    const deadline = Date.now() + 10_000
-    while (Date.now() < deadline) {
-      if ([...targets].every(target => target.status !== 'running')) return 'stopped'
-      await new Promise(resolve => setTimeout(resolve, 100))
-    }
-    return 'unknown'
   }
 
   /** Read a detached catalog snapshot. @returns current committed records. */
@@ -843,7 +706,7 @@ export default class LoomService extends TypertRemoteService {
       if (this.closed) throw serviceError('loom_disposed')
       try {
         const begun = await catalog.beginTakeover(workspaceId, sessionId)
-        const outcome = await this.stopOwner(begun.owner.sessionId)
+        const outcome = await this.execution.stopOwner(begun.owner.sessionId)
         try {
           return await catalog.finishTakeover(workspaceId, begun.owner, outcome)
         } catch (error) {
