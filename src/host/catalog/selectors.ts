@@ -3,7 +3,17 @@
  */
 import { resolve, sep } from 'node:path'
 import type { CatalogSnapshot, TaskRecord, WorkspaceRecord } from '../../api/records.ts'
+import { CatalogError } from './errors.ts'
 import type { Attempt } from '../../domain/task.ts'
+
+/**
+ * Look up one workspace or fail with `missing_workspace`.
+ */
+export function workspaceIn(snapshot: CatalogSnapshot, workspaceId: WorkspaceRecord['id']): WorkspaceRecord {
+  const workspace = snapshot.workspaces.find(item => item.id === workspaceId)
+  if (!workspace) throw new CatalogError('missing_workspace')
+  return workspace
+}
 
 function pathWithin(root: string, candidate: string): boolean {
   const normalizedRoot = resolve(root)

@@ -12,7 +12,9 @@ import { admitVersionDescription, distinct, nowIso, projectOf, projectOfWorkspac
 import { parseCatalog } from './catalog/admission.ts'
 import { admitEvidence } from './catalog/task-evidence.ts'
 import { pathExists, preparationFailure, repositoryRequests } from './catalog/workspace-prep.ts'
-import type { Catalog, WorkspaceCommitRepository, WorkspaceStatusRepository } from './catalog/contract.ts'
+import { commitWorkspace, workspaceChangeCount, workspaceChanges, workspaceDirty, workspaceStatus, workspaceWorktrees } from './catalog/workspace-git.ts'
+import { workspaceIn } from './catalog/selectors.ts'
+import type { Catalog } from './catalog/contract.ts'
 export type { Catalog, CreateTaskOptions, TaskConfirmation, TaskSuggestion, WorkspaceCommitRepository, WorkspaceCommitResult, WorkspaceStatusRepository } from './catalog/contract.ts'
 export { findSessionAttempt, findWorkspaceByPath } from './catalog/selectors.ts'
 import { migrateCatalog } from './catalog/migrations.ts'
@@ -24,7 +26,7 @@ export type { CatalogSnapshot, ProjectRecord, TaskPriority, TaskRecord, Temporar
 import {
   addLinkedWorkspaceLink, addWorkspaceWorktree, commitsSince, createWorkspaceRoot, ensureWorktreeBranch, linkWorkspaceSkills,
   planLinkedWorkspace, planWorkspace, removeLinkedWorkspaceLink, removeLinkedWorkspaceRoot, removeWorkspaceRoot, removeWorkspaceSkills,
-  commitWorkingTree, removeWorkspaceWorktree, resolveHead, unpushedCommits, workingTreeChangeCount, workingTreeChanges, workingTreeDirty,
+  removeWorkspaceWorktree, resolveHead, workingTreeChanges,
   WorkspacePreparationError,
   type LinkedRepositoryPlan, type WorkspaceRepositoryPlan,
 } from '../git/workspace.ts'
@@ -74,34 +76,7 @@ export async function createCatalog(file: string, resolveCommit: (repo: string, 
     if (!task) throw new CatalogError('missing_task')
     return task
   }
-  function workspaceWorktrees(draft: CatalogSnapshot, workspaceId: WorkspaceRecord['id'], lockId?: Lock['id'], allowLegacyDirect = false): { sourceId: Branded<'loom.source'>; repo: string; directory: string; commit: string; branch?: string | undefined }[] {
-    const workspace = workspaceIn(draft, workspaceId)
-    const project = projectOfWorkspace(draft, workspace)
-    if (!project) throw new CatalogError('missing_project')
-    const lock = draft.locks.find(item => item.id === (lockId ?? workspace.lockId))
-    if (!lock) throw new CatalogError('missing_lock')
-    const mode = workspace.mode ?? (workspace.managed === true ? 'managed' : 'direct')
-    // Direct workspaces may have been created before the project gained a
-    // repository. Their pinned Lock then has no entry for the newer binding;
-    // status/diff reads may use the latest Lock for that repository instead of
-    // refusing the whole workspace.
-    const fallback = allowLegacyDirect && mode === 'direct'
-      ? draft.locks.filter(item => item.versionId === workspace.versionId).at(-1)
-      : undefined
-    return workspaceBindings(draft, workspace).map(binding => {
-      const source = project.config.sources.find(item => item.id === binding.sourceId)
-      if (source === undefined) throw new CatalogError('workspace_mismatch')
-      const pinned = lock.repositories.find(repository => repository.sourceId === binding.sourceId)
-        ?? fallback?.repositories.find(repository => repository.sourceId === binding.sourceId)
-      if (pinned === undefined) throw new CatalogError('workspace_mismatch')
-      return { sourceId: binding.sourceId, repo: source.repo, directory: binding.targetPath, commit: pinned.commit, branch: binding.branch ?? workspace.branches?.[binding.sourceId] }
-    })
-  }
-  function workspaceIn(draft: CatalogSnapshot, workspaceId: WorkspaceRecord['id']): WorkspaceRecord {
-    const workspace = draft.workspaces.find(item => item.id === workspaceId)
-    if (!workspace) throw new CatalogError('missing_workspace')
-    return workspace
-  }
+
   function executionIn(draft: CatalogSnapshot, workspaceId: WorkspaceRecord['id']): ExecutionState {
     workspaceIn(draft, workspaceId)
     return draft.executions.find(item => item.workspaceId === workspaceId) ?? createExecution(workspaceId)
@@ -431,51 +406,11 @@ export async function createCatalog(file: string, resolveCommit: (repo: string, 
         return draft.workspaces[index]!
       })
     },
-    workspaceChanges: async (workspaceId, attemptId) => {
-      const lockId = attemptId === undefined ? undefined : state.tasks.flatMap(task => task.attempts).find(attempt => attempt.id === attemptId)?.lock.id
-      if (attemptId !== undefined && lockId === undefined) throw new CatalogError('missing_task')
-      return { repositories: await workingTreeChanges(workspaceWorktrees(state, workspaceId, lockId, true)) }
-    },
-    workspaceChangeCount: async (workspaceId, attemptId) => {
-      const lockId = attemptId === undefined ? undefined : state.tasks.flatMap(task => task.attempts).find(attempt => attempt.id === attemptId)?.lock.id
-      if (attemptId !== undefined && lockId === undefined) throw new CatalogError('missing_task')
-      return workingTreeChangeCount(workspaceWorktrees(state, workspaceId, lockId, true))
-    },
-    workspaceStatus: async (workspaceId, attemptId) => {
-      const running = state.executions.some(execution => execution.workspaceId === workspaceId && execution.owner !== null)
-      const lockId = attemptId === undefined ? undefined : state.tasks.flatMap(task => task.attempts).find(attempt => attempt.id === attemptId)?.lock.id
-      if (attemptId !== undefined && lockId === undefined) throw new CatalogError('missing_task')
-      const changes = await workingTreeChanges(workspaceWorktrees(state, workspaceId, lockId, true))
-      // Push state is advisory: a missing upstream reports itself instead of
-      // failing the whole status read.
-      const repositories: WorkspaceStatusRepository[] = await Promise.all(changes.map(async repository => {
-        const unpushed = await unpushedCommits(repository.directory)
-        return unpushed === undefined ? { ...repository, unpushedUnavailable: true } : { ...repository, unpushed }
-      }))
-      return { running, repositories }
-    },
-    commitWorkspace: async (workspaceId, message) => {
-      const workspace = workspaceIn(state, workspaceId)
-      if (workspace.cleaned === true) throw new CatalogError('workspace_cleaned')
-      const subject = message.trim() === '' ? 'Loom checkpoint' : message.trim().slice(0, 500)
-      const repositories: WorkspaceCommitRepository[] = []
-      for (const binding of workspaceBindings(state, workspace)) {
-        try {
-          const commit = await commitWorkingTree(binding.targetPath, subject)
-          repositories.push({ sourceId: binding.sourceId, path: binding.path, changed: commit !== undefined, ...(commit === undefined ? {} : { commit }) })
-        } catch (error) {
-          repositories.push({ sourceId: binding.sourceId, path: binding.path, changed: false, error: error instanceof Error ? error.message : String(error) })
-        }
-      }
-      return { repositories, committed: repositories.filter(repository => repository.commit !== undefined).length }
-    },
-    workspaceDirty: workspaceId => {
-      const workspace = workspaceIn(state, workspaceId)
-      // A dirtiness check reads working trees, not the Lock baseline. Requiring
-      // a pin for every binding rejects valid direct workspaces whose Lock was
-      // created before the project gained a repository.
-      return workingTreeDirty(workspaceBindings(state, workspace).map(binding => binding.targetPath))
-    },
+    workspaceChanges: (workspaceId, attemptId) => workspaceChanges(state, workspaceId, attemptId),
+    workspaceChangeCount: (workspaceId, attemptId) => workspaceChangeCount(state, workspaceId, attemptId),
+    workspaceStatus: (workspaceId, attemptId) => workspaceStatus(state, workspaceId, attemptId),
+    commitWorkspace: (workspaceId, message) => commitWorkspace(state, workspaceId, message),
+    workspaceDirty: workspaceId => workspaceDirty(state, workspaceId),
     updateWorkspace: async (workspaceId, label) => {
       const admitted = label.trim()
       if (admitted.length > 80) throw new CatalogError('invalid_workspace_label')
