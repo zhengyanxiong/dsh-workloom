@@ -159,12 +159,38 @@ domain        -> 仅本地品牌类型（最终不依赖 DSH）
 - [ ] 没有新增 `any` / `@ts-ignore` / 未说明的 `as`
 - [ ] 新行为有测试
 - [ ] 新文案在 locale 中
+- [ ] JSDoc 使用多行块，注释每行不超过 100 列
 - [ ] 浅色、深色都检查
 - [ ] 菜单、弹窗可通过空白点击/Escape 关闭（适用时）
 - [ ] 没有提交生成目录、临时文件、调试日志、密钥
 - [ ] 提交信息符合 `type(workloom): English summary`
 
-## 12. 例外
+## 12. 注释与 JSDoc
+
+- 声明使用 JSDoc 时必须使用多行块，不允许写成一条很长的 `/** ... */`：
+
+  ```ts
+  // 不允许
+  /** Read one workspace and return its status. @param id workspace id. */
+
+  // 必须
+  /**
+   * Read one workspace and return its status.
+   *
+   * @param id - workspace identity.
+   * @returns the workspace status.
+   */
+  ```
+
+- JSDoc 的正文、`@param`、`@returns`、`@throws` 每项独占一行，不把多个标签挤在同一行。
+- 注释和 JSDoc 每行不超过 100 列；超过时在语义边界换行。
+- 摘要和标签之间保留一个空行；标签顺序固定为 `@param`、`@returns`、`@throws`。
+- 行尾不写注释；注释放在被说明代码的上方。
+- 不写只复述代码的注释；解释“为什么”、约束、边界和副作用。
+- 业务文案不写在注释里，用户可见文案必须进入 locale。
+- 存量单行 JSDoc 不要求一次性批量重写，但修改到该文件时必须顺手改成多行。
+
+## 13. 例外
 
 例外必须同时满足：
 

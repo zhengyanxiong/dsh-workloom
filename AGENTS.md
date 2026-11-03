@@ -22,6 +22,7 @@ Read these before changing code:
 - New files should stay under 300 lines; split before 500. Do not grow
   `LoomPanel`, `LoomForms`, `catalog` or `service`.
 - New user-visible copy goes through locale dictionaries.
+- JSDoc is multi-line, with each tag on its own line and lines at most 100 columns wide.
 - Use existing UI tokens/primitives; do not add hardcoded colors or copy.
 - Every behavior change needs a focused test; DSH boundary changes need a contract
   test.
