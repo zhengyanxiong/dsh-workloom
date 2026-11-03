@@ -130,6 +130,8 @@ domain        -> 仅本地品牌类型（最终不依赖 DSH）
 - 不允许用 `--passWithNoTests` 或降低覆盖率来让检查通过。
 
 ## 9. DSH 兼容规则
+- 每个 `declare module 'x'` 必须在同一文件包含 `import type {} from 'x'`；否则 TypeScript 会报 `TS2664: Invalid module name in augmentation`。
+- 模块扩展检查由 `tests/contracts/module-augmentations.spec.ts` 覆盖，新增扩展必须让它通过。
 
 - 只有 `src/platform/dsh` 可以导入 DSH 的**运行时服务**；`src/api` 和 `src/ports` 只允许 `import type` 使用 DSH 类型，禁止运行时导入。
 - `src/client` 的 DSH UI primitives 和 type-only 类型在 Phase 3 前视为存量例外；新增 DSH 服务调用必须经过 `ports` / `platform`。

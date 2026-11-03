@@ -10,6 +10,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { afterEach, expect, it } from 'vitest'
 import Schema from '@deepseek-ai/schemastery'
+import type {} from '@deepseek-ai/dsh-typert-protocol'
 import Loom from '../src/index.ts'
 
 declare module '@deepseek-ai/dsh-typert-protocol' { interface PrincipalMap { loomGuest: { kind: 'loomGuest' } } }

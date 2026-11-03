@@ -8,6 +8,10 @@ import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { WorkspaceFileBytes, WorkspaceFileText } from '@deepseek-ai/dsh-api-workspace-files/types'
 import type { LoomKey } from '../../client/locales.ts'
+import type {} from '@deepseek-ai/dsh-api-gateway/client'
+import type {} from '@deepseek-ai/dsh-client-ui-slots'
+import type {} from '@deepseek-ai/dsh-api-session-controller/client'
+import type {} from '@deepseek-ai/cordis'
 
 /**
  * The workspace-files read this bundle calls through the native Remote carrier.

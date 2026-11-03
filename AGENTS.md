@@ -14,6 +14,7 @@ Read these before changing code:
 - `src/domain` stays free of React, Node and DSH runtime imports.
 - `src/client` must not import `src/host` implementation modules.
 - Only `src/platform/dsh` may import DSH runtime services. `src/api` and `src/ports` may use `import type` only; DSH UI primitives remain a Phase 3 migration exception.
+- Every `declare module 'x'` must import type from `x` in the same file; the contract test enforces it.
 - Feature code reaches DSH through `src/ports` and `src/platform/dsh`, never through
   `ui.remote.*`, `ui.sessions`, `ui.slots` or `ui.layout` directly.
 - Public wire types live in `src/api`; `src/types.ts` must not re-export

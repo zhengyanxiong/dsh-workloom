@@ -10,5 +10,5 @@
     "jsx": "react-jsx",
     "jsxImportSource": "react"
   },
-  "include": ["src/client", "src/shared", "tests/board.spec.ts", "tests/task-board.spec.ts"]
+  "include": ["src/client", "src/platform", "src/ports", "src/api", "src/shared", "tests/board.spec.ts", "tests/task-board.spec.ts"]
 }
