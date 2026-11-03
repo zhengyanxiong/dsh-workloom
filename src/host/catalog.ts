@@ -3,12 +3,11 @@ import { randomUUID } from 'node:crypto'
 import { brandString, type Branded } from '@deepseek-ai/dsh-brand'
 import { parseProject } from '../domain/project.ts'
 import { resolveLock } from '../domain/version.ts'
-import { createTask as pendingTask, startAttempt, attachSession, transitionTask, type Task, type Lock, type TaskOutcome } from '../domain/task.ts'
+import { createTask as pendingTask, type Task, type Lock } from '../domain/task.ts'
 import { createJsonStore, JsonStoreError } from '../storage/json-store.ts'
 import { CatalogError } from './catalog/errors.ts'
-import { admitVersionDescription, distinct, nowIso, projectOf, projectOfWorkspace, text, validVersion, versionSchema, workspaceBindings } from './catalog/schema.ts'
+import { admitVersionDescription, distinct, nowIso, text, validVersion, versionSchema } from './catalog/schema.ts'
 import { parseCatalog } from './catalog/admission.ts'
-import { admitEvidence } from './catalog/task-evidence.ts'
 import { commitWorkspace, workspaceChangeCount, workspaceChanges, workspaceDirty, workspaceStatus } from './catalog/workspace-git.ts'
 import { versionIn, workspaceIn } from './catalog/selectors.ts'
 import { ensureWorkspaceBranches, ensureWorkspaceSkillLinks, updateWorkspace } from './catalog/workspace-write.ts'
@@ -16,6 +15,7 @@ import { cleanupWorkspace, deleteWorkspace } from './catalog/workspace-lifecycle
 import { registerPreparedWorkspace } from './catalog/workspace-register.ts'
 import { prepareWorkspace } from './catalog/workspace-prepare.ts'
 import { acquireExecution, beginTakeover, cancelExecution, finishTakeover, releaseExecution, releaseSession, reorderExecutionQueue } from './catalog/execution-queue.ts'
+import { attachSession, forgetTemporarySession, registerTemporarySession, startAttempt, suggestTaskOutcome, transitionTask } from './catalog/task-lifecycle.ts'
 import type { Catalog } from './catalog/contract.ts'
 export type { Catalog, CreateTaskOptions, PrepareWorkspaceInput, RegisterPreparedWorkspaceInput, TaskConfirmation, TaskSuggestion, WorkspaceCommitRepository, WorkspaceCommitResult, WorkspaceStatusRepository } from './catalog/contract.ts'
 export { findSessionAttempt, findWorkspaceByPath } from './catalog/selectors.ts'
@@ -23,12 +23,11 @@ import { migrateCatalog } from './catalog/migrations.ts'
 export { CatalogError } from './catalog/errors.ts'
 export { migrateCatalog } from './catalog/migrations.ts'
 export { parseCatalog } from './catalog/admission.ts'
-import type { CatalogSnapshot, ProjectRecord, TaskRecord, TemporarySessionRecord, VersionRecord, WorkspaceCleanup, WorkspacePreparation, WorkspaceRecord } from '../api/records.ts'
+import type { CatalogSnapshot, ProjectRecord, TaskRecord, VersionRecord, WorkspaceCleanup, WorkspacePreparation, WorkspaceRecord } from '../api/records.ts'
 export type { CatalogSnapshot, ProjectRecord, TaskPriority, TaskRecord, TemporarySessionRecord, VersionRecord, WorkspaceCleanup, WorkspaceCleanupRepository, WorkspaceCleanupRepositoryStatus, WorkspaceCleanupStatus, WorkspacePreparation, WorkspacePreparationRepository, WorkspacePreparationRepositoryStatus, WorkspacePreparationStatus, WorkspaceRecord } from '../api/records.ts'
-import { resolveHead } from '../git/workspace.ts'
 import type { AuditEntry, AuditEvent } from '../domain/audit.ts'
 import {
-  confirmStop, createExecution, releaseExecution as releaseExecutionState, requestExecution, type ExecutionState,
+  confirmStop, createExecution, releaseExecution as releaseExecutionState, type ExecutionState,
 } from '../domain/execution.ts'
 
 /** Open an existing catalog or initialize a missing one; corrupt data is never overwritten.
@@ -151,6 +150,14 @@ export async function createCatalog(file: string, resolveCommit: (repo: string, 
     recordAudit,
   }
 
+  const taskLifecycle = {
+    transaction: <T,>(operation: (draft: CatalogSnapshot) => Promise<T> | T): Promise<T> => transaction(operation),
+    executionIn,
+    storeExecution,
+    releaseSessionInDraft,
+    recordAudit,
+  }
+
   const api: Catalog = {
     prepareWorkspace: input => prepareWorkspace(workspacePrepare, input),
     ensureWorkspaceBranches: workspaceId => ensureWorkspaceBranches(workspaceWrite, workspaceId),
@@ -164,141 +171,12 @@ export async function createCatalog(file: string, resolveCommit: (repo: string, 
     deleteWorkspace: (workspaceId, deleteFiles, confirmPath) => deleteWorkspace(workspaceLifecycle, workspaceId, deleteFiles, confirmPath),
     cleanupWorkspace: (workspaceId, discardChanges) => cleanupWorkspace(workspaceLifecycle, workspaceId, discardChanges),
     registerPreparedWorkspace: input => registerPreparedWorkspace(workspaceRegister, input),
-    startAttempt: (taskId, workspaceId, options) => transaction(async draft => {
-      const requestedTask = draft.tasks.find(candidate => candidate.id === taskId)
-      if (requestedTask?.workspaceId !== undefined && requestedTask.workspaceId !== workspaceId) throw new CatalogError('workspace_mismatch')
-      const task = taskIn(draft, taskId)
-      const workspace = workspaceIn(draft, workspaceId)
-      if (workspace.cleaned === true) throw new CatalogError('workspace_cleaned')
-      if (workspace.preparation !== undefined && workspace.preparation.status !== 'ready') throw new CatalogError('workspace_not_prepared', `preparation is ${workspace.preparation.status}`)
-      const taskProject = projectOf(draft, task.versionId)
-      const workspaceProject = projectOfWorkspace(draft, workspace)
-      if (taskProject === undefined || workspaceProject === undefined || taskProject.id !== workspaceProject.id) throw new CatalogError('workspace_mismatch')
-      const otherExecuting = draft.executions.some(execution => execution.workspaceId === workspaceId && execution.owner !== null)
-      if (otherExecuting && options?.allowBusy !== true) throw new CatalogError('workspace_task_running')
-      const currentLock = draft.locks.find(item => item.id === workspace.lockId)
-      if (!currentLock) throw new CatalogError('missing_lock')
-      const bindings = workspaceBindings(draft, workspace)
-      const baseline = await Promise.all(bindings.map(async binding => {
-        const pinned = currentLock.repositories.find(repository => repository.sourceId === binding.sourceId)
-        try {
-          return { sourceId: binding.sourceId, commit: await resolveHead(binding.targetPath) }
-        } catch {
-          if (pinned === undefined) throw new CatalogError('workspace_mismatch')
-          return { sourceId: binding.sourceId, commit: pinned.commit }
-        }
-      }))
-      const sameAsCurrent = currentLock.versionId === task.versionId
-        && currentLock.repositories.length === baseline.length
-        && currentLock.repositories.every(repository => baseline.some(candidate => candidate.sourceId === repository.sourceId && candidate.commit === repository.commit))
-      const lock: Lock = sameAsCurrent
-        ? currentLock
-        : { id: brandString<Lock['id']>(randomUUID()), versionId: task.versionId, repositories: baseline, createdAt: nowIso() }
-      if (!sameAsCurrent) draft.locks.push(lock)
-      const updated = { ...task, ...startAttempt(task, brandString<Branded<'loom.attempt'>>(randomUUID()), lock, { ...workspace, versionId: task.versionId, lockId: lock.id }), updatedAt: nowIso() }
-      draft.tasks[draft.tasks.indexOf(task)] = updated
-      recordAudit(draft, 'attempt.started', 'human', { taskId, workspaceId, detail: lock.id })
-      return updated
-    }),
-    attachSession: (taskId, sessionId) => transaction(draft => {
-      const task = taskIn(draft, taskId)
-      const attached = attachSession(task, sessionId)
-      // Re-attaching an already linked Session is a no-op that must not rewrite
-      // the record's mutation time.
-      const updated = attached === task ? task : { ...task, ...attached, updatedAt: nowIso() }
-      draft.tasks[draft.tasks.indexOf(task)] = updated
-      draft.temporarySessions = draft.temporarySessions.filter(temporary => temporary.sessionId !== sessionId)
-      recordAudit(draft, 'session.attached', 'human', { taskId, sessionId, workspaceId: updated.attempts.at(-1)?.workspaceId })
-      return updated
-    }),
-    registerTemporarySession: (sessionId, workspacePath) => transaction(draft => {
-      const workspace = draft.workspaces.find(candidate => candidate.cleaned !== true
-        && (candidate.path === workspacePath || (candidate.rootPath ?? candidate.path) === workspacePath))
-      if (workspace === undefined) throw new CatalogError('missing_workspace')
-      const previous = draft.temporarySessions.find(temporary => temporary.sessionId === sessionId)
-      const record: TemporarySessionRecord = { sessionId, workspacePath, createdAt: previous?.createdAt ?? Date.now() }
-      draft.temporarySessions = [...draft.temporarySessions.filter(temporary => temporary.sessionId !== sessionId), record]
-      // A temporary Session gains the same execution rights a task Session gets,
-      // so unbound and bound Sessions can never write one workspace at once.
-      const execution = executionIn(draft, workspace.id)
-      const next = requestExecution(execution, sessionId)
-      if (next !== execution) {
-        storeExecution(draft, next)
-        if (next.owner?.sessionId === sessionId) recordAudit(draft, 'execution.acquired', 'agent', { workspaceId: workspace.id, sessionId })
-        else recordAudit(draft, 'execution.queued', 'agent', { workspaceId: workspace.id, sessionId })
-      }
-      return record
-    }),
-    forgetTemporarySession: sessionId => transaction(draft => {
-      draft.temporarySessions = draft.temporarySessions.filter(temporary => temporary.sessionId !== sessionId)
-      releaseSessionInDraft(draft, sessionId)
-    }),
-    transitionTask: (taskId, target, actor, confirmation) => transaction(draft => {
-      const task = taskIn(draft, taskId)
-      const transitioned = transitionTask(task, target, actor)
-      const previousOutcome = task.outcome
-      let outcome = previousOutcome
-      if (actor === 'human' && (target === 'completed' || target === 'failed') && previousOutcome?.state === 'suggested') {
-        const basis = confirmation?.basis?.trim()
-        if (basis !== undefined && basis.length > 2000) throw new CatalogError('invalid_task', 'confirmation basis is too long')
-        const accepted = previousOutcome.suggestedStatus === 'review' ? target === 'completed' : previousOutcome.suggestedStatus === 'failed' && target === 'failed'
-        outcome = {
-          ...previousOutcome,
-          state: accepted ? 'accepted' : 'rejected',
-          confirmedAt: nowIso(),
-          confirmedBy: actor,
-          ...(basis === undefined || basis === '' ? {} : { confirmationBasis: basis }),
-        }
-        recordAudit(draft, accepted ? 'task.confirmation-accepted' : 'task.confirmation-rejected', 'human', {
-          taskId,
-          ...(previousOutcome.attemptId === undefined ? {} : { attemptId: previousOutcome.attemptId }),
-          ...(previousOutcome.sessionId === undefined ? {} : { sessionId: previousOutcome.sessionId }),
-          ...(basis === undefined || basis === '' ? {} : { basis }),
-          detail: `suggested ${previousOutcome.suggestedStatus ?? target} -> ${target}`,
-        })
-      }
-      const updated: TaskRecord = { ...task, ...transitioned, ...(outcome === undefined ? {} : { outcome }), updatedAt: nowIso() }
-      draft.tasks[draft.tasks.indexOf(task)] = updated
-      recordAudit(draft, 'task.transitioned', actor, { taskId, detail: `${task.status}->${target}` })
-      return updated
-    }),
-    suggestTaskOutcome: (taskId, suggestion) => transaction(draft => {
-      const task = taskIn(draft, taskId)
-      const current = task.attempts.at(-1)
-      if (current === undefined) throw new CatalogError('task_not_active', 'the task has no round to report on')
-      if (!current.sessionIds.includes(suggestion.sessionId)) throw new CatalogError('task_not_active', 'the Session is not attached to the current round')
-      if (task.status !== 'running' && task.status !== 'review') throw new CatalogError('task_not_active', `the round is ${task.status}; only a running or review round can be reported`)
-      const execution = draft.executions.find(item => item.workspaceId === current.workspaceId)
-      if (execution !== undefined && execution.owner !== null && execution.owner.sessionId !== suggestion.sessionId) {
-        throw new CatalogError('execution_not_owned', `the workspace is owned by Session ${execution.owner.sessionId}`)
-      }
-      if (execution !== undefined && execution.waiting.includes(suggestion.sessionId)) throw new CatalogError('execution_not_owned', 'the Session is still queued for execution')
-      const evidence = admitEvidence(suggestion)
-      const basis = suggestion.basis?.trim()
-      if (basis !== undefined && basis.length > 2000) throw new CatalogError('invalid_task', 'suggestion basis is too long')
-      const outcome: TaskOutcome = {
-        state: 'suggested',
-        suggestedStatus: suggestion.suggestedStatus,
-        ...evidence,
-        suggestedBy: 'agent',
-        at: nowIso(),
-        sessionId: suggestion.sessionId,
-        attemptId: current.id,
-        ...(basis === undefined || basis === '' ? {} : { basis }),
-      }
-      const transitioned = suggestion.suggestedStatus === 'review' && task.status === 'running' ? transitionTask(task, 'review', 'agent') : task
-      const updated: TaskRecord = { ...task, ...transitioned, outcome, updatedAt: nowIso() }
-      draft.tasks[draft.tasks.indexOf(task)] = updated
-      recordAudit(draft, suggestion.suggestedStatus === 'review' ? 'task.review-requested' : 'task.failure-suggested', 'agent', {
-        taskId,
-        attemptId: current.id,
-        workspaceId: current.workspaceId,
-        sessionId: suggestion.sessionId,
-        ...(basis === undefined || basis === '' ? {} : { basis }),
-        detail: suggestion.suggestedStatus === 'review' ? `review requested from ${task.status}` : 'failure suggested',
-      })
-      return updated
-    }),
+    startAttempt: (taskId, workspaceId, options) => startAttempt(taskLifecycle, taskId, workspaceId, options),
+    attachSession: (taskId, sessionId) => attachSession(taskLifecycle, taskId, sessionId),
+    registerTemporarySession: (sessionId, workspacePath) => registerTemporarySession(taskLifecycle, sessionId, workspacePath),
+    forgetTemporarySession: sessionId => forgetTemporarySession(taskLifecycle, sessionId),
+    transitionTask: (taskId, target, actor, confirmation) => transitionTask(taskLifecycle, taskId, target, actor, confirmation),
+    suggestTaskOutcome: (taskId, suggestion) => suggestTaskOutcome(taskLifecycle, taskId, suggestion),
     acquireExecution: (workspaceId, sessionId) => acquireExecution(executionQueue, workspaceId, sessionId),
     releaseExecution: (workspaceId, expected) => releaseExecution(executionQueue, workspaceId, expected),
     cancelExecution: (workspaceId, sessionId) => cancelExecution(executionQueue, workspaceId, sessionId),

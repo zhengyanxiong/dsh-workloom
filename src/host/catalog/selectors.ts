@@ -16,6 +16,15 @@ export function versionIn(snapshot: CatalogSnapshot, versionId: VersionRecord['i
 }
 
 /**
+ * Look up one task or fail with `missing_task`.
+ */
+export function taskIn(snapshot: CatalogSnapshot, taskId: TaskRecord['id']): TaskRecord {
+  const task = snapshot.tasks.find(candidate => candidate.id === taskId)
+  if (!task) throw new CatalogError('missing_task')
+  return task
+}
+
+/**
  * Look up one workspace or fail with `missing_workspace`.
  */
 export function workspaceIn(snapshot: CatalogSnapshot, workspaceId: WorkspaceRecord['id']): WorkspaceRecord {
