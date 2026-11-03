@@ -1,12 +1,10 @@
 /** Persistent Loom catalog; one instance owns and serializes all mutations of its file. */
 import { randomUUID } from 'node:crypto'
 import { brandString, type Branded } from '@deepseek-ai/dsh-brand'
-import { parseProject } from '../domain/project.ts'
-import { resolveLock } from '../domain/version.ts'
-import { createTask as pendingTask, type Task, type Lock } from '../domain/task.ts'
+import { createTask as pendingTask, type Task } from '../domain/task.ts'
 import { createJsonStore, JsonStoreError } from '../storage/json-store.ts'
 import { CatalogError } from './catalog/errors.ts'
-import { admitVersionDescription, distinct, nowIso, text, validVersion, versionSchema } from './catalog/schema.ts'
+import { distinct, nowIso, text } from './catalog/schema.ts'
 import { parseCatalog } from './catalog/admission.ts'
 import { commitWorkspace, workspaceChangeCount, workspaceChanges, workspaceDirty, workspaceStatus } from './catalog/workspace-git.ts'
 import { versionIn, workspaceIn } from './catalog/selectors.ts'
@@ -16,6 +14,7 @@ import { registerPreparedWorkspace } from './catalog/workspace-register.ts'
 import { prepareWorkspace } from './catalog/workspace-prepare.ts'
 import { acquireExecution, beginTakeover, cancelExecution, finishTakeover, releaseExecution, releaseSession, reorderExecutionQueue } from './catalog/execution-queue.ts'
 import { attachSession, forgetTemporarySession, registerTemporarySession, startAttempt, suggestTaskOutcome, transitionTask } from './catalog/task-lifecycle.ts'
+import { createProject, createVersion, deleteProject, deleteVersion, generateLock, updateProject, updateVersion } from './catalog/project-version-ops.ts'
 import type { Catalog } from './catalog/contract.ts'
 export type { Catalog, CreateTaskOptions, PrepareWorkspaceInput, RegisterPreparedWorkspaceInput, TaskConfirmation, TaskSuggestion, WorkspaceCommitRepository, WorkspaceCommitResult, WorkspaceStatusRepository } from './catalog/contract.ts'
 export { findSessionAttempt, findWorkspaceByPath } from './catalog/selectors.ts'
@@ -23,7 +22,7 @@ import { migrateCatalog } from './catalog/migrations.ts'
 export { CatalogError } from './catalog/errors.ts'
 export { migrateCatalog } from './catalog/migrations.ts'
 export { parseCatalog } from './catalog/admission.ts'
-import type { CatalogSnapshot, ProjectRecord, TaskRecord, VersionRecord, WorkspaceCleanup, WorkspacePreparation, WorkspaceRecord } from '../api/records.ts'
+import type { CatalogSnapshot, TaskRecord, WorkspaceCleanup, WorkspacePreparation, WorkspaceRecord } from '../api/records.ts'
 export type { CatalogSnapshot, ProjectRecord, TaskPriority, TaskRecord, TemporarySessionRecord, VersionRecord, WorkspaceCleanup, WorkspaceCleanupRepository, WorkspaceCleanupRepositoryStatus, WorkspaceCleanupStatus, WorkspacePreparation, WorkspacePreparationRepository, WorkspacePreparationRepositoryStatus, WorkspacePreparationStatus, WorkspaceRecord } from '../api/records.ts'
 import type { AuditEntry, AuditEvent } from '../domain/audit.ts'
 import {
@@ -158,6 +157,12 @@ export async function createCatalog(file: string, resolveCommit: (repo: string, 
     recordAudit,
   }
 
+  const projectVersion = {
+    transaction: <T,>(operation: (draft: CatalogSnapshot) => Promise<T> | T): Promise<T> => transaction(operation),
+    resolveCommit,
+    recordAudit,
+  }
+
   const api: Catalog = {
     prepareWorkspace: input => prepareWorkspace(workspacePrepare, input),
     ensureWorkspaceBranches: workspaceId => ensureWorkspaceBranches(workspaceWrite, workspaceId),
@@ -185,123 +190,13 @@ export async function createCatalog(file: string, resolveCommit: (repo: string, 
     finishTakeover: (workspaceId, expected, outcome) => finishTakeover(executionQueue, workspaceId, expected, outcome),
     releaseSession: sessionId => releaseSession(executionQueue, sessionId),
     snapshot: () => structuredClone(state),
-    createProject: async input => {
-      const config = parseProject(input)
-      return transaction(draft => {
-        const record = { id: brandString<ProjectRecord['id']>(randomUUID()), config }
-        draft.projects.push(record)
-        recordAudit(draft, 'project.created', 'human', { detail: config.name })
-        return record
-      })
-    },
-    updateProject: async (projectId, input) => {
-      const config = parseProject(input)
-      return transaction(draft => {
-        const project = draft.projects.find(candidate => candidate.id === projectId)
-        if (project === undefined) throw new CatalogError('missing_project')
-        const sourceIds = new Set(config.sources.map(source => source.id))
-        if (draft.versions.some(version => version.projectId === projectId && version.sources.some(source => !sourceIds.has(source.sourceId)))) {
-          throw new CatalogError('invalid_version')
-        }
-        const moduleIds = new Set(config.modules.map(module => module.id))
-        const invalidTask = draft.tasks.some(task => {
-          const version = draft.versions.find(candidate => candidate.id === task.versionId)
-          return version?.projectId === projectId && (task.moduleIds ?? []).some(moduleId => !moduleIds.has(moduleId))
-        })
-        if (invalidTask) throw new CatalogError('invalid_task')
-        const next: ProjectRecord = { ...project, config }
-        draft.projects[draft.projects.indexOf(project)] = next
-        recordAudit(draft, 'project.updated', 'human', { detail: config.name })
-        return next
-      })
-    },
-    deleteProject: async projectId => transaction(draft => {
-      const project = draft.projects.find(candidate => candidate.id === projectId)
-      if (project === undefined) throw new CatalogError('missing_project')
-      if (draft.versions.some(version => version.projectId === projectId)) throw new CatalogError('project_has_versions')
-      draft.projects.splice(draft.projects.indexOf(project), 1)
-      recordAudit(draft, 'project.deleted', 'human', { detail: project.config.name })
-    }),
-    createVersion: async (projectId, name, sources, description, targets) => {
-      const admittedSources = sources.length > 0 ? sources : (targets ?? []).map(target => ({ sourceId: target.sourceId, ref: target.ref }))
-      const record = versionSchema.parse({
-        id: randomUUID(), projectId, name,
-        ...(description === undefined ? {} : { description }),
-        sources: admittedSources,
-        ...(targets === undefined ? {} : { targets }),
-      })
-      return transaction(draft => {
-        const project = draft.projects.find(p => p.id === projectId)
-        if (!project) throw new CatalogError('missing_project')
-        if (!validVersion(project, record)) throw new CatalogError('invalid_version')
-        draft.versions.push(record)
-        recordAudit(draft, 'version.created', 'human', { detail: record.name })
-        return record
-      })
-    },
-    updateVersion: async (versionId, name, sources, description, targets) => {
-      const admittedName = text.parse(name)
-      return transaction(draft => {
-        const version = versionIn(draft, versionId)
-        const project = draft.projects.find(candidate => candidate.id === version.projectId)
-        if (project === undefined) throw new CatalogError('missing_project')
-        // An omitted description preserves the stored one; an explicit empty
-        // string clears it, so older clients that do not know the field cannot
-        // erase it by accident.
-        const admittedDescription = description === undefined ? version.description : admitVersionDescription(description)
-        const record = versionSchema.parse({ ...version, name: admittedName, description: admittedDescription, sources, ...(targets === undefined ? {} : { targets }) })
-        if (!validVersion(project, record)) throw new CatalogError('invalid_version')
-        const next: VersionRecord = { ...version, name: admittedName, description: record.description, sources: record.sources, ...(targets === undefined ? {} : { targets: record.targets }) }
-        draft.versions[draft.versions.indexOf(version)] = next
-        recordAudit(draft, 'version.updated', 'human', { detail: admittedName })
-        return next
-      })
-    },
-    deleteVersion: async versionId => transaction(draft => {
-      const version = versionIn(draft, versionId)
-      if (draft.tasks.some(task => task.versionId === versionId)) throw new CatalogError('version_has_tasks')
-      if (draft.workspaces.some(workspace => workspace.versionId === versionId)) throw new CatalogError('version_has_workspaces')
-      draft.versions.splice(draft.versions.indexOf(version), 1)
-      draft.locks = draft.locks.filter(lock => lock.versionId !== versionId)
-      recordAudit(draft, 'version.deleted', 'human', { detail: version.name })
-    }),
-    generateLock: versionId => transaction(async draft => {
-      const version = versionIn(draft, versionId)
-      const project = draft.projects.find(p => p.id === version.projectId)!
-      const previous = draft.locks.filter(lock => lock.versionId === version.id).at(-1)
-      const resolved = await resolveLock(project.config, version, randomUUID(), resolveCommit)
-      const lock: Lock = { ...resolved, createdAt: nowIso() }
-      draft.locks.push(lock)
-      // A long-lived version advances its baseline here instead of forcing a new
-      // round or version: every active workspace of the version moves onto the
-      // new Lock, and the latest round of every running or reviewing task is
-      // re-baselined so its Diff starts over. Completed and failed tasks keep
-      // their historical baselines.
-      let advancedWorkspaces = 0
-      let rebasedTasks = 0
-      if (previous !== undefined) {
-        for (const workspace of [...draft.workspaces]) {
-          if (workspace.cleaned === true || workspace.versionId !== version.id) continue
-          draft.workspaces[draft.workspaces.indexOf(workspace)] = { ...workspace, lockId: lock.id }
-          recordAudit(draft, 'workspace.updated', 'human', { workspaceId: workspace.id, detail: `baseline advanced to ${lock.id}` })
-          advancedWorkspaces += 1
-        }
-        for (const task of [...draft.tasks]) {
-          if (task.versionId !== version.id || (task.status !== 'running' && task.status !== 'review')) continue
-          const attempt = task.attempts.at(-1)
-          if (attempt === undefined) continue
-          draft.tasks[draft.tasks.indexOf(task)] = { ...task, attempts: [...task.attempts.slice(0, -1), { ...attempt, lock }] }
-          recordAudit(draft, 'task.updated', 'human', { taskId: task.id, workspaceId: attempt.workspaceId, detail: `round baseline advanced to ${lock.id}` })
-          rebasedTasks += 1
-        }
-      }
-      const commitDetail = lock.repositories.map(repository => repository.commit.slice(0, 8)).join(' ')
-      const advanced = advancedWorkspaces === 0 && rebasedTasks === 0
-        ? ''
-        : ` · advanced ${advancedWorkspaces} workspace${advancedWorkspaces === 1 ? '' : 's'}, ${rebasedTasks} task${rebasedTasks === 1 ? '' : 's'}`
-      recordAudit(draft, 'lock.generated', 'human', { detail: `${commitDetail}${advanced}` })
-      return lock
-    }),
+    createProject: input => createProject(projectVersion, input),
+    updateProject: (projectId, input) => updateProject(projectVersion, projectId, input),
+    deleteProject: projectId => deleteProject(projectVersion, projectId),
+    createVersion: (projectId, name, sources, description, targets) => createVersion(projectVersion, projectId, name, sources, description, targets),
+    updateVersion: (versionId, name, sources, description, targets) => updateVersion(projectVersion, versionId, name, sources, description, targets),
+    deleteVersion: versionId => deleteVersion(projectVersion, versionId),
+    generateLock: versionId => generateLock(projectVersion, versionId),
     createTask: async (versionId, title, options = {}) => {
       const admittedTitle = text.parse(title)
       const description = options.description?.trim() ?? ''
