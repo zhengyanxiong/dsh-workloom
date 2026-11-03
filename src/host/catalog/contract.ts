@@ -67,6 +67,20 @@ export interface WorkspaceStatusRepository extends WorkspaceRepositoryChanges {
   readonly unpushedUnavailable?: boolean | undefined
 }
 /**
+ * Prepare a managed or linked workspace from one version Lock.
+ */
+export interface PrepareWorkspaceInput {
+  readonly path: string
+  readonly versionId: Lock['versionId']
+  readonly lockId: Lock['id']
+  readonly branches?: Readonly<Record<string, string>>
+  readonly mode?: 'managed' | 'linked'
+  readonly repositories?: readonly { readonly sourceId: Branded<'loom.source'>; readonly path: string; readonly targetPath: string }[]
+  readonly workspaceId?: WorkspaceRecord['id']
+  readonly requireBranches?: boolean
+}
+
+/**
  * Register an existing directory as a prepared workspace.
  */
 export interface RegisterPreparedWorkspaceInput {
@@ -106,7 +120,7 @@ export interface Catalog {
   createTask(versionId: VersionRecord['id'], title: string, options?: CreateTaskOptions): Promise<TaskRecord>
   updateTask(taskId: TaskRecord['id'], title: string, options?: CreateTaskOptions): Promise<TaskRecord>
   deleteTask(taskId: TaskRecord['id']): Promise<void>
-  prepareWorkspace(input: { path: string; versionId: Lock['versionId']; lockId: Lock['id']; branches?: Readonly<Record<string, string>>; mode?: 'managed' | 'linked'; repositories?: readonly { sourceId: Branded<'loom.source'>; path: string; targetPath: string }[]; workspaceId?: WorkspaceRecord['id']; requireBranches?: boolean }): Promise<WorkspaceRecord>
+  prepareWorkspace(input: PrepareWorkspaceInput): Promise<WorkspaceRecord>
   workspaceChanges(workspaceId: WorkspaceRecord['id'], attemptId?: Branded<'loom.attempt'>): Promise<{ repositories: WorkspaceRepositoryChanges[] }>
   workspaceChangeCount(workspaceId: WorkspaceRecord['id'], attemptId?: Branded<'loom.attempt'>): Promise<number>
   workspaceStatus(workspaceId: WorkspaceRecord['id'], attemptId?: Branded<'loom.attempt'>): Promise<{ running: boolean; repositories: WorkspaceStatusRepository[] }>
