@@ -14,6 +14,7 @@ import { admitEvidence } from './catalog/task-evidence.ts'
 import { pathExists, preparationFailure, repositoryRequests } from './catalog/workspace-prep.ts'
 import { commitWorkspace, workspaceChangeCount, workspaceChanges, workspaceDirty, workspaceStatus, workspaceWorktrees } from './catalog/workspace-git.ts'
 import { workspaceIn } from './catalog/selectors.ts'
+import { ensureWorkspaceBranches, ensureWorkspaceSkillLinks, updateWorkspace } from './catalog/workspace-write.ts'
 import type { Catalog } from './catalog/contract.ts'
 export type { Catalog, CreateTaskOptions, TaskConfirmation, TaskSuggestion, WorkspaceCommitRepository, WorkspaceCommitResult, WorkspaceStatusRepository } from './catalog/contract.ts'
 export { findSessionAttempt, findWorkspaceByPath } from './catalog/selectors.ts'
@@ -24,10 +25,9 @@ export { parseCatalog } from './catalog/admission.ts'
 import type { CatalogSnapshot, ProjectRecord, TaskRecord, TemporarySessionRecord, VersionRecord, WorkspaceCleanup, WorkspaceCleanupRepository, WorkspaceCleanupRepositoryStatus, WorkspacePreparation, WorkspaceRecord } from '../api/records.ts'
 export type { CatalogSnapshot, ProjectRecord, TaskPriority, TaskRecord, TemporarySessionRecord, VersionRecord, WorkspaceCleanup, WorkspaceCleanupRepository, WorkspaceCleanupRepositoryStatus, WorkspaceCleanupStatus, WorkspacePreparation, WorkspacePreparationRepository, WorkspacePreparationRepositoryStatus, WorkspacePreparationStatus, WorkspaceRecord } from '../api/records.ts'
 import {
-  addLinkedWorkspaceLink, addWorkspaceWorktree, commitsSince, createWorkspaceRoot, ensureWorktreeBranch, linkWorkspaceSkills,
+  addLinkedWorkspaceLink, addWorkspaceWorktree, commitsSince, createWorkspaceRoot, linkWorkspaceSkills,
   planLinkedWorkspace, planWorkspace, removeLinkedWorkspaceLink, removeLinkedWorkspaceRoot, removeWorkspaceRoot, removeWorkspaceSkills,
   removeWorkspaceWorktree, resolveHead, workingTreeChanges,
-  WorkspacePreparationError,
   type LinkedRepositoryPlan, type WorkspaceRepositoryPlan,
 } from '../git/workspace.ts'
 import { admitWorkspaceLayout, WorkspaceLayoutError, type WorkspaceLayout, type WorkspaceMode, type WorkspaceRepositoryBinding, type WorkspaceRepositoryKind } from '../domain/workspace.ts'
@@ -123,6 +123,12 @@ export async function createCatalog(file: string, resolveCommit: (repo: string, 
   /** Detached copy of one current workspace record. */
   function currentWorkspace(workspaceId: WorkspaceRecord['id']): WorkspaceRecord {
     return structuredClone(workspaceIn(state, workspaceId))
+  }
+
+  const workspaceWrite = {
+    snapshot: (): CatalogSnapshot => state,
+    transaction: <T,>(operation: (draft: CatalogSnapshot) => Promise<T> | T): Promise<T> => transaction(operation),
+    recordAudit,
   }
 
   const api: Catalog = {
@@ -363,66 +369,14 @@ export async function createCatalog(file: string, resolveCommit: (repo: string, 
         return updated
       })
     },
-    ensureWorkspaceBranches: async workspaceId => {
-      const workspace = workspaceIn(state, workspaceId)
-      if (workspace.cleaned === true) return workspace
-      if ((workspace.mode ?? (workspace.managed === true ? 'managed' : 'direct')) !== 'managed') return workspace
-      if (state.executions.some(execution => execution.workspaceId === workspaceId && execution.owner !== null)) return workspace
-      const bindings = workspaceBindings(state, workspace)
-      const branches = { ...workspace.branches }
-      let changed = false
-      for (const binding of bindings) {
-        const requested = binding.branch ?? branches[binding.sourceId]
-        if (requested === undefined) continue
-        let attached: string
-        try { attached = await ensureWorktreeBranch(binding.targetPath, requested) }
-        catch (error) {
-          if (!(error instanceof WorkspacePreparationError)) throw error
-          throw new CatalogError('workspace_branch_failed')
-        }
-        if (attached !== requested) { branches[binding.sourceId] = attached; changed = true }
-      }
-      if (!changed) return workspace
-      return transaction(draft => {
-        const index = draft.workspaces.findIndex(item => item.id === workspaceId)
-        if (index === -1) throw new CatalogError('missing_workspace')
-        draft.workspaces[index] = { ...draft.workspaces[index]!, branches }
-        return draft.workspaces[index]!
-      })
-    },
-    ensureWorkspaceSkillLinks: async workspaceId => {
-      const workspace = workspaceIn(state, workspaceId)
-      if (workspace.cleaned === true) return workspace
-      const bindings = workspaceBindings(state, workspace)
-      if (bindings.length < 2) return workspace
-      const existing = workspace.skillLinks ?? []
-      const links = await linkWorkspaceSkills(workspace.rootPath ?? workspace.path, bindings.map(binding => binding.targetPath))
-      const merged = [...new Set([...existing, ...links])]
-      if (merged.length === existing.length) return workspace
-      return transaction(draft => {
-        const index = draft.workspaces.findIndex(item => item.id === workspaceId)
-        if (index === -1) throw new CatalogError('missing_workspace')
-        draft.workspaces[index] = { ...draft.workspaces[index]!, skillLinks: merged }
-        return draft.workspaces[index]!
-      })
-    },
+    ensureWorkspaceBranches: workspaceId => ensureWorkspaceBranches(workspaceWrite, workspaceId),
+    ensureWorkspaceSkillLinks: workspaceId => ensureWorkspaceSkillLinks(workspaceWrite, workspaceId),
     workspaceChanges: (workspaceId, attemptId) => workspaceChanges(state, workspaceId, attemptId),
     workspaceChangeCount: (workspaceId, attemptId) => workspaceChangeCount(state, workspaceId, attemptId),
     workspaceStatus: (workspaceId, attemptId) => workspaceStatus(state, workspaceId, attemptId),
     commitWorkspace: (workspaceId, message) => commitWorkspace(state, workspaceId, message),
     workspaceDirty: workspaceId => workspaceDirty(state, workspaceId),
-    updateWorkspace: async (workspaceId, label) => {
-      const admitted = label.trim()
-      if (admitted.length > 80) throw new CatalogError('invalid_workspace_label')
-      return transaction(draft => {
-        const workspace = workspaceIn(draft, workspaceId)
-        const { label: _previous, ...rest } = workspace
-        const next: WorkspaceRecord = { ...rest, ...(admitted === '' ? {} : { label: admitted }) }
-        draft.workspaces[draft.workspaces.indexOf(workspace)] = next
-        recordAudit(draft, 'workspace.updated', 'human', { workspaceId, detail: admitted === '' ? workspace.path : admitted })
-        return next
-      })
-    },
+    updateWorkspace: (workspaceId, label) => updateWorkspace(workspaceWrite, workspaceId, label),
     deleteWorkspace: async (workspaceId, deleteFiles, confirmPath) => {
       const workspace = workspaceIn(state, workspaceId)
       const root = workspace.rootPath ?? workspace.path
