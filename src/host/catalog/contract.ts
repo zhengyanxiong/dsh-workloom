@@ -67,6 +67,21 @@ export interface WorkspaceStatusRepository extends WorkspaceRepositoryChanges {
   readonly unpushedUnavailable?: boolean | undefined
 }
 /**
+ * Register an existing directory as a prepared workspace.
+ */
+export interface RegisterPreparedWorkspaceInput {
+  readonly path: string
+  readonly versionId: Lock['versionId']
+  readonly lockId: Lock['id']
+  readonly branches?: Readonly<Record<string, string>>
+  readonly projectId?: Branded<'loom.project'>
+  readonly mode?: WorkspaceMode
+  readonly rootPath?: string
+  readonly rootOwner?: 'loom' | 'user'
+  readonly repositories?: readonly Omit<WorkspaceRepositoryBinding, 'kind'>[]
+}
+
+/**
  * Optional task metadata admitted with the title.
  */
 export interface CreateTaskOptions {
@@ -105,7 +120,7 @@ export interface Catalog {
   cleanupWorkspace(workspaceId: WorkspaceRecord['id'], discardChanges: boolean): Promise<void>
   ensureWorkspaceBranches(workspaceId: WorkspaceRecord['id']): Promise<WorkspaceRecord>
   ensureWorkspaceSkillLinks(workspaceId: WorkspaceRecord['id']): Promise<WorkspaceRecord>
-  registerPreparedWorkspace(input: { path: string; versionId: Lock['versionId']; lockId: Lock['id']; branches?: Readonly<Record<string, string>>; projectId?: Branded<'loom.project'>; mode?: WorkspaceMode; rootPath?: string; rootOwner?: 'loom' | 'user'; repositories?: readonly Omit<WorkspaceRepositoryBinding, 'kind'>[] }): Promise<WorkspaceRecord>
+  registerPreparedWorkspace(input: RegisterPreparedWorkspaceInput): Promise<WorkspaceRecord>
   startAttempt(taskId: TaskRecord['id'], workspaceId: WorkspaceRecord['id'], options?: { readonly allowBusy?: boolean }): Promise<TaskRecord>
   attachSession(taskId: TaskRecord['id'], sessionId: Branded<'SessionId'>): Promise<TaskRecord>
   registerTemporarySession(sessionId: Branded<'SessionId'>, workspacePath: string): Promise<TemporarySessionRecord>

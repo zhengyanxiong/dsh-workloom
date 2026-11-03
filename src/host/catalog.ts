@@ -13,11 +13,12 @@ import { parseCatalog } from './catalog/admission.ts'
 import { admitEvidence } from './catalog/task-evidence.ts'
 import { pathExists, preparationFailure, repositoryRequests } from './catalog/workspace-prep.ts'
 import { commitWorkspace, workspaceChangeCount, workspaceChanges, workspaceDirty, workspaceStatus } from './catalog/workspace-git.ts'
-import { workspaceIn } from './catalog/selectors.ts'
+import { versionIn, workspaceIn } from './catalog/selectors.ts'
 import { ensureWorkspaceBranches, ensureWorkspaceSkillLinks, updateWorkspace } from './catalog/workspace-write.ts'
 import { cleanupWorkspace, deleteWorkspace } from './catalog/workspace-lifecycle.ts'
+import { registerPreparedWorkspace } from './catalog/workspace-register.ts'
 import type { Catalog } from './catalog/contract.ts'
-export type { Catalog, CreateTaskOptions, TaskConfirmation, TaskSuggestion, WorkspaceCommitRepository, WorkspaceCommitResult, WorkspaceStatusRepository } from './catalog/contract.ts'
+export type { Catalog, CreateTaskOptions, RegisterPreparedWorkspaceInput, TaskConfirmation, TaskSuggestion, WorkspaceCommitRepository, WorkspaceCommitResult, WorkspaceStatusRepository } from './catalog/contract.ts'
 export { findSessionAttempt, findWorkspaceByPath } from './catalog/selectors.ts'
 import { migrateCatalog } from './catalog/migrations.ts'
 export { CatalogError } from './catalog/errors.ts'
@@ -30,7 +31,7 @@ import {
   planLinkedWorkspace, planWorkspace, resolveHead,
   type LinkedRepositoryPlan, type WorkspaceRepositoryPlan,
 } from '../git/workspace.ts'
-import { admitWorkspaceLayout, WorkspaceLayoutError, type WorkspaceLayout, type WorkspaceMode, type WorkspaceRepositoryBinding, type WorkspaceRepositoryKind } from '../domain/workspace.ts'
+import { admitWorkspaceLayout, WorkspaceLayoutError, type WorkspaceLayout, type WorkspaceMode, type WorkspaceRepositoryBinding } from '../domain/workspace.ts'
 import type { AuditEntry, AuditEvent } from '../domain/audit.ts'
 import {
   cancelExecutionRequest, confirmStop, reorderWaiting, createExecution, releaseExecution as releaseExecutionState, requestExecution,
@@ -66,11 +67,7 @@ export async function createCatalog(file: string, resolveCommit: (repo: string, 
     draft.audit.push({ id: randomUUID(), at: Date.now(), actor, event, ...fields })
     if (draft.audit.length > 500) draft.audit.splice(0, draft.audit.length - 500)
   }
-  function versionIn(draft: CatalogSnapshot, versionId: VersionRecord['id']): VersionRecord {
-    const version = draft.versions.find(v => v.id === versionId)
-    if (!version) throw new CatalogError('missing_version')
-    return version
-  }
+
   function taskIn(draft: CatalogSnapshot, taskId: TaskRecord['id']): TaskRecord {
     const task = draft.tasks.find(item => item.id === taskId)
     if (!task) throw new CatalogError('missing_task')
@@ -135,6 +132,11 @@ export async function createCatalog(file: string, resolveCommit: (repo: string, 
 
   const workspaceWrite = {
     snapshot: (): CatalogSnapshot => state,
+    transaction: <T,>(operation: (draft: CatalogSnapshot) => Promise<T> | T): Promise<T> => transaction(operation),
+    recordAudit,
+  }
+
+  const workspaceRegister = {
     transaction: <T,>(operation: (draft: CatalogSnapshot) => Promise<T> | T): Promise<T> => transaction(operation),
     recordAudit,
   }
@@ -387,58 +389,7 @@ export async function createCatalog(file: string, resolveCommit: (repo: string, 
     updateWorkspace: (workspaceId, label) => updateWorkspace(workspaceWrite, workspaceId, label),
     deleteWorkspace: (workspaceId, deleteFiles, confirmPath) => deleteWorkspace(workspaceLifecycle, workspaceId, deleteFiles, confirmPath),
     cleanupWorkspace: (workspaceId, discardChanges) => cleanupWorkspace(workspaceLifecycle, workspaceId, discardChanges),
-    registerPreparedWorkspace: async input => {
-      return transaction(async draft => {
-        const version = versionIn(draft, input.versionId)
-        const project = draft.projects.find(item => item.id === (input.projectId ?? version.projectId))
-        if (!project) throw new CatalogError('missing_project')
-        const lock = draft.locks.find(item => item.id === input.lockId)
-        if (!lock) throw new CatalogError('missing_lock')
-        if (lock.versionId !== version.id) throw new CatalogError('workspace_mismatch')
-        const rootPath = input.rootPath ?? input.path
-        if (!isAbsolute(rootPath) || normalize(rootPath) !== rootPath) throw new CatalogError('invalid_workspace_path')
-        const mode = input.mode ?? (input.repositories === undefined ? 'direct' : 'direct')
-        const kind: WorkspaceRepositoryKind = mode === 'managed' ? 'worktree' : mode === 'linked' ? 'link' : 'direct'
-        const repositories: WorkspaceRepositoryBinding[] = (input.repositories ?? project.config.sources.map(source => ({
-          sourceId: source.id,
-          path: source.path,
-          targetPath: resolve(rootPath, source.path),
-        }))).map(repository => ({ ...repository, kind }))
-        const layout: WorkspaceLayout = {
-          projectId: project.id,
-          mode,
-          rootPath,
-          rootOwner: input.rootOwner ?? (mode === 'managed' ? 'loom' : 'user'),
-          repositories,
-        }
-        try { admitWorkspaceLayout(layout) } catch (error) {
-          if (error instanceof WorkspaceLayoutError) throw new CatalogError('invalid_workspace_path')
-          throw error
-        }
-        if (repositories.some(repository => !project.config.sources.some(source => source.id === repository.sourceId))) throw new CatalogError('workspace_mismatch')
-        if (draft.workspaces.some(item => item.cleaned !== true && (item.rootPath ?? item.path) === rootPath)) throw new CatalogError('workspace_path_registered')
-        const skillLinks = mode === 'direct' && repositories.length > 1
-          ? await linkWorkspaceSkills(rootPath, repositories.map(repository => repository.targetPath))
-          : []
-        const record: WorkspaceRecord = {
-          id: brandString<WorkspaceRecord['id']>(randomUUID()),
-          path: rootPath,
-          rootPath,
-          versionId: version.id,
-          lockId: lock.id,
-          projectId: project.id,
-          mode,
-          rootOwner: layout.rootOwner,
-          repositories,
-          ...(input.branches === undefined || Object.keys(input.branches).length === 0 ? {} : { branches: input.branches }),
-          ...(input.mode === 'managed' ? { managed: true } : {}),
-          ...(skillLinks.length === 0 ? {} : { skillLinks }),
-        }
-        draft.workspaces.push(record)
-        recordAudit(draft, 'workspace.prepared', 'system', { workspaceId: record.id, detail: rootPath })
-        return record
-      })
-    },
+    registerPreparedWorkspace: input => registerPreparedWorkspace(workspaceRegister, input),
     startAttempt: (taskId, workspaceId, options) => transaction(async draft => {
       const requestedTask = draft.tasks.find(candidate => candidate.id === taskId)
       if (requestedTask?.workspaceId !== undefined && requestedTask.workspaceId !== workspaceId) throw new CatalogError('workspace_mismatch')

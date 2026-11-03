@@ -2,9 +2,18 @@
  * Read-only snapshot selectors shared by session binding and workspace routing.
  */
 import { resolve, sep } from 'node:path'
-import type { CatalogSnapshot, TaskRecord, WorkspaceRecord } from '../../api/records.ts'
+import type { CatalogSnapshot, TaskRecord, VersionRecord, WorkspaceRecord } from '../../api/records.ts'
 import { CatalogError } from './errors.ts'
 import type { Attempt } from '../../domain/task.ts'
+
+/**
+ * Look up one version or fail with `missing_version`.
+ */
+export function versionIn(snapshot: CatalogSnapshot, versionId: VersionRecord['id']): VersionRecord {
+  const version = snapshot.versions.find(candidate => candidate.id === versionId)
+  if (!version) throw new CatalogError('missing_version')
+  return version
+}
 
 /**
  * Look up one workspace or fail with `missing_workspace`.
