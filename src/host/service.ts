@@ -4,36 +4,28 @@ import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import type {} from '@deepseek-ai/dsh-api-remote-access'
 import { brandString, type Branded } from '@deepseek-ai/dsh-brand'
 import { mkdirSync } from 'node:fs'
-import { dirname, isAbsolute, join, normalize } from 'node:path'
-import { randomUUID } from 'node:crypto'
+import { dirname, join } from 'node:path'
 import { createCatalog, type Catalog, type TemporarySessionRecord } from './catalog.ts'
 import type { ContextConfig, Config } from './service/config.ts'
 import { configSchema } from './service/config.ts'
 import { serviceError } from './service/errors.ts'
-import { inspectWorkspace, sameRepositoryMappings } from './service/inspection.ts'
+import { fallbackBindings } from './service/inspection.ts'
+import { executionRequest } from './service/requests.ts'
 import { VersionContextRegistry } from './service/version-context.ts'
 import { ExecutionOwnership } from './service/execution-runtime.ts'
-import {
-  attemptRequest, cleanupWorkspaceRequest, commitWorkspaceRequest, deleteProjectRequest, deleteTaskRequest, deleteVersionRequest,
-  executionRequest, forgetTemporarySessionRequest, inspectWorkspaceRequest, lockRequest, registerWorkspaceRequest,
-  releaseExecutionRequest, reorderExecutionQueueRequest, repositoryBranchesRequest, sessionRequest, taskRequest,
-  temporarySessionRequest, transitionRequest, updateProjectRequest, updateTaskRequest, updateVersionRequest,
-  updateWorkspaceRequest, deleteWorkspaceRequest, versionRequest, workspaceChangesRequest, workspaceRequest,
-} from './service/requests.ts'
+import { registerAgentTools } from './service/agent-tools.ts'
+import { RemoteOperations } from './service/remote-operations.ts'
 export type { ContextConfig, Config } from './service/config.ts'
-import { registerLoomAgentTools, type LoomToolRegistrar } from './tools.ts'
-import { parseProject } from '../domain/project.ts'
 import type {
   AttachSessionRequest, CatalogSnapshot, CreateTaskRequest, CreateVersionRequest, GenerateLockRequest,
-  CleanupWorkspaceRequest, PrepareWorkspaceRequest, ProjectConfig, ProjectRecord, RegisterWorkspaceRequest, StartAttemptRequest, TaskRecord, TransitionTaskRequest, WorkspaceChangesRequest, WorkspaceRepositoryChangesRecord, WorkspaceStatusResult,
+  CleanupWorkspaceRequest, PrepareWorkspaceRequest, ProjectConfig, ProjectRecord, RegisterWorkspaceRequest, StartAttemptRequest, TaskRecord, TransitionTaskRequest, WorkspaceChangesRequest, WorkspaceStatusResult,
   VersionRecord, WorkspaceRecord, ExecutionRequest, ReleaseExecutionRequest, UpdateProjectRequest, UpdateVersionRequest, UpdateTaskRequest,
   DeleteProjectRequest, DeleteVersionRequest, DeleteTaskRequest, RegisterTemporarySessionRequest, ForgetTemporarySessionRequest,
-  RepositoryBranchesRequest, InspectWorkspaceRequest, WorkspaceInspection, CommitWorkspaceRequest, WorkspaceCommitResult, VersionWorkspaceInput, UpdateWorkspaceRequest, DeleteWorkspaceRequest, ReorderExecutionQueueRequest,
+InspectWorkspaceRequest, WorkspaceInspection, CommitWorkspaceRequest, WorkspaceCommitResult, UpdateWorkspaceRequest, DeleteWorkspaceRequest, ReorderExecutionQueueRequest, RepositoryBranchesRequest, WorkspaceRepositoryChangesRecord,
 } from '../types.ts'
 import type { Lock } from '../domain/task.ts'
-import { autoWorkspaceRepositoryPath, type WorkspaceRepositoryBinding } from '../domain/workspace.ts'
 import { ExecutionError, type ExecutionState } from '../domain/execution.ts'
-import { repositoryBranches, resolveCommit } from '../git/workspace.ts'
+import { resolveCommit } from '../git/workspace.ts'
 import type {} from './events.ts'
 import type { LoomAgentRegistry } from './events.ts'
 import {
@@ -82,6 +74,7 @@ export default class LoomService extends TypertRemoteService {
   /** Version-context caches and per-Session prompt registrations. */
   private readonly versionContext: VersionContextRegistry
   private readonly execution: ExecutionOwnership
+  private readonly operations: RemoteOperations
 
   constructor(ctx: Context, config: Config) {
     super(ctx, 'loom')
@@ -103,6 +96,7 @@ export default class LoomService extends TypertRemoteService {
       refresh: catalog => this.refreshSnapshot(catalog),
       getAgents: () => this.ctx.get('agents') as LoomAgentRegistry | undefined,
     })
+    this.operations = new RemoteOperations(this.workspacesDir, this.versionContext)
     mkdirSync(dirname(admitted.catalogFile), { recursive: true })
     mkdirSync(this.workspacesDir, { recursive: true })
     this.catalog = createCatalog(admitted.catalogFile, resolveCommit)
@@ -142,7 +136,7 @@ export default class LoomService extends TypertRemoteService {
       if (cwd === undefined) return
       const workspace = this.current?.workspaces.find(candidate => candidate.cleaned !== true && (candidate.rootPath ?? candidate.path) === cwd)
       if (workspace === undefined) return
-      const bindings = workspace.repositories ?? this.fallbackBindings(workspace)
+      const bindings = workspace.repositories ?? fallbackBindings(this.current, workspace)
       if (bindings.every(binding => binding.path === '.')) return
       const prompt = agent.ctx.get('systemPrompt') as PromptContextRegistrar | undefined
       prompt?.context({
@@ -190,31 +184,7 @@ export default class LoomService extends TypertRemoteService {
       this.versionContext.disposeVersionContext(session.id)
       void this.execution.releaseSession(session.id)
     })
-    this.registerAgentTools(catalog)
-  }
-
-  /** Expose the Loom reporting tools once a native tools registry exists. */
-  private registerAgentTools(catalog: Catalog): void {
-    const attach = (registry: LoomToolRegistrar): void => {
-      this.ctx.effect(() => registerLoomAgentTools(registry, catalog, () => this.refreshSnapshot(catalog), sessionId => this.execution.takeoverForAgent(sessionId)), 'loom: register Agent tools')
-    }
-    const tools = this.ctx.get('tools') as LoomToolRegistrar | undefined
-    if (tools !== undefined) { attach(tools); return }
-    // The tools service may mount after Loom; register as soon as it appears.
-    this.ctx.inject(['tools'], child => { attach(child.get('tools') as LoomToolRegistrar) })
-  }
-
-  private fallbackBindings(workspace: WorkspaceRecord): readonly WorkspaceRepositoryBinding[] {
-    const version = this.current?.versions.find(candidate => candidate.id === workspace.versionId)
-    const project = version === undefined ? undefined : this.current?.projects.find(candidate => candidate.id === version.projectId)
-    const root = workspace.rootPath ?? workspace.path
-    return project?.config.sources.map(source => ({
-      sourceId: source.id,
-      path: source.path,
-      targetPath: join(root, source.path),
-      kind: 'direct' as const,
-      ...(workspace.branches?.[source.id] === undefined ? {} : { branch: workspace.branches[source.id] }),
-    })) ?? []
+    registerAgentTools(this.ctx, catalog, () => this.refreshSnapshot(catalog), sessionId => this.execution.takeoverForAgent(sessionId))
   }
 
   private run<T>(operation: (catalog: Catalog) => T | Promise<T>): Promise<T> {
@@ -236,459 +206,102 @@ export default class LoomService extends TypertRemoteService {
     return call
   }
 
-  /** Read a detached catalog snapshot. @returns current committed records. */
   @Remote
-  snapshot(): Promise<CatalogSnapshot> { return this.run(catalog => catalog.snapshot()) }
+  snapshot(): Promise<CatalogSnapshot> { return this.operations.snapshot(operation => this.run(operation)) }
 
-  /** Admit imported project JSON. @param request - project configuration. @returns persisted project. */
   @Remote
-  createProject(request: ProjectConfig): Promise<ProjectRecord> { return this.run(catalog => catalog.createProject(request)) }
+  createProject(request: ProjectConfig): Promise<ProjectRecord> { return this.operations.createProject(operation => this.run(operation), request) }
 
-  /** Replace a project's admitted configuration. @param request - project identity and new configuration. @returns persisted project. */
   @Remote
-  updateProject(request: UpdateProjectRequest): Promise<ProjectRecord> {
-    return this.run(catalog => {
-      const parsed = updateProjectRequest.parse(request)
-      return catalog.updateProject(brandString<ProjectRecord['id']>(parsed.projectId), parseProject(parsed.config))
-    })
-  }
+  updateProject(request: UpdateProjectRequest): Promise<ProjectRecord> { return this.operations.updateProject(operation => this.run(operation), request) }
 
-  /** Delete a project with no versions. @param request - project identity. @returns nothing after the record is gone. */
   @Remote
-  deleteProject(request: DeleteProjectRequest): Promise<void> {
-    return this.run(catalog => catalog.deleteProject(brandString<ProjectRecord['id']>(deleteProjectRequest.parse(request).projectId)))
-  }
+  deleteProject(request: DeleteProjectRequest): Promise<void> { return this.operations.deleteProject(operation => this.run(operation), request) }
 
-  /** Create a version. @param request - project, title, description and repository refs. @returns persisted version. */
   @Remote
-  createVersion(request: CreateVersionRequest): Promise<VersionRecord> {
-    return this.run(async catalog => {
-      const parsed = versionRequest.parse(request)
-      const version = await catalog.createVersion(
-        brandString<ProjectRecord['id']>(parsed.projectId),
-        parsed.name,
-        parsed.sources.map(source => ({ sourceId: brandString<VersionRecord['sources'][number]['sourceId']>(source.sourceId), ref: source.ref })),
-        parsed.description,
-        parsed.targets?.map(target => ({
-          subProjectId: brandString<Branded<'loom.subproject'>>(target.subProjectId),
-          sourceId: brandString<VersionRecord['sources'][number]['sourceId']>(target.sourceId),
-          ref: target.ref,
-        })),
-      )
-      if (parsed.workspaces === undefined) return version
-      try {
-        const lock = await catalog.generateLock(version.id)
-        for (const input of parsed.workspaces) await this.prepareVersionWorkspace(catalog, version, lock, input)
-        return version
-      } catch (error) {
-        // A partially prepared workspace can exist even when its own call rejected.
-        // Remove only records created for this new version, then remove the version.
-        for (const workspace of catalog.snapshot().workspaces.filter(candidate => candidate.versionId === version.id)) {
-          try { await catalog.cleanupWorkspace(workspace.id, true) } catch { /* retain the original failure for the caller */ }
-        }
-        try { await catalog.deleteVersion(version.id) } catch { /* report the original preparation failure */ }
-        throw error
-      }
-    })
-  }
+  createVersion(request: CreateVersionRequest): Promise<VersionRecord> { return this.operations.createVersion(operation => this.run(operation), request) }
 
-  /** Materialize one workspace while saving a version.
-   * @param catalog - live catalog
-   * @param version - owning version
-   * @param lock - resolved baseline
-   * @param input - auto-created or linked workspace input
-   */
-  private async prepareVersionWorkspace(catalog: Catalog, version: VersionRecord, lock: Lock, input: VersionWorkspaceInput): Promise<WorkspaceRecord> {
-    const snapshot = catalog.snapshot()
-    const project = snapshot.projects.find(candidate => candidate.id === version.projectId)
-    if (project === undefined) throw serviceError('missing_project')
-    const targetIds = new Set(lock.repositories.map(repository => repository.sourceId))
-    const sources = project.config.sources.filter(source => targetIds.has(source.id))
-    if (sources.length === 0) throw serviceError('workspace_mismatch')
-    if (input.mode === 'auto') {
-      if (!isAbsolute(input.parentPath) || normalize(input.parentPath) !== input.parentPath) throw serviceError('invalid_workspace_path')
-      if (!/^[A-Za-z0-9._-]+$/u.test(input.name) || input.name === '.' || input.name === '..') throw serviceError('invalid_workspace_path')
-      const root = join(input.parentPath, input.name)
-      const prefix = input.branchPrefix ?? 'loom'
-      if (!/^(?![-.])[A-Za-z0-9._/-]+$/u.test(prefix)) throw serviceError('invalid_workspace_path')
-      const branch = `${prefix}/${input.name}`
-      const branches: Record<string, string> = {}
-      const repositories = sources.map(source => {
-        const pinned = lock.repositories.find(repository => repository.sourceId === source.id)
-        const subProjectId = pinned?.subProjectId === undefined ? 'default' : String(pinned.subProjectId)
-        const path = autoWorkspaceRepositoryPath(subProjectId, source)
-        branches[source.id] = branch
-        return { sourceId: source.id, path, targetPath: join(root, path) }
-      })
-      const prepared = await catalog.prepareWorkspace({ path: root, versionId: version.id, lockId: lock.id, mode: 'managed', repositories, branches, requireBranches: true })
-      if (prepared.preparation?.status === 'failed') {
-        const failed = prepared.preparation.repositories.filter(repository => repository.status === 'failed')
-        const reason = failed.length > 0
-          ? failed.map(repository => `${repository.path ?? String(repository.sourceId)}: ${repository.error ?? 'failed'}`).join('; ')
-          : prepared.preparation.error ?? 'workspace preparation failed'
-        throw new Error(reason)
-      }
-      return prepared
-    }
-    if (!isAbsolute(input.rootPath) || normalize(input.rootPath) !== input.rootPath) throw serviceError('invalid_workspace_path')
-    if (input.repositories.length !== sources.length) throw serviceError('workspace_mismatch')
-    const branches: Record<string, string> = {}
-    const repositories: { sourceId: Branded<'loom.source'>; path: string; targetPath: string }[] = []
-    for (const source of sources) {
-      const mapping = input.repositories.find(candidate => candidate.sourceId === source.id)
-      if (mapping === undefined) throw serviceError('workspace_mismatch')
-      if (!isAbsolute(mapping.targetPath) || normalize(mapping.targetPath) !== mapping.targetPath) throw serviceError('invalid_workspace_path')
-      const current = await repositoryBranches(mapping.targetPath)
-      if (current.current === undefined) throw serviceError('detached_head', mapping.targetPath)
-      branches[source.id] = current.current
-      const pinned = lock.repositories.find(repository => repository.sourceId === source.id)
-      const subProjectId = pinned?.subProjectId === undefined ? 'default' : String(pinned.subProjectId)
-      repositories.push({ sourceId: source.id, path: autoWorkspaceRepositoryPath(subProjectId, source), targetPath: mapping.targetPath })
-    }
-    return catalog.registerPreparedWorkspace({
-      path: input.rootPath, rootPath: input.rootPath, rootOwner: 'user', versionId: version.id, lockId: lock.id, mode: 'direct', branches, repositories,
-    })
-  }
-
-  /** Replace a version's name, description and repository refs. @param request - version identity and new values. @returns persisted version. */
   @Remote
-  updateVersion(request: UpdateVersionRequest): Promise<VersionRecord> {
-    return this.run(catalog => {
-      const parsed = updateVersionRequest.parse(request)
-      return catalog.updateVersion(
-        brandString<VersionRecord['id']>(parsed.versionId),
-        parsed.name,
-        parsed.sources.map(source => ({ sourceId: brandString<VersionRecord['sources'][number]['sourceId']>(source.sourceId), ref: source.ref })),
-        parsed.description,
-        parsed.targets?.map(target => ({
-          subProjectId: brandString<Branded<'loom.subproject'>>(target.subProjectId),
-          sourceId: brandString<VersionRecord['sources'][number]['sourceId']>(target.sourceId),
-          ref: target.ref,
-        })),
-      )
-    })
-  }
+  updateVersion(request: UpdateVersionRequest): Promise<VersionRecord> { return this.operations.updateVersion(operation => this.run(operation), request) }
 
-  /** Delete a version with no tasks or workspaces. @param request - version identity. @returns nothing after its Locks are gone. */
   @Remote
-  deleteVersion(request: DeleteVersionRequest): Promise<void> {
-    return this.run(catalog => catalog.deleteVersion(brandString<VersionRecord['id']>(deleteVersionRequest.parse(request).versionId)))
-  }
+  deleteVersion(request: DeleteVersionRequest): Promise<void> { return this.operations.deleteVersion(operation => this.run(operation), request) }
 
-  /** Delete a task after its workspaces are cleaned. @param request - task identity. @returns nothing after the task record is gone. */
   @Remote
-  deleteTask(request: DeleteTaskRequest): Promise<void> {
-    return this.run(catalog => catalog.deleteTask(brandString<TaskRecord['id']>(deleteTaskRequest.parse(request).taskId)))
-  }
+  deleteTask(request: DeleteTaskRequest): Promise<void> { return this.operations.deleteTask(operation => this.run(operation), request) }
 
-  /** Resolve all version refs. @param request - owning version. @returns immutable Lock. */
   @Remote
-  generateLock(request: GenerateLockRequest): Promise<Lock> {
-    return this.run(catalog => catalog.generateLock(brandString<VersionRecord['id']>(lockRequest.parse(request).versionId)))
-  }
+  generateLock(request: GenerateLockRequest): Promise<Lock> { return this.operations.generateLock(operation => this.run(operation), request) }
 
-  /** Create a pending task. @param request - fixed version and title. @returns persisted task. */
   @Remote
-  createTask(request: CreateTaskRequest): Promise<TaskRecord> {
-    return this.run(catalog => {
-      const parsed = taskRequest.parse(request)
-      return catalog.createTask(brandString<VersionRecord['id']>(parsed.versionId), parsed.title, {
-        ...(parsed.workspaceId === undefined ? {} : { workspaceId: brandString<WorkspaceRecord['id']>(parsed.workspaceId) }),
-        ...(parsed.description === undefined ? {} : { description: parsed.description }),
-        ...(parsed.moduleIds === undefined ? {} : { moduleIds: parsed.moduleIds.map(moduleId => brandString<Branded<'loom.module'>>(moduleId)) }),
-        ...(parsed.priority === undefined ? {} : { priority: parsed.priority }),
-      })
-    })
-  }
+  createTask(request: CreateTaskRequest): Promise<TaskRecord> { return this.operations.createTask(operation => this.run(operation), request) }
 
-  /** Replace editable task metadata. @param request - task identity and metadata. @returns persisted task. */
   @Remote
-  updateTask(request: UpdateTaskRequest): Promise<TaskRecord> {
-    return this.run(catalog => {
-      const parsed = updateTaskRequest.parse(request)
-      return catalog.updateTask(brandString<TaskRecord['id']>(parsed.taskId), parsed.title, {
-        ...(parsed.description === undefined ? {} : { description: parsed.description }),
-        ...(parsed.moduleIds === undefined ? {} : { moduleIds: parsed.moduleIds.map(moduleId => brandString<Branded<'loom.module'>>(moduleId)) }),
-        ...(parsed.priority === undefined ? {} : { priority: parsed.priority }),
-      })
-    })
-  }
+  updateTask(request: UpdateTaskRequest): Promise<TaskRecord> { return this.operations.updateTask(operation => this.run(operation), request) }
 
-  /** Materialize a workspace from a version Lock and record it. @param request - owning baseline and an optional absolute root. @returns persisted workspace. */
   @Remote
-  prepareWorkspace(request: PrepareWorkspaceRequest): Promise<WorkspaceRecord> {
-    return this.run(catalog => {
-      const parsed = workspaceRequest.parse(request)
-      const path = parsed.path ?? join(this.workspacesDir, `workspace-${randomUUID().slice(0, 8)}`)
-      return catalog.prepareWorkspace({
-        path,
-        versionId: brandString<Lock['versionId']>(parsed.versionId),
-        lockId: brandString<Lock['id']>(parsed.lockId),
-        ...(parsed.branches === undefined ? {} : { branches: parsed.branches }),
-        ...(parsed.mode === undefined ? {} : { mode: parsed.mode }),
-        ...(parsed.repositories === undefined ? {} : {
-          repositories: parsed.repositories.map(repository => ({
-            sourceId: brandString<Branded<'loom.source'>>(repository.sourceId),
-            path: repository.path,
-            targetPath: repository.targetPath,
-          })),
-        }),
-        ...(parsed.workspaceId === undefined ? {} : { workspaceId: brandString<WorkspaceRecord['id']>(parsed.workspaceId) }),
-        ...(parsed.requireBranches === undefined ? {} : { requireBranches: parsed.requireBranches }),
-      })
-    })
-  }
+  prepareWorkspace(request: PrepareWorkspaceRequest): Promise<WorkspaceRecord> { return this.operations.prepareWorkspace(operation => this.run(operation), request) }
 
-  /** Read local branches of one repository. @param request - absolute repository path. @returns current and available branches. */
   @Remote
   repositoryBranches(request: RepositoryBranchesRequest): Promise<{ topLevel: string; current?: string; branches: readonly string[] }> {
-    return this.run(() => repositoryBranches(repositoryBranchesRequest.parse(request).repo))
+    return this.operations.repositoryBranches(operation => this.run(operation), request)
   }
 
-  /** Commit all uncommitted workspace changes without pushing. @param request - workspace identity and optional subject. @returns per-repository checkpoint results. */
-  @Remote
-  commitWorkspace(request: CommitWorkspaceRequest): Promise<WorkspaceCommitResult> {
-    return this.run(catalog => {
-      const parsed = commitWorkspaceRequest.parse(request)
-      return catalog.commitWorkspace(brandString<WorkspaceRecord['id']>(parsed.workspaceId), parsed.message ?? 'Loom checkpoint')
-    })
-  }
-
-  /** Check one existing workspace root against a version's repositories. @param request - absolute root and version. @returns per-repository Git status, without registering anything. */
-  @Remote
-  inspectWorkspace(request: InspectWorkspaceRequest): Promise<WorkspaceInspection> {
-    const parsed = inspectWorkspaceRequest.parse(request)
-    return this.run(catalog => inspectWorkspace(catalog.snapshot(), parsed.path, parsed.versionId))
-  }
-
-  /** Read every repository's changes against a workspace Lock. @param request - prepared workspace identity. @returns changed files and hunks per repository. */
   @Remote
   workspaceChanges(request: WorkspaceChangesRequest): Promise<{ repositories: WorkspaceRepositoryChangesRecord[] }> {
-    return this.run(catalog => {
-      const parsed = workspaceChangesRequest.parse(request)
-      return catalog.workspaceChanges(
-        brandString<WorkspaceRecord['id']>(parsed.workspaceId),
-        parsed.attemptId === undefined ? undefined : brandString<Branded<'loom.attempt'>>(parsed.attemptId),
-      )
-    })
+    return this.operations.workspaceChanges(operation => this.run(operation), request)
   }
 
-  /** Count changed files in a workspace without reading their diffs. @param request - prepared workspace identity. @returns changed-file count, including untracked files. */
   @Remote
-  workspaceChangeCount(request: WorkspaceChangesRequest): Promise<number> {
-    return this.run(catalog => {
-      const parsed = workspaceChangesRequest.parse(request)
-      return catalog.workspaceChangeCount(
-        brandString<WorkspaceRecord['id']>(parsed.workspaceId),
-        parsed.attemptId === undefined ? undefined : brandString<Branded<'loom.attempt'>>(parsed.attemptId),
-      )
-    })
-  }
+  commitWorkspace(request: CommitWorkspaceRequest): Promise<WorkspaceCommitResult> { return this.operations.commitWorkspace(operation => this.run(operation), request) }
 
-  /** Read whether a workspace is owned by a running task and what it has changed. @param request - prepared workspace identity. @returns ownership and changes. */
   @Remote
-  workspaceStatus(request: WorkspaceChangesRequest): Promise<WorkspaceStatusResult> {
-    return this.run(catalog => {
-      const parsed = workspaceChangesRequest.parse(request)
-      return catalog.workspaceStatus(
-        brandString<WorkspaceRecord['id']>(parsed.workspaceId),
-        parsed.attemptId === undefined ? undefined : brandString<Branded<'loom.attempt'>>(parsed.attemptId),
-      )
-    })
-  }
+  inspectWorkspace(request: InspectWorkspaceRequest): Promise<WorkspaceInspection> { return this.operations.inspectWorkspace(operation => this.run(operation), request) }
 
-  /** Remove a workspace, optionally deleting its directory after path confirmation. @param request - workspace, delete-files flag and echoed root. @returns nothing after the record and optional files are gone. */
   @Remote
-  deleteWorkspace(request: DeleteWorkspaceRequest): Promise<void> {
-    return this.run(catalog => {
-      const parsed = deleteWorkspaceRequest.parse(request)
-      return catalog.deleteWorkspace(
-        brandString<WorkspaceRecord['id']>(parsed.workspaceId),
-        parsed.deleteFiles === true,
-        parsed.confirmPath,
-      )
-    })
-  }
+  workspaceChangeCount(request: WorkspaceChangesRequest): Promise<number> { return this.operations.workspaceChangeCount(operation => this.run(operation), request) }
 
-  /** Update editable Workspace metadata. @param request - workspace identity and display label. @returns persisted workspace. */
   @Remote
-  updateWorkspace(request: UpdateWorkspaceRequest): Promise<WorkspaceRecord> {
-    return this.run(catalog => {
-      const parsed = updateWorkspaceRequest.parse(request)
-      return catalog.updateWorkspace(brandString<WorkspaceRecord['id']>(parsed.workspaceId), parsed.label ?? '')
-    })
-  }
+  workspaceStatus(request: WorkspaceChangesRequest): Promise<WorkspaceStatusResult> { return this.operations.workspaceStatus(operation => this.run(operation), request) }
 
-  /** Remove a retained workspace after explicit confirmation. @param request - workspace and whether uncommitted changes may be discarded. @returns nothing after worktrees and the record are gone. */
   @Remote
-  cleanupWorkspace(request: CleanupWorkspaceRequest): Promise<void> {
-    return this.run(async catalog => {
-      const parsed = cleanupWorkspaceRequest.parse(request)
-      await catalog.cleanupWorkspace(brandString<WorkspaceRecord['id']>(parsed.workspaceId), parsed.discardChanges === true)
-    })
-  }
+  deleteWorkspace(request: DeleteWorkspaceRequest): Promise<void> { return this.operations.deleteWorkspace(operation => this.run(operation), request) }
 
-  /** Record a prepared workspace whose files already exist. @param request - absolute path and owning baseline. @returns persisted workspace. */
   @Remote
-  registerWorkspace(request: RegisterWorkspaceRequest): Promise<WorkspaceRecord> {
-    return this.run(async catalog => {
-      const parsed = registerWorkspaceRequest.parse(request)
-      const snapshot = catalog.snapshot()
-      const registered = parsed.mode === 'linked' ? undefined : snapshot.workspaces.find(candidate => candidate.cleaned !== true
-        && (candidate.rootPath ?? candidate.path) === (parsed.rootPath ?? parsed.path)
-        && (candidate.mode ?? 'direct') === 'direct'
-        && sameRepositoryMappings(parsed.repositories, candidate.repositories))
-      if (registered !== undefined) {
-        const version = snapshot.versions.find(candidate => candidate.id === parsed.versionId)
-        const projectId = registered.projectId ?? snapshot.versions.find(candidate => candidate.id === registered.versionId)?.projectId
-        if (version !== undefined && projectId === version.projectId) {
-          await catalog.ensureWorkspaceBranches(registered.id)
-          return catalog.ensureWorkspaceSkillLinks(registered.id)
-        }
-      }
-      const branches = { ...parsed.branches }
-      let repositories: { sourceId: Branded<'loom.source'>; path: string; targetPath: string }[] | undefined
-      if (parsed.repositories !== undefined) {
-        repositories = parsed.repositories.map(repository => {
-          const sourceId = brandString<Branded<'loom.source'>>(repository.sourceId)
-          return { sourceId, path: repository.path, targetPath: repository.targetPath }
-        })
-        for (const repository of repositories) {
-          const current = await repositoryBranches(repository.targetPath)
-          if (parsed.requireBranches === true && current.current === undefined) throw serviceError('detached_head', repository.targetPath)
-          if (branches[repository.sourceId] === undefined && current.current !== undefined) branches[repository.sourceId] = current.current
-        }
-      } else {
-        const inspection = await inspectWorkspace(catalog.snapshot(), parsed.path, parsed.versionId)
-        const failed = inspection.repositories.find(repository => repository.error !== undefined)
-        if (failed !== undefined) throw new Error(`invalid_workspace_path: ${failed.directory} (${failed.error ?? 'not_git'})`)
-        for (const repository of inspection.repositories) {
-          if (parsed.requireBranches === true && repository.current === undefined) throw serviceError('detached_head', repository.directory)
-          if (branches[repository.sourceId] === undefined && repository.current !== undefined) branches[repository.sourceId] = repository.current
-        }
-      }
-      const workspace = await catalog.registerPreparedWorkspace({
-        path: parsed.path,
-        versionId: brandString<Lock['versionId']>(parsed.versionId),
-        lockId: brandString<Lock['id']>(parsed.lockId),
-        ...(Object.keys(branches).length === 0 ? {} : { branches }),
-        ...(parsed.mode === undefined ? {} : { mode: parsed.mode }),
-        ...(parsed.projectId === undefined ? {} : { projectId: brandString<Branded<'loom.project'>>(parsed.projectId) }),
-        ...(parsed.rootPath === undefined ? {} : { rootPath: parsed.rootPath }),
-        ...(parsed.rootOwner === undefined ? {} : { rootOwner: parsed.rootOwner }),
-        ...(repositories === undefined ? {} : { repositories }),
-      })
-      await catalog.ensureWorkspaceBranches(workspace.id)
-      return catalog.ensureWorkspaceSkillLinks(workspace.id)
-    })
-  }
+  updateWorkspace(request: UpdateWorkspaceRequest): Promise<WorkspaceRecord> { return this.operations.updateWorkspace(operation => this.run(operation), request) }
 
-  /** Start the next execution round on a prepared workspace. @param request - task and workspace identities. @returns the running task. */
   @Remote
-  startAttempt(request: StartAttemptRequest): Promise<TaskRecord> {
-    return this.run(async catalog => {
-      const parsed = attemptRequest.parse(request)
-      const workspaceId = brandString<WorkspaceRecord['id']>(parsed.workspaceId)
-      const record = catalog.snapshot().workspaces.find(candidate => candidate.id === workspaceId)
-      if (record === undefined) throw serviceError('missing_workspace')
-      if (record.cleaned === true) throw serviceError('workspace_cleaned')
-      // A partially prepared workspace has no complete worktree set to reconcile.
-      if (record.preparation !== undefined && record.preparation.status !== 'ready') throw serviceError('workspace_not_prepared', `preparation is ${record.preparation.status}`)
-      const workspace = await catalog.ensureWorkspaceBranches(workspaceId)
-      if (workspace.cleaned === true) throw serviceError('workspace_cleaned')
-      if (await catalog.workspaceDirty(workspaceId)) throw serviceError('workspace_changes')
-      await catalog.ensureWorkspaceSkillLinks(workspaceId)
-      return catalog.startAttempt(brandString<TaskRecord['id']>(parsed.taskId), workspaceId, parsed.allowBusy === true ? { allowBusy: true } : undefined)
-    })
-  }
+  cleanupWorkspace(request: CleanupWorkspaceRequest): Promise<void> { return this.operations.cleanupWorkspace(operation => this.run(operation), request) }
 
-  /** Associate another native Session with the current round. @param request - task and Session identities. @returns the updated task. */
   @Remote
-  attachSession(request: AttachSessionRequest): Promise<TaskRecord> {
-    const parsed = sessionRequest.parse(request)
-    const sessionId = brandString<Branded<'SessionId'>>(parsed.sessionId)
-    const call = this.run(catalog => catalog.attachSession(brandString<TaskRecord['id']>(parsed.taskId), sessionId))
-    // The Agent may predate the attachment; register after the catalog write and
-    // its snapshot refresh, without delaying the Remote reply.
-    void call.then(() => this.versionContext.syncVersionContext(sessionId), () => undefined)
-    return call
-  }
+  registerWorkspace(request: RegisterWorkspaceRequest): Promise<WorkspaceRecord> { return this.operations.registerWorkspace(operation => this.run(operation), request) }
 
-  /** Mark a native Session as a Loom temporary Session. @param request - Session identity and prepared workspace path. @returns the committed record. */
   @Remote
-  registerTemporarySession(request: RegisterTemporarySessionRequest): Promise<TemporarySessionRecord> {
-    const parsed = temporarySessionRequest.parse(request)
-    const sessionId = brandString<Branded<'SessionId'>>(parsed.sessionId)
-    const call = this.run(catalog => catalog.registerTemporarySession(sessionId, parsed.workspacePath))
-    // Temporary Sessions are never task-bound; drop any stale registration.
-    void call.then(() => this.versionContext.syncVersionContext(sessionId), () => undefined)
-    return call
-  }
+  startAttempt(request: StartAttemptRequest): Promise<TaskRecord> { return this.operations.startAttempt(operation => this.run(operation), request) }
 
-  /** Stop treating a native Session as a Loom temporary Session. @param request - Session identity. @returns nothing after the record is gone. */
   @Remote
-  forgetTemporarySession(request: ForgetTemporarySessionRequest): Promise<void> {
-    return this.run(catalog => catalog.forgetTemporarySession(brandString<Branded<'SessionId'>>(forgetTemporarySessionRequest.parse(request).sessionId)))
-  }
+  attachSession(request: AttachSessionRequest): Promise<TaskRecord> { return this.operations.attachSession(operation => this.run(operation), request) }
 
-  /** Change business status under the trusted caller identity. @param request - task, target state and actor. @returns the updated task. */
   @Remote
-  transitionTask(request: TransitionTaskRequest): Promise<TaskRecord> {
-    return this.run(catalog => {
-      const parsed = transitionRequest.parse(request)
-      return catalog.transitionTask(brandString<TaskRecord['id']>(parsed.taskId), parsed.target, parsed.actor, parsed.basis === undefined ? undefined : { basis: parsed.basis })
-    })
-  }
+  registerTemporarySession(request: RegisterTemporarySessionRequest): Promise<TemporarySessionRecord> { return this.operations.registerTemporarySession(operation => this.run(operation), request) }
 
-  /** Acquire workspace execution access or join its FIFO wait queue. @param request - workspace and requesting Session. @returns the committed scheduling state. */
   @Remote
-  acquireExecution(request: ExecutionRequest): Promise<ExecutionState> {
-    return this.run(catalog => {
-      const parsed = executionRequest.parse(request)
-      return catalog.acquireExecution(
-        brandString<WorkspaceRecord['id']>(parsed.workspaceId),
-        brandString<Branded<'SessionId'>>(parsed.sessionId),
-      )
-    })
-  }
+  forgetTemporarySession(request: ForgetTemporarySessionRequest): Promise<void> { return this.operations.forgetTemporarySession(operation => this.run(operation), request) }
 
-  /** Replace the FIFO waiting order for one workspace. @param request - workspace and every waiting Session in the new order. @returns scheduling state after reordering. */
   @Remote
-  reorderExecutionQueue(request: ReorderExecutionQueueRequest): Promise<ExecutionState> {
-    return this.run(catalog => {
-      const parsed = reorderExecutionQueueRequest.parse(request)
-      return catalog.reorderExecutionQueue(
-        brandString<WorkspaceRecord['id']>(parsed.workspaceId),
-        parsed.sessionIds.map(id => brandString<Branded<'SessionId'>>(id)),
-      )
-    })
-  }
+  transitionTask(request: TransitionTaskRequest): Promise<TaskRecord> { return this.operations.transitionTask(operation => this.run(operation), request) }
 
-  /** Leave the execution waiting queue for one Session. @param request - workspace and Session. @returns scheduling state after removal. */
   @Remote
-  cancelExecution(request: ExecutionRequest): Promise<ExecutionState> {
-    return this.run(catalog => {
-      const parsed = executionRequest.parse(request)
-      return catalog.cancelExecution(
-        brandString<WorkspaceRecord['id']>(parsed.workspaceId),
-        brandString<Branded<'SessionId'>>(parsed.sessionId),
-      )
-    })
-  }
+  acquireExecution(request: ExecutionRequest): Promise<ExecutionState> { return this.operations.acquireExecution(operation => this.run(operation), request) }
 
-  /** Release an exact owned generation after its Agent turn settles. @param request - workspace, Session and generation. @returns the scheduling state after FIFO promotion. */
   @Remote
-  releaseExecution(request: ReleaseExecutionRequest): Promise<ExecutionState> {
-    return this.run(catalog => {
-      const parsed = releaseExecutionRequest.parse(request)
-      const workspaceId = brandString<WorkspaceRecord['id']>(parsed.workspaceId)
-      const sessionId = brandString<Branded<'SessionId'>>(parsed.sessionId)
-      const state = catalog.snapshot().executions.find(candidate => candidate.workspaceId === workspaceId)
-      if (state?.owner?.sessionId !== sessionId || Number(state.owner.generation) !== parsed.generation) throw serviceError('stale_owner')
-      return catalog.releaseExecution(workspaceId, state.owner)
-    })
-  }
+  reorderExecutionQueue(request: ReorderExecutionQueueRequest): Promise<ExecutionState> { return this.operations.reorderExecutionQueue(operation => this.run(operation), request) }
 
+  @Remote
+  cancelExecution(request: ExecutionRequest): Promise<ExecutionState> { return this.operations.cancelExecution(operation => this.run(operation), request) }
+
+  @Remote
+  releaseExecution(request: ReleaseExecutionRequest): Promise<ExecutionState> { return this.operations.releaseExecution(operation => this.run(operation), request) }
   /**
    * Stop the current owner through the Agent runtime, then confirm or block handoff.
    * @param request - workspace and the Session requesting ownership.

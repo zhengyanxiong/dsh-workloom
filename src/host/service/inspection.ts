@@ -2,7 +2,7 @@
  * Workspace path and repository inspection helpers used by the Host service.
  */
 import { isAbsolute, join, resolve, win32 } from 'node:path'
-import type { CatalogSnapshot } from '../../api/records.ts'
+import type { CatalogSnapshot, WorkspaceRecord } from '../../api/records.ts'
 import type { WorkspaceInspection } from '../../api/index.ts'
 import type { WorkspaceRepositoryBinding } from '../../domain/workspace.ts'
 import { repositoryBranches } from '../../git/workspace.ts'
@@ -60,3 +60,23 @@ export async function inspectWorkspace(snapshot: CatalogSnapshot, path: string, 
   return { path, repositories }
 }
 
+
+
+/**
+ * Derive legacy repository bindings when a workspace record predates layouts.
+ * @param snapshot - Current catalog snapshot, if loaded.
+ * @param workspace - Workspace record.
+ * @returns direct bindings under the workspace root.
+ */
+export function fallbackBindings(snapshot: CatalogSnapshot | undefined, workspace: WorkspaceRecord): readonly WorkspaceRepositoryBinding[] {
+  const version = snapshot?.versions.find(candidate => candidate.id === workspace.versionId)
+  const project = version === undefined ? undefined : snapshot?.projects.find(candidate => candidate.id === version.projectId)
+  const root = workspace.rootPath ?? workspace.path
+  return project?.config.sources.map(source => ({
+    sourceId: source.id,
+    path: source.path,
+    targetPath: join(root, source.path),
+    kind: 'direct' as const,
+    ...(workspace.branches?.[source.id] === undefined ? {} : { branch: workspace.branches[source.id] }),
+  })) ?? []
+}
