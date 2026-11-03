@@ -36,8 +36,17 @@ development-only and never ship in the bundle.
 | `pnpm run typecheck` | Host, Client and domain programs (`tsconfig.*.json`) |
 | `pnpm test` | Unit tests for the domain, Host services and Client components |
 | `pnpm run build` | `tsdown` bundle into `lib/` |
+| `pnpm run smoke` | Isolated 3090 build, profile, HTTP and headless-UI smoke |
 
-CI runs the same three commands through `.github/workflows/ci.yml`.
+CI runs the first three commands through `.github/workflows/ci.yml`.
+
+`pnpm run smoke` is the local end-to-end gate for UI and DSH integration
+changes. It builds and stages a separate profile, starts DSH on port 3090,
+checks authentication, renders Workloom in headless Chrome when a Chromium
+binary is available, and opens/closes the New menu. It never touches the
+developer's 3080 or 3099 instances. Set `CHROME_PATH` when Chromium is not at
+the default cache path; set `SMOKE_TEMPLATE_HOME` when the verify profile does
+not live in `../.verify-dsh/home`.
 
 ## Generated artifacts
 

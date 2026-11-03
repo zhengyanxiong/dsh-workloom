@@ -26,7 +26,8 @@ Read these before changing code:
 - Use existing UI tokens/primitives; do not add hardcoded colors or copy.
 - Every behavior change needs a focused test; DSH boundary changes need a contract
   test.
-- Run `pnpm run typecheck`, `pnpm test` and `pnpm run build` before claiming done.
+- Run `pnpm run typecheck`, `pnpm test`, `pnpm run build` before claiming done.
+- Run `pnpm run smoke` for UI, DSH-boundary or runtime changes; it uses isolated port 3090.
 - Commit messages use Conventional Commits with the `workloom` scope.
 
 ## Migration rule

@@ -156,6 +156,7 @@ domain        -> 仅本地品牌类型（最终不依赖 DSH）
 - [ ] `pnpm run typecheck` 通过
 - [ ] `pnpm test` 通过
 - [ ] `pnpm run build` 通过
+- [ ] 涉及 UI / DSH 边界 / 运行时改动时，`pnpm run smoke` 通过
 - [ ] 没有新增跨层导入
 - [ ] 没有新增 `any` / `@ts-ignore` / 未说明的 `as`
 - [ ] 新行为有测试

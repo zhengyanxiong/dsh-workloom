@@ -69,6 +69,7 @@
     "typecheck": "tsc -p tsconfig.host.json && tsc -p tsconfig.client.json && tsc -p tsconfig.domain.json",
     "test": "vitest run",
     "test:watch": "vitest",
+    "smoke": "node scripts/smoke.mjs",
     "install-local": "pnpm run build && node scripts/stage.mjs",
     "generate": "node --import tsx/esm scripts/generate-typert.ts",
     "prepack": "pnpm run build"

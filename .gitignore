@@ -16,3 +16,6 @@ lib/*
 !lib/typert.remote-client.d.ts.map
 tmp/
 release-assets/
+dist-smoke/
+.smoke-dsh/
+.smoke-chrome/
