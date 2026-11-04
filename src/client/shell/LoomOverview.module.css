@@ -14,18 +14,18 @@
 .headMeta { display: flex; align-items: center; gap: var(--space-3); flex: none; }
 .date { color: var(--color-muted); font-family: var(--font-mono); font-size: var(--text-micro-size); line-height: var(--text-micro-lh); white-space: nowrap; }
 .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-3); margin-top: var(--space-6); }
-.stat { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; padding: var(--space-4) var(--space-5); border: 1px solid var(--color-line); border-radius: var(--radius-lg); background: var(--color-surface); text-align: left; cursor: pointer; font-family: var(--font-body); }
+.stat { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; min-height: 118px; padding: var(--space-6) var(--space-6); border: 1px solid var(--color-line); border-radius: var(--radius-lg); background: var(--color-surface); text-align: left; cursor: pointer; font-family: var(--font-body); }
 .stat:hover { border-color: var(--color-line-strong); }
 .statValue { color: var(--color-ink); font-family: var(--font-body); font-size: var(--text-stat-size); line-height: var(--text-stat-lh); letter-spacing: var(--text-stat-tracking); font-weight: var(--text-stat-weight); }
 .statLabel { color: var(--color-ink-3); font-size: var(--text-small-size); line-height: var(--text-small-lh); }
 .columns { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(280px, 1fr); gap: var(--space-6); margin-top: var(--space-6); align-items: start; }
 .left, .right { display: flex; flex-direction: column; gap: var(--space-6); min-width: 0; }
-.card { border: 1px solid var(--color-line); border-radius: var(--radius-lg); background: var(--color-surface); padding: var(--space-4) var(--space-5); min-width: 0; }
+.card { border: 1px solid var(--color-line); border-radius: var(--radius-lg); background: var(--color-surface); padding: var(--space-6) var(--space-6); min-width: 0; }
 .cardHead { display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-2); }
 .cardTitle { margin: 0; color: var(--color-ink); font-family: var(--font-body); font-size: var(--text-h3-size); line-height: var(--text-h3-lh); font-weight: var(--text-h3-weight); }
 .cardLink { margin-left: auto; border: 0; background: transparent; color: var(--color-accent); cursor: pointer; font: inherit; font-size: var(--text-small-size); }
 .cardLink:hover { text-decoration: underline; }
-.row { display: flex; align-items: center; gap: var(--space-2); width: 100%; padding: var(--space-2) 0; border: 0; border-top: 1px solid var(--color-line-soft); background: transparent; color: inherit; text-align: left; cursor: pointer; font: inherit; min-width: 0; }
+.row { display: flex; align-items: center; gap: var(--space-2); width: 100%; padding: var(--space-3) 0; border: 0; border-top: 1px solid var(--color-line-soft); background: transparent; color: inherit; text-align: left; cursor: pointer; font: inherit; min-width: 0; }
 .row:first-of-type { border-top: 0; }
 .row:hover { color: var(--color-ink); }
 .dot { width: 6px; height: 6px; flex: none; border-radius: var(--radius-pill); }
@@ -33,7 +33,7 @@
 .rowMeta { flex: none; max-width: 48%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--color-muted); font-family: var(--font-mono); font-size: var(--text-micro-size); line-height: var(--text-micro-lh); }
 .rowTag { flex: none; }
 .projects { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-3); }
-.project { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; padding: var(--space-3); border: 1px solid var(--color-line); border-radius: var(--radius-md); background: var(--color-surface); text-align: left; cursor: pointer; font: inherit; }
+.project { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; padding: var(--space-4); border: 1px solid var(--color-line); border-radius: var(--radius-md); background: var(--color-surface); text-align: left; cursor: pointer; font: inherit; }
 .project:hover { border-color: var(--color-line-strong); background: var(--color-panel); }
 .projectHead { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
 .projectMark { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; flex: none; border-radius: var(--radius-sm); background: var(--color-accent-soft); color: var(--color-accent-ink); font-family: var(--font-body); font-size: var(--text-label-size); font-weight: 600; }
@@ -59,7 +59,7 @@
 .statTop { display: flex; align-items: center; gap: var(--space-2); }
 .statDot { width: 6px; height: 6px; flex: none; border-radius: var(--radius-pill); }
 .statHint { color: var(--color-muted); font-family: var(--font-mono); font-size: var(--text-micro-size); line-height: var(--text-micro-lh); }
-.statBars { display: flex; align-items: flex-end; gap: 2px; height: 14px; margin-top: var(--space-1); }
+.statBars { display: flex; align-items: flex-end; gap: 2px; height: 18px; margin-top: var(--space-2); }
 .statBar { width: 5px; border-radius: 1px; background: var(--color-accent); opacity: .75; }
 .statBarMuted { opacity: .28; }
 .cardSub { margin: calc(var(--space-1) * -1) 0 var(--space-2); color: var(--color-muted); font-size: var(--text-label-size); line-height: var(--text-label-lh); }
