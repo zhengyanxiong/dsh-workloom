@@ -48,7 +48,7 @@ export function LoomOverview({ t, snapshot, activeWorkspaceCount, onTask, onProj
   }
   const versionName = (task: TaskRecord): string => snapshot.versions.find(version => version.id === task.versionId)?.name ?? ''
   const timeAgo = (timestamp: number | undefined): string => {
-    if (timestamp === undefined) return ''
+    if (timestamp === undefined || !Number.isFinite(timestamp)) return ''
     const minutes = Math.max(0, Math.round((Date.now() - timestamp) / 60000))
     if (minutes < 1) return 'now'
     if (minutes < 60) return `${String(minutes)}m`
@@ -56,7 +56,14 @@ export function LoomOverview({ t, snapshot, activeWorkspaceCount, onTask, onProj
     return hours < 24 ? `${String(hours)}h` : `${String(Math.round(hours / 24))}d`
   }
   const waiting = snapshot.tasks.filter(task => task.status === 'pending').length
-  const completedThisWeek = completed.filter(task => Number(task.updatedAt ?? 0) > Date.now() - 7 * 24 * 60 * 60 * 1000).length
+  const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000
+  const timedCompleted = completed.filter(task => Number.isFinite(Number(task.updatedAt)) && Number(task.updatedAt) > weekAgo)
+  const completedThisWeek = timedCompleted.length > 0 ? timedCompleted.length : completed.length
+  const sourceName = (project: ProjectRecord): string => {
+    const source = project.config.sources[0]
+    if (source === undefined) return t('source.repo')
+    return source.repo.split(/[\\/]/u).filter(Boolean).at(-1) ?? source.repo
+  }
   return <main className={classes.page}>
     <div className={classes.inner}>
       <div className={classes.head}>
@@ -93,7 +100,7 @@ export function LoomOverview({ t, snapshot, activeWorkspaceCount, onTask, onProj
                 const projectTasks = snapshot.tasks.filter(task => task.versionId !== undefined && snapshot.versions.find(version => version.id === task.versionId)?.projectId === project.id)
                 return <button key={project.id} type="button" className={classes.project} onClick={() => onProject(project)}>
                   <span className={classes.projectHead}><span className={classes.projectMark}>{project.config.name.slice(0, 1)}</span><span className={classes.projectName}>{project.config.name}</span></span>
-                  <span className={classes.projectSub}>{project.config.sources[0]?.repo ?? t('source.repo')}</span>
+                  <span className={classes.projectSub}>{sourceName(project)}</span>
                   <span className={classes.projectStats}><span>{projectTasks.length} {t('nav.tasks')} · {project.config.sources.length} {t('source.repo')}</span></span>
                   <span className={classes.progress}><span className={classes.progressFill} style={{ width: `${String(Math.min(100, projectTasks.length * 8 + 8))}%` }} /></span>
                 </button>
