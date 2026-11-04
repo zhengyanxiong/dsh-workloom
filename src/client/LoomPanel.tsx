@@ -23,6 +23,8 @@ import { LoomFilePreview } from './LoomFilePreview.tsx'
 import { LoomDirectoryBrowser } from './LoomDirectoryBrowser.tsx'
 import { LoomReviewPreview } from './LoomReviewPreview.tsx'
 import { LoomTopbar } from './shell/LoomTopbar.tsx'
+import { LoomOverview } from './shell/LoomOverview.tsx'
+import { parseLoomHash, type LoomRoute } from './shell/router.ts'
 import { PinButton, ProjectTaskRow, SidebarSectionToggle, SidebarSessionRow, TreeIconAction, TreeRow, versionChip } from './shell/LoomSidebarParts.tsx'
 import { openFilePreview, workspacePreview, workspaceReviewPreview } from './preview.ts'
 import { LoomContextPanel } from './LoomContextPanel.tsx'
@@ -228,9 +230,34 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
   const sessions = useSessions(state => state)
   const [preferences, setPreferences] = useState<LoomPreferences>(readPreferences)
   const [view, setView] = useState<View>(preferences.view)
+  const [route, setRoute] = useState<LoomRoute>(() => typeof window === 'undefined' ? 'task' : parseLoomHash(window.location.hash).route)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [narrow, setNarrow] = useState(() => typeof window !== 'undefined' && window.innerWidth <= 940)
   const [viewport, setViewport] = useState(() => ({ width: typeof window === 'undefined' ? 1440 : window.innerWidth, height: typeof window === 'undefined' ? 900 : window.innerHeight }))
+  const navigate = useCallback((next: LoomRoute): void => {
+    setRoute(next)
+    if (next === 'board') setView('kanban')
+    else if (next === 'task' || next === 'session' || next === 'project') setView('workbench')
+    else if (next === 'settings') setSettingsOpen(true)
+    if (typeof window !== 'undefined') {
+      const hash = `#${next}`
+      if (window.location.hash !== hash) window.location.hash = hash
+    }
+  }, [])
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const apply = (): void => {
+      const next = parseLoomHash(window.location.hash).route
+      setRoute(next)
+      if (next === 'board') setView('kanban')
+      else if (next === 'task' || next === 'session' || next === 'project') setView('workbench')
+      else if (next === 'settings') setSettingsOpen(true)
+    }
+    apply()
+    window.addEventListener('hashchange', apply)
+    return () => window.removeEventListener('hashchange', apply)
+  }, [])
+
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [project, setProject] = useState<ProjectRecord['id']>()
@@ -728,6 +755,7 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
     setSelected(undefined)
     setExecutionSession(undefined)
     setView('workbench')
+    navigate('task')
   }
   const selectSession = (id: SessionId, owner?: TaskRecord): void => {
     const bound = boundRows.find(row => row.sessionId === id)
@@ -738,6 +766,7 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
       if (nextVersion !== undefined) { setProject(nextVersion.projectId); setVersion(nextVersion.id) }
     }
     setSelected(id); setView('workbench')
+    navigate('session')
   }
   /** Open one attached Session from the round list; retrying the open one re-runs retention. */
   const openAttemptSession = (id: string): void => {
@@ -912,6 +941,7 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
       snapshot={snapshot}
       activeCount={activeCount}
       view={view}
+      overviewActive={route === 'home'}
       asideOpen={asideOpen}
       createDisabledVersion={createDisabledVersion}
       createDisabledTask={createDisabledTask}
@@ -921,7 +951,8 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
       onToggleMenu={() => setMenuOpen(value => !value)}
       onSelectProject={(id) => { setProject(id); setVersion(undefined); setTask(undefined); setSelected(undefined) }}
       onSelectVersion={(id) => { setVersion(id); setTask(undefined); setSelected(undefined); if (id !== undefined) { const owner = snapshot?.versions.find(candidate => candidate.id === id); if (owner !== undefined) setProject(owner.projectId) } }}
-      onViewChange={(next) => { setView(next); setPreferences(current => ({ ...current, view: next })) }}
+      onViewChange={(next) => { setView(next); setPreferences(current => ({ ...current, view: next })); navigate(next === 'kanban' ? 'board' : 'task') }}
+      onOverview={() => navigate('home')}
       onOpenCreate={openCreate}
       onToggleAside={() => setAsideOpen(value => { const next = !value; setPreferences(current => ({ ...current, contextOpen: next })); return next })}
       onOpenSettings={() => setSettingsOpen(true)}
@@ -1016,7 +1047,17 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
           </>}
         </section>
       </aside>}
-      {view === 'kanban'
+      {route === 'home'
+        ? <LoomOverview
+            t={t}
+            snapshot={snapshot ?? { projects: [], versions: [], locks: [], tasks: [], workspaces: [], temporarySessions: [], audit: [], executions: [] }}
+            activeWorkspaceCount={activeCount}
+            onTask={(record) => { selectTask(record); navigate('task') }}
+            onProject={(record) => { setProject(record.id); setVersion(undefined); setTask(undefined); setSelected(undefined); navigate('task') }}
+            onSession={(id) => { selectSession(id as SessionId); navigate('session') }}
+            onBoard={() => navigate('board')}
+          />
+        : view === 'kanban'
         ? <LoomKanban
             t={t}
             snapshot={snapshot ?? { projects: [], versions: [], locks: [], tasks: [], workspaces: [], temporarySessions: [], audit: [], executions: [] }}

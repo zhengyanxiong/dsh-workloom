@@ -29,6 +29,7 @@ export interface LoomTopbarProps {
   readonly snapshot: CatalogSnapshot | undefined
   readonly activeCount: number
   readonly view: 'workbench' | 'kanban'
+  readonly overviewActive: boolean
   readonly asideOpen: boolean
   readonly createDisabledVersion: boolean
   readonly createDisabledTask: boolean
@@ -39,6 +40,7 @@ export interface LoomTopbarProps {
   readonly onSelectProject: (id: ProjectRecord['id'] | undefined) => void
   readonly onSelectVersion: (id: VersionRecord['id'] | undefined) => void
   readonly onViewChange: (view: 'workbench' | 'kanban') => void
+  readonly onOverview: () => void
   readonly onOpenCreate: (kind: 'project' | 'import' | 'version' | 'task') => void
   readonly onToggleAside: () => void
   readonly onOpenSettings: () => void
@@ -87,7 +89,7 @@ const menuRule: CSSProperties = { height: 1, margin: '4px 3px', background: COLO
  * @returns the shell header.
  */
 export function LoomTopbar(props: LoomTopbarProps): JSX.Element {
-  const { t, narrow, sidebarOpen, sidebarCollapsed, menuOpen, project, version, snapshot, activeCount, view, asideOpen, createDisabledVersion, createDisabledTask, newMenuRef, onToggleSidebar, onToggleSidebarCollapsed, onToggleMenu, onSelectProject, onSelectVersion, onViewChange, onOpenCreate, onToggleAside, onOpenSettings } = props
+  const { t, narrow, sidebarOpen, sidebarCollapsed, menuOpen, project, version, snapshot, activeCount, view, overviewActive, asideOpen, createDisabledVersion, createDisabledTask, newMenuRef, onToggleSidebar, onToggleSidebarCollapsed, onToggleMenu, onSelectProject, onSelectVersion, onViewChange, onOverview, onOpenCreate, onToggleAside, onOpenSettings } = props
   return <header className="loom-topbar" style={topbar}>
     {narrow && <button type="button" aria-label={t('side.projects')} aria-expanded={sidebarOpen} title={t('side.projects')} onClick={onToggleSidebar} style={{ ...topAction, width: 28, height: 28 }} className="loom-top-action"><IconProjectAddOutlineRegular size={14} /></button>}
     <span style={topBrand}>
@@ -116,7 +118,8 @@ export function LoomTopbar(props: LoomTopbarProps): JSX.Element {
       <span className="loom-top-activity-label">{t('top.activeWorkspaces')}</span>
     </span>
     <div className="loom-view-switch" style={topViewSwitch}>
-      <button type="button" aria-pressed={view === 'workbench'} onClick={() => onViewChange('workbench')} style={{ ...topViewButton, ...view === 'workbench' ? { background: COLORS.panel, color: COLORS.text, fontWeight: 500, boxShadow: '0 1px 2px rgba(15,17,21,.08)' } : {} }}>{t('workbench')}</button>
+      <button type="button" aria-pressed={overviewActive} onClick={onOverview} style={{ ...topViewButton, ...overviewActive ? { background: COLORS.panel, color: COLORS.text, fontWeight: 500, boxShadow: '0 1px 2px rgba(15,17,21,.08)' } : {} }}>{t('nav.overview')}</button>
+      <button type="button" aria-pressed={view === 'workbench' && !overviewActive} onClick={() => onViewChange('workbench')} style={{ ...topViewButton, ...view === 'workbench' ? { background: COLORS.panel, color: COLORS.text, fontWeight: 500, boxShadow: '0 1px 2px rgba(15,17,21,.08)' } : {} }}>{t('workbench')}</button>
       <button type="button" aria-pressed={view === 'kanban'} onClick={() => onViewChange('kanban')} style={{ ...topViewButton, ...view === 'kanban' ? { background: COLORS.panel, color: COLORS.text, fontWeight: 500, boxShadow: '0 1px 2px rgba(15,17,21,.08)' } : {} }}>{t('view.kanban')}</button>
     </div>
     <span className="loom-top-spacer" style={topSpacer} />
