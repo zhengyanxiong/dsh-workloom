@@ -1,16 +1,15 @@
 /**
- * Overview route: a compact read-only summary of the current catalog.
- *
- * Counts and lists come from the catalog snapshot; no demo values are inserted
- * when a projection is unavailable.
+ * Overview route: answer what is running, what needs review and what happened
+ * recently using only committed catalog data.
  */
-import type { CSSProperties } from 'react'
-import { IconBranchOutlineRegular, IconProjectAddOutlineRegular, Tag } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconBranchOutlineRegular, IconFolderOpenRegular, IconPlusOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { CatalogSnapshot, ProjectRecord, TaskRecord } from 'dsh-workloom/types'
-import { COLORS, metaLine, STATUS_META } from '../shell.ts'
+import { AUDIT_LABEL } from '../shell.ts'
+import { LoomButton } from '../ui/Button.tsx'
 import type { LoomKey } from '../locales.ts'
+import classes from './LoomOverview.module.css'
 
-type Translate = (key: LoomKey) => string
+type Translate = (key: LoomKey, params?: Readonly<Record<string, string>>) => string
 
 /** Overview inputs and navigation intents. */
 export interface LoomOverviewProps {
@@ -21,88 +20,100 @@ export interface LoomOverviewProps {
   readonly onProject: (project: ProjectRecord) => void
   readonly onSession: (sessionId: string) => void
   readonly onBoard: () => void
+  readonly onNewTask: () => void
 }
-
-const page: CSSProperties = { flex: 1, minWidth: 0, overflow: 'auto', background: COLORS.bg, padding: '28px 32px 40px' }
-const eyebrow: CSSProperties = { ...metaLine, fontSize: 10.5, marginBottom: 10 }
-const title: CSSProperties = { margin: 0, fontSize: 26, lineHeight: 1.25, letterSpacing: '-.02em', fontWeight: 600, color: COLORS.text }
-const summary: CSSProperties = { margin: '8px 0 0', color: COLORS.dim, fontSize: 12.5, lineHeight: 1.55 }
-const stats: CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 10, marginTop: 22 }
-const stat: CSSProperties = { border: `0.5px solid ${COLORS.border}`, borderRadius: 10, background: COLORS.panel, padding: '12px 14px', minWidth: 0 }
-const statValue: CSSProperties = { fontSize: 22, lineHeight: 1.15, fontWeight: 600, letterSpacing: '-.02em', color: COLORS.text }
-const statLabel: CSSProperties = { ...metaLine, marginTop: 4 }
-const grid: CSSProperties = { display: 'grid', gridTemplateColumns: 'minmax(0, 1.35fr) minmax(0, 1fr)', gap: 12, marginTop: 14, alignItems: 'start' }
-const card: CSSProperties = { border: `0.5px solid ${COLORS.border}`, borderRadius: 10, background: COLORS.panel, padding: '12px 14px', minWidth: 0 }
-const cardHead: CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }
-const cardTitle: CSSProperties = { margin: 0, color: COLORS.text, fontSize: 13, fontWeight: 600 }
-const cardLink: CSSProperties = { marginLeft: 'auto', border: 'none', background: 'transparent', color: COLORS.accent, cursor: 'pointer', font: 'inherit', fontSize: 11 }
-const row: CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '7px 0', border: 'none', borderTop: `0.5px solid ${COLORS.border}`, background: 'transparent', color: 'inherit', textAlign: 'left', cursor: 'pointer', font: 'inherit', minWidth: 0 }
-const rowTitle: CSSProperties = { minWidth: 0, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12 }
-const rowMeta: CSSProperties = { ...metaLine, flex: 'none', maxWidth: '45%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
-const empty: CSSProperties = { margin: 0, padding: '9px 0 2px', color: COLORS.faint, fontSize: 11.5 }
 
 /**
  * Render the overview route.
  * @param props - catalog snapshot and navigation intents.
  * @returns the overview page.
  */
-export function LoomOverview({ t, snapshot, activeWorkspaceCount, onTask, onProject, onSession, onBoard }: LoomOverviewProps): JSX.Element {
+export function LoomOverview({ t, snapshot, activeWorkspaceCount, onTask, onProject, onSession, onBoard, onNewTask }: LoomOverviewProps): JSX.Element {
   const running = snapshot.tasks.filter(task => task.status === 'running')
   const review = snapshot.tasks.filter(task => task.status === 'review')
   const completed = snapshot.tasks.filter(task => task.status === 'completed')
-  const active = [...running, ...review].sort((left, right) => Number(right.updatedAt ?? 0) - Number(left.updatedAt ?? 0)).slice(0, 5)
-  const projects = [...snapshot.projects].sort((left, right) => left.config.name.localeCompare(right.config.name)).slice(0, 6)
+  const active = [...running, ...review].sort((left, right) => Number(right.updatedAt ?? 0) - Number(left.updatedAt ?? 0)).slice(0, 3)
+  const projectById = new Map(snapshot.projects.map(project => [project.id, project]))
   const recentSessions = snapshot.tasks
     .flatMap(task => (task.attempts.at(-1)?.sessionIds ?? []).map(sessionId => ({ sessionId, task })))
     .slice(-4)
     .reverse()
-  const recentAudit = snapshot.audit.slice(-5).reverse()
-  const runningCount = running.length
-  return <main style={page}>
-    <div style={eyebrow}>{t('nav.overview')}</div>
-    <h1 style={title}>{t('nav.overview')}</h1>
-    <p style={summary}>
-      {activeWorkspaceCount} {t('top.activeWorkspaces')} · {snapshot.projects.length} {t('project.title')} · {snapshot.tasks.length} {t('task.title')}
-    </p>
-    <div style={stats}>
-      <div style={stat}><div style={statValue}>{runningCount}</div><div style={statLabel}>{t('kb.running')} {t('task.title')}</div></div>
-      <div style={stat}><div style={statValue}>{review.length}</div><div style={statLabel}>{t('kb.review')} {t('task.title')}</div></div>
-      <div style={stat}><div style={statValue}>{snapshot.workspaces.filter(workspace => workspace.cleaned !== true).length}</div><div style={statLabel}>{t('nav.workspaces')}</div></div>
-      <div style={stat}><div style={statValue}>{completed.length}</div><div style={statLabel}>{t('kb.completed')}</div></div>
-    </div>
-    <div style={grid}>
-      <section style={card}>
-        <div style={cardHead}><h2 style={cardTitle}>{t('kb.running')} / {t('kb.review')}</h2><button type="button" style={cardLink} onClick={onBoard}>{t('view.kanban')} →</button></div>
-        {active.length === 0 ? <p style={empty}>{t('task.empty')}</p> : active.map(task => <button key={task.id} type="button" style={row} onClick={() => onTask(task)}>
-          <span aria-hidden style={{ width: 6, height: 6, borderRadius: 999, background: STATUS_META[task.status].color, flex: 'none' }} />
-          <span style={rowTitle}>{task.title}</span>
-          <Tag tone="info">{t(STATUS_META[task.status].key)}</Tag>
-          <span style={rowMeta}>{task.priority ?? 'normal'}</span>
-        </button>)}
-      </section>
-      <section style={card}>
-        <div style={cardHead}><h2 style={cardTitle}>{t('sessions')}</h2></div>
-        {recentSessions.length === 0 ? <p style={empty}>{t('noSessions')}</p> : recentSessions.map(({ sessionId, task }) => <button key={`${sessionId}-${task.id}`} type="button" style={row} onClick={() => onSession(sessionId)}>
-          <IconBranchOutlineRegular size={12} />
-          <span style={rowTitle}>{task.title}</span>
-          <span style={rowMeta}>{t(STATUS_META[task.status].key)}</span>
-        </button>)}
-      </section>
-      <section style={card}>
-        <div style={cardHead}><h2 style={cardTitle}>{t('project.title')}</h2></div>
-        {projects.length === 0 ? <p style={empty}>{t('project.empty')}</p> : projects.map(project => <button key={project.id} type="button" style={row} onClick={() => onProject(project)}>
-          <IconProjectAddOutlineRegular size={12} />
-          <span style={rowTitle}>{project.config.name}</span>
-          <span style={rowMeta}>{project.config.sources.length} {t('source.repo')}</span>
-        </button>)}
-      </section>
-      <section style={card}>
-        <div style={cardHead}><h2 style={cardTitle}>{t('audit')}</h2></div>
-        {recentAudit.length === 0 ? <p style={empty}>{t('bottom.activityEmpty')}</p> : recentAudit.map(entry => <div key={entry.id} style={{ ...row, cursor: 'default' }}>
-          <span style={rowMeta}>{new Date(entry.at).toLocaleTimeString([], { hour12: false })}</span>
-          <span style={rowTitle}>{entry.event}</span>
-        </div>)}
-      </section>
+  const recentAudit = snapshot.audit.slice(-4).reverse()
+  const recentCompleted = completed.slice(-3).reverse()
+  const date = new Date().toLocaleDateString(undefined, { month: 'long', day: 'numeric', weekday: 'short' })
+  const sessionCount = snapshot.tasks.reduce((total, task) => total + task.attempts.reduce((sum, attempt) => sum + attempt.sessionIds.length, 0), 0)
+  const projectName = (task: TaskRecord): string => {
+    const projectId = snapshot.versions.find(version => version.id === task.versionId)?.projectId
+    return projectId === undefined ? '' : projectById.get(projectId)?.config.name ?? ''
+  }
+  return <main className={classes.page}>
+    <div className={classes.inner}>
+      <div className={classes.head}>
+        <div className={classes.headText}>
+          <p className={classes.eyebrow}>{t('nav.overview')}</p>
+          <h1 className={classes.title}>{t('overview.title')}</h1>
+          <p className={classes.summary}>{activeWorkspaceCount} {t('top.activeWorkspaces')} · {snapshot.projects.length} {t('project.title')} · {sessionCount} {t('sessions')}</p>
+        </div>
+        <div className={classes.headMeta}>
+          <span className={classes.date}>{date}</span>
+          <LoomButton variant="primary" size="md" icon={<IconPlusOutlineRegular size={14} />} onClick={onNewTask}>{t('top.newTask')}</LoomButton>
+        </div>
+      </div>
+      <div className={classes.stats}>
+        <button type="button" className={classes.stat} onClick={onBoard}><span className={classes.statValue}>{running.length}</span><span className={classes.statLabel}>{t('kb.running')} {t('nav.tasks')}</span></button>
+        <button type="button" className={classes.stat}><span className={classes.statValue}>{sessionCount}</span><span className={classes.statLabel}>{t('kb.activeSessions')}</span></button>
+        <button type="button" className={classes.stat} onClick={onBoard}><span className={classes.statValue}>{review.length}</span><span className={classes.statLabel}>{t('kb.review')}</span></button>
+        <button type="button" className={classes.stat} onClick={onBoard}><span className={classes.statValue}>{completed.length}</span><span className={classes.statLabel}>{t('kb.completed')}</span></button>
+      </div>
+      <div className={classes.columns}>
+        <div className={classes.left}>
+          <section className={classes.card}>
+            <div className={classes.cardHead}><h2 className={classes.cardTitle}>{t('kb.running')} {t('nav.tasks')}</h2><button type="button" className={classes.cardLink} onClick={onBoard}>{t('view.kanban')} →</button></div>
+            {active.length === 0 ? <p className={classes.empty}>{t('task.empty')}</p> : active.map(task => <button key={task.id} type="button" className={classes.row} onClick={() => onTask(task)}>
+              <span className={classes.dot} style={{ background: task.status === 'running' ? 'var(--color-warning)' : 'var(--color-accent)' }} />
+              <span className={classes.rowTitle}>{task.title}</span>
+              <span className={classes.rowMeta}>{task.status === 'running' ? t('kb.running') : t('kb.review')}</span>
+            </button>)}
+          </section>
+          <section className={classes.card}>
+            <div className={classes.cardHead}><h2 className={classes.cardTitle}>{t('project.title')}</h2><button type="button" className={classes.cardLink} onClick={onBoard}>{t('view.all')} →</button></div>
+            {snapshot.projects.length === 0 ? <p className={classes.empty}>{t('project.empty')}</p> : <div className={classes.projects}>
+              {snapshot.projects.slice(0, 3).map(project => {
+                const projectTasks = snapshot.tasks.filter(task => task.versionId !== undefined && snapshot.versions.find(version => version.id === task.versionId)?.projectId === project.id)
+                return <button key={project.id} type="button" className={classes.project} onClick={() => onProject(project)}>
+                  <span className={classes.projectHead}><span className={classes.projectMark}>{project.config.name.slice(0, 1)}</span><span className={classes.projectName}>{project.config.name}</span></span>
+                  <span className={classes.projectMeta}>{projectTasks.length} {t('nav.tasks')} · {project.config.sources.length} {t('source.repo')}</span>
+                </button>
+              })}
+            </div>}
+          </section>
+          <section className={classes.card}>
+            <div className={classes.cardHead}><h2 className={classes.cardTitle}>{t('overview.recentCompleted')}</h2><button type="button" className={classes.cardLink} onClick={onBoard}>{t('view.kanban')} →</button></div>
+            {recentCompleted.length === 0 ? <p className={classes.empty}>{t('task.empty')}</p> : <div className={classes.sectionGrid}>{recentCompleted.map(task => <button key={task.id} type="button" className={classes.sectionItem} onClick={() => onTask(task)}><span className={classes.sectionItemTitle}>{task.title}</span><span className={classes.sectionItemMeta}>{t('kb.completed')}</span></button>)}</div>}
+          </section>
+        </div>
+        <div className={classes.right}>
+          <section className={classes.card}>
+            <div className={classes.cardHead}><h2 className={classes.cardTitle}>{t('sessions')}</h2></div>
+            {recentSessions.length === 0 ? <p className={classes.empty}>{t('noSessions')}</p> : recentSessions.map(({ sessionId, task }) => <button key={`${sessionId}-${task.id}`} type="button" className={classes.row} onClick={() => onSession(sessionId)}>
+              <IconBranchOutlineRegular size={12} />
+              <span className={classes.rowTitle}>{task.title}</span>
+              <span className={classes.rowMeta}>{projectName(task)}</span>
+            </button>)}
+          </section>
+          <section className={classes.card}>
+            <div className={classes.cardHead}><h2 className={classes.cardTitle}>{t('audit')}</h2><span className={classes.rowMeta}>{date}</span></div>
+            {recentAudit.length === 0 ? <p className={classes.empty}>{t('bottom.activityEmpty')}</p> : recentAudit.map(entry => <div key={entry.id} className={classes.row}>
+              <span className={classes.rowMeta}>{new Date(entry.at).toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit' })}</span>
+              <span className={classes.rowTitle}>{t(AUDIT_LABEL[entry.event])}</span>
+            </div>)}
+          </section>
+          <section className={classes.card}>
+            <div className={classes.cardHead}><h2 className={classes.cardTitle}>{t('project.title')}</h2><IconFolderOpenRegular size={12} /></div>
+            {snapshot.projects.length === 0 ? <p className={classes.empty}>{t('project.empty')}</p> : snapshot.projects.slice(0, 3).map(project => <button key={project.id} type="button" className={classes.row} onClick={() => onProject(project)}><span className={classes.rowTitle}>{project.config.name}</span><span className={classes.rowMeta}>{project.config.sources.length} {t('source.repo')}</span></button>)}
+          </section>
+        </div>
+      </div>
     </div>
   </main>
 }
