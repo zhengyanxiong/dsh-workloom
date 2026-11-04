@@ -734,7 +734,7 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
     prepareWorkspace, registerWorkspace, repositoryBranches, inspectWorkspace, pickDirectory: chooseDirectory, startAttempt, commitWorkspace, attachSession, transitionTask, createSessionInWorkspace, cleanupWorkspace, acquireExecution, cancelExecution, reorderExecutionQueue, releaseExecution, takeoverExecution, loadSnapshot,
     onSession: (id, draft) => {
       if (draft !== undefined) { setDraftAttempt(0); setPendingDraft({ sessionId: id, prompt: draft }) }
-      setSelected(id); setView('workbench')
+      setSelected(id); setView('workbench'); navigate('session')
     },
     onChanged: () => setAttempt(current => current + 1),
   }
@@ -742,7 +742,7 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
     pickDirectory: chooseDirectory,
     createSessionInWorkspace,
     registerTemporarySession,
-    onSession: (id) => { setTask(undefined); setSelected(id); setView('workbench') },
+    onSession: (id) => { setTask(undefined); setSelected(id); setView('workbench'); navigate('session') },
     onChanged: () => setAttempt(current => current + 1),
   }
   const selectTask = (record: TaskRecord): void => {
@@ -1024,13 +1024,13 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
           {taskSessionList.map(row => {
             const owner = boundRows.find(candidate => candidate.sessionId === row.id)?.task
             return <SidebarSessionRow key={row.id} t={t} row={row} projectName={taskProjectBySession.get(row.id)} taskTitle={taskTitleBySession.get(row.id)} temporary={false} active={selected === row.id}
-              onSelect={() => { setSelected(row.id as SessionId); setTask(owner); setView('workbench') }} />
+              onSelect={() => { setSelected(row.id as SessionId); setTask(owner); setView('workbench'); navigate('session') }} />
           })}
           {temporarySessionList.length > 0 && <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginTop: 4, padding: '4px 12px 3px', borderTop: `0.5px solid ${COLORS.border}`, ...metaLine }}>
             <span>{t('side.temporarySessions')}</span><span style={{ marginLeft: 'auto' }}>{temporarySessionList.length}</span>
           </div>}
           {temporarySessionList.map(row => <SidebarSessionRow key={row.id} t={t} row={row} projectName={temporaryProjectBySession.get(row.id)} temporary active={selected === row.id}
-            onSelect={() => { setSelected(row.id as SessionId); setTask(undefined); setView('workbench') }} />)}
+            onSelect={() => { setSelected(row.id as SessionId); setTask(undefined); setView('workbench'); navigate('session') }} />)}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '6px 12px 8px' }}>
             <Button variant="outline" icon={<IconPlusOutlineRegular />} disabled={createDisabledTask} onClick={() => openCreate('task')} style={{ width: '100%', justifyContent: 'center' }}>{t('side.newTask')}</Button>
             <Button variant="ghost" icon={<IconPlusOutlineRegular />} title={t('temporary.title')} onClick={() => setTemporaryOpen(true)} style={{ width: '100%', justifyContent: 'center' }}>{t('side.newTemporary')}</Button>
@@ -1227,7 +1227,7 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
         {create === 'project' && <ProjectForm t={t} open onBusyChange={setModalBusy} agentPresets={agentPresets} pickDirectory={chooseDirectory} onOpenChange={value => { if (!value) setCreate(undefined) }} create={createProject} onCreated={created => { setProject(created.id); setVersion(undefined); setTask(undefined); setSelected(undefined); setCreate(undefined); setAttempt(current => current + 1) }} />}
         {create === 'import' && <ImportProjectForm t={t} open onBusyChange={setModalBusy} onOpenChange={value => { if (!value) setCreate(undefined) }} create={createProject} onCreated={created => { setProject(created.id); setVersion(undefined); setTask(undefined); setSelected(undefined); setCreate(undefined); setAttempt(current => current + 1) }} />}
         {create === 'version' && currentProject !== undefined && <VersionForm t={t} open onBusyChange={setModalBusy} onStepChange={setVersionStep} listBranches={repositoryBranches} onOpenChange={value => { if (!value) setCreate(undefined) }} project={currentProject} pickDirectory={chooseDirectory} create={createVersion} onCreated={created => { setVersion(created.id); setTask(undefined); setSelected(undefined); setCreate(undefined); setAttempt(current => current + 1) }} />}
-        {create === 'task' && currentVersion !== undefined && currentVersionProject !== undefined && <TaskForm t={t} open onBusyChange={setModalBusy} onOpenChange={value => { if (!value) setCreate(undefined) }} version={currentVersion} project={currentVersionProject} workspaces={(snapshot?.workspaces ?? []).filter(workspace => workspace.versionId === currentVersion.id && workspace.cleaned !== true && (workspace.preparation === undefined || workspace.preparation.status === 'ready'))} create={createTask} onCreated={created => { setTask(created); setSelected(undefined); setView('workbench'); setCreate(undefined); setAttempt(current => current + 1) }} />}
+        {create === 'task' && currentVersion !== undefined && currentVersionProject !== undefined && <TaskForm t={t} open onBusyChange={setModalBusy} onOpenChange={value => { if (!value) setCreate(undefined) }} version={currentVersion} project={currentVersionProject} workspaces={(snapshot?.workspaces ?? []).filter(workspace => workspace.versionId === currentVersion.id && workspace.cleaned !== true && (workspace.preparation === undefined || workspace.preparation.status === 'ready'))} create={createTask} onCreated={created => { setTask(created); setSelected(undefined); setView('workbench'); navigate('task'); setCreate(undefined); setAttempt(current => current + 1) }} />}
         {create === 'version' && currentProject === undefined && <p style={note}>{t('project.select')}</p>}
         {create === 'task' && currentVersion === undefined && <p style={note}>{t('version.select')}</p>}
       </div>
