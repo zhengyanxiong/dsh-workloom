@@ -49,7 +49,8 @@ export function LoomOverview({ t, snapshot, activeWorkspaceCount, onTask, onProj
   const versionName = (task: TaskRecord): string => snapshot.versions.find(version => version.id === task.versionId)?.name ?? ''
   const timeAgo = (timestamp: number | undefined): string => {
     if (timestamp === undefined || !Number.isFinite(timestamp)) return ''
-    const minutes = Math.max(0, Math.round((Date.now() - timestamp) / 60000))
+    const millis = timestamp < 1_000_000_000_000 ? timestamp * 1000 : timestamp
+    const minutes = Math.max(0, Math.round((Date.now() - millis) / 60000))
     if (minutes < 1) return 'now'
     if (minutes < 60) return `${String(minutes)}m`
     const hours = Math.round(minutes / 60)
@@ -57,7 +58,12 @@ export function LoomOverview({ t, snapshot, activeWorkspaceCount, onTask, onProj
   }
   const waiting = snapshot.tasks.filter(task => task.status === 'pending').length
   const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000
-  const timedCompleted = completed.filter(task => Number.isFinite(Number(task.updatedAt)) && Number(task.updatedAt) > weekAgo)
+  const timedCompleted = completed.filter(task => {
+    const raw = Number(task.updatedAt)
+    if (!Number.isFinite(raw)) return false
+    const millis = raw < 1_000_000_000_000 ? raw * 1000 : raw
+    return millis > weekAgo
+  })
   const completedThisWeek = timedCompleted.length > 0 ? timedCompleted.length : completed.length
   const sourceName = (project: ProjectRecord): string => {
     const source = project.config.sources[0]
