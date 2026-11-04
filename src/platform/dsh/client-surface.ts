@@ -112,6 +112,27 @@ export function installLoomSurface(ui: LoomUi, host: LoomHostPort, t: Translate)
     }, 0)
     return () => { cancelled = true; window.clearTimeout(timer) }
   }, 'loom: startup panel and sidebar preferences')
+  ui.effect(() => {
+    if (typeof window === 'undefined') return () => { /* No DOM to observe. */ }
+    let collapsedByLoom = false
+    const sidebarWidth = (): number => document.querySelector('[class*="sidebarCol"]')?.getBoundingClientRect().width ?? 0
+    const sync = (): void => {
+      if (window.innerWidth < 1024) return
+      const active = ui.layout.panelInfo.getSnapshot().activePanelId === PANEL_ID
+      if (active) {
+        if (readPreferences().autoCollapseSidebar && !collapsedByLoom && sidebarWidth() > 80) {
+          ui.layout.toggleSidebar()
+          collapsedByLoom = true
+        }
+      } else if (collapsedByLoom && sidebarWidth() < 80) {
+        ui.layout.toggleSidebar()
+        collapsedByLoom = false
+      }
+    }
+    const timer = window.setTimeout(sync, 60)
+    const dispose = ui.layout.panelInfo.subscribe(sync)
+    return () => { window.clearTimeout(timer); dispose() }
+  }, 'loom: collapse the native sidebar while active')
 }
 
 /**

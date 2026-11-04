@@ -28,10 +28,12 @@ export interface LoomPreferences {
   readonly openOnLoad: boolean
   /** Whether the native left sidebar collapses when DSH loads. */
   readonly collapseSidebar: boolean
+  /** Whether the native sidebar collapses while Workloom is the active panel. */
+  readonly autoCollapseSidebar: boolean
 }
 
 /** Defaults used when storage is empty or malformed. */
-export const DEFAULT_PREFERENCES: LoomPreferences = { view: 'workbench', kanbanMode: 'grouped', contextOpen: true, asideWidth: 344, previewWidth: 560, bottomHeight: 220, sessionLimit: 5, previewWrap: true, wipLimit: 3, openOnLoad: false, collapseSidebar: false }
+export const DEFAULT_PREFERENCES: LoomPreferences = { view: 'workbench', kanbanMode: 'grouped', contextOpen: true, asideWidth: 344, previewWidth: 560, bottomHeight: 220, sessionLimit: 5, previewWrap: true, wipLimit: 3, openOnLoad: false, collapseSidebar: false, autoCollapseSidebar: true }
 const STORAGE_KEY = 'loom.preferences'
 
 /**
@@ -50,12 +52,13 @@ export function readPreferences(): LoomPreferences {
     const previewWrap = record.previewWrap !== false
     const openOnLoad = record.openOnLoad === true
     const collapseSidebar = record.collapseSidebar === true
+    const autoCollapseSidebar = record.autoCollapseSidebar !== false
     const size = (key: 'asideWidth' | 'previewWidth' | 'bottomHeight' | 'sessionLimit' | 'wipLimit', fallback: number, min: number, max: number): number => {
       const raw = record[key]
       return typeof raw === 'number' && Number.isFinite(raw) ? Math.min(Math.max(Math.round(raw), min), max) : fallback
     }
     return {
-      view, kanbanMode, contextOpen, previewWrap, openOnLoad, collapseSidebar,
+      view, kanbanMode, contextOpen, previewWrap, openOnLoad, collapseSidebar, autoCollapseSidebar,
       asideWidth: size('asideWidth', DEFAULT_PREFERENCES.asideWidth, 320, 460),
       previewWidth: size('previewWidth', DEFAULT_PREFERENCES.previewWidth, 300, 720),
       bottomHeight: size('bottomHeight', DEFAULT_PREFERENCES.bottomHeight, 80, 320),
@@ -164,6 +167,7 @@ export function LoomSettings({ t, open, preferences, pinned, onChange, onUnpin, 
           <div style={card}>
             <SettingRow divider={false} label={t('settings.openOnLoad')} control={<Switch checked={preferences.openOnLoad} onChange={next => { onChange({ ...preferences, openOnLoad: next }) }} label={t('settings.openOnLoad')} />} />
             <SettingRow label={t('settings.collapseSidebar')} control={<Switch checked={preferences.collapseSidebar} onChange={next => { onChange({ ...preferences, collapseSidebar: next }) }} label={t('settings.collapseSidebar')} />} />
+            <SettingRow label={t('settings.autoCollapseSidebar')} description={t('settings.autoCollapseSidebarHint')} control={<Switch checked={preferences.autoCollapseSidebar} onChange={next => { onChange({ ...preferences, autoCollapseSidebar: next }) }} label={t('settings.autoCollapseSidebar')} />} />
           </div>
         </section>
 
