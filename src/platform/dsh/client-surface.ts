@@ -105,10 +105,15 @@ export function installLoomSurface(ui: LoomUi, host: LoomHostPort, t: Translate)
     timer = window.setTimeout(() => {
       if (cancelled) return
       const preferences = readPreferences()
+      const params = new URLSearchParams(window.location.search)
+      const requestedRoute = params.get('route')
+      if (requestedRoute !== null && ['home', 'board', 'task', 'session', 'project', 'settings'].includes(requestedRoute)) {
+        window.location.hash = `#${requestedRoute}`
+      }
       // Below this width the native sidebar auto-collapses on its own, and a
       // toggle there would expand it instead.
       if (preferences.collapseSidebar && window.innerWidth >= 1024) ui.layout.toggleSidebar()
-      if (preferences.openOnLoad) selectWorkloom()
+      if (preferences.openOnLoad || params.get('panel') === 'loom' || params.get('workloom') === '1') selectWorkloom()
     }, 0)
     return () => { cancelled = true; window.clearTimeout(timer) }
   }, 'loom: startup panel and sidebar preferences')
