@@ -24,7 +24,7 @@ import { LoomDirectoryBrowser } from './LoomDirectoryBrowser.tsx'
 import { LoomReviewPreview } from './LoomReviewPreview.tsx'
 import { LoomTopbar } from './shell/LoomTopbar.tsx'
 import { LoomOverview } from './shell/LoomOverview.tsx'
-import { LoomThemeStyles } from './theme/LoomTheme.tsx'
+import { LOOM_ROOT_CLASS, LoomThemeStyles } from './theme/LoomTheme.tsx'
 import { parseLoomHash, type LoomRoute } from './shell/router.ts'
 import { PinButton, ProjectTaskRow, SidebarSectionToggle, SidebarSessionRow, TreeIconAction, TreeRow, versionChip } from './shell/LoomSidebarParts.tsx'
 import { openFilePreview, workspacePreview, workspaceReviewPreview } from './preview.ts'
@@ -865,7 +865,7 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
   const createVersionFor = (projectRecord: ProjectRecord): VersionRecord | undefined => snapshot?.versions.filter(candidate => candidate.projectId === projectRecord.id).at(-1)
   const createDisabledVersion = currentProject === undefined
   const createDisabledTask = currentVersion === undefined
-  return <div style={frame} data-theme="blue">
+  return <div style={frame} data-theme="blue" className={LOOM_ROOT_CLASS}>
     <LoomThemeStyles />
     <style>{`
       :root {
