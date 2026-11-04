@@ -25,6 +25,7 @@ import { LoomReviewPreview } from './LoomReviewPreview.tsx'
 import { LoomTopbar } from './shell/LoomTopbar.tsx'
 import { LoomOverview } from './shell/LoomOverview.tsx'
 import { LOOM_ROOT_CLASS, LoomThemeStyles } from './theme/LoomTheme.tsx'
+import shell from './shell/LoomShell.module.css'
 import { parseLoomHash, type LoomRoute } from './shell/router.ts'
 import { PinButton, ProjectTaskRow, SidebarSectionToggle, SidebarSessionRow, TreeIconAction, TreeRow, versionChip } from './shell/LoomSidebarParts.tsx'
 import { openFilePreview, workspacePreview, workspaceReviewPreview } from './preview.ts'
@@ -68,10 +69,6 @@ type View = 'workbench' | 'kanban'
 type CreateKind = 'project' | 'import' | 'version' | 'task'
 type EditKind = 'project' | 'version' | 'task'
 
-const frame: CSSProperties = { position: 'relative', display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, color: COLORS.text, background: COLORS.bg, fontSize: 13, overflow: 'hidden' }
-const sidebar: CSSProperties = { width: 256, flex: 'none', background: COLORS.panel2, borderRight: `0.5px solid ${COLORS.border}`, overflowY: 'auto', padding: '8px 0' }
-const center: CSSProperties = { flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, background: COLORS.panel }
-const aside: CSSProperties = { width: 344, flex: 'none', display: 'flex', flexDirection: 'column', borderLeft: `0.5px solid ${COLORS.border}`, background: COLORS.panel }
 const modalOverlay: CSSProperties = { position: 'fixed', inset: 0, zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, overflow: 'auto', background: 'rgba(0,0,0,.42)' }
 const modalCard: CSSProperties = { display: 'flex', flexDirection: 'column', width: '100%', maxHeight: 'calc(100% - 48px)', boxSizing: 'border-box', overflowY: 'auto', padding: '20px 22px 0', background: COLORS.panel, border: `0.5px solid ${COLORS.border}`, borderRadius: 'var(--dsw-radius-lg)', boxShadow: '0 24px 64px rgba(0,0,0,.32)' }
 const modalHeader: CSSProperties = { display: 'flex', alignItems: 'flex-start', gap: 8, minHeight: 30, marginBottom: 6 }
@@ -865,7 +862,7 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
   const createVersionFor = (projectRecord: ProjectRecord): VersionRecord | undefined => snapshot?.versions.filter(candidate => candidate.projectId === projectRecord.id).at(-1)
   const createDisabledVersion = currentProject === undefined
   const createDisabledTask = currentVersion === undefined
-  return <div style={frame} data-theme="blue" className={LOOM_ROOT_CLASS}>
+  return <div data-theme="blue" className={`${LOOM_ROOT_CLASS} ${shell.root}`}>
     <LoomThemeStyles />
     <style>{`
       :root {
@@ -954,9 +951,9 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
       onToggleAside={() => setAsideOpen(value => { const next = !value; setPreferences(current => ({ ...current, contextOpen: next })); return next })}
       onOpenSettings={() => setSettingsOpen(true)}
     />
-    <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
-      {narrow && sidebarOpen && <div aria-hidden className="loom-sidebar-backdrop" style={{ position: 'absolute', inset: 0, top: 48, background: 'rgba(0,0,0,.35)', zIndex: 65 }} onClick={() => setSidebarOpen(false)} />}
-      {!sidebarCollapsed && <aside className={sidebarOpen && narrow ? 'loom-sidebar loom-sidebar-open' : 'loom-sidebar'} style={sidebar}>
+    <div className={shell.body}>
+      {narrow && sidebarOpen && <div aria-hidden className={shell.sidebarBackdrop} onClick={() => setSidebarOpen(false)} />}
+      {!sidebarCollapsed && <aside className={`loom-sidebar ${shell.sidebar} ${sidebarOpen && narrow ? 'loom-sidebar-open' : ''}`}>
         <section style={{ marginBottom: 4 }}>
           <SidebarSectionToggle label={t('side.pinned')} icon={<IconPinFillRegular size={12} />} open={!collapsedSections.has('pinned')} onToggle={() => { toggleSidebarSection('pinned') }} />
           {!collapsedSections.has('pinned') && <>
@@ -1055,7 +1052,7 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
             onBoard={() => navigate('board')}
           />
         : route === 'session' && selected === undefined
-        ? <main style={center}><p style={{ ...note, margin: 20 }}>{t('chooseSession')}</p></main>
+        ? <main className={shell.center}><p style={{ ...note, margin: 20 }}>{t('chooseSession')}</p></main>
         : view === 'kanban'
         ? <LoomKanban
             t={t}
@@ -1086,7 +1083,7 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
               if (latest !== undefined) { setVersion(latest.id); setCreate('task') }
             }}
           />
-        : <main style={center}>
+        : <main className={shell.center}>
             {selected !== undefined && <div style={convHeader}>
               <span style={{ fontWeight: 700, fontSize: 13, overflowWrap: 'anywhere' }}>{headerTitle}</span>
               {displayProject !== undefined && <span style={{ ...pill, color: '#7db3ff', borderColor: 'rgba(47,129,247,.45)' }}>{displayProject.config.name}</span>}
@@ -1159,7 +1156,7 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
                   </div>}
           </main>}
       {asideOpen && !previewFullscreen && <LoomResizeHandle label={t('layout.resizeAside')} orientation="vertical" value={asideWidth} min={asideMin} max={asideMax} invert onChange={setAsideWidth} className={view === 'kanban' ? 'loom-aside-handle loom-aside-handle-kanban' : 'loom-aside-handle'} />}
-      {asideOpen && <aside className={`${preview === undefined && review === undefined ? 'loom-aside' : 'loom-aside loom-aside-preview'}${view === 'kanban' ? ' loom-aside-kanban' : ''}`} data-loom-preview-fullscreen={previewFullscreen ? 'true' : undefined} style={previewFullscreen && preview !== undefined ? { ...aside, position: 'fixed', inset: 0, width: '100vw', maxWidth: 'none', zIndex: 90, borderLeft: 'none' } : { ...aside, width: asideWidth }}>
+      {asideOpen && <aside className={`${shell.aside} ${preview === undefined && review === undefined ? 'loom-aside' : 'loom-aside loom-aside-preview'}${view === 'kanban' ? ' loom-aside-kanban' : ''}`} data-loom-preview-fullscreen={previewFullscreen ? 'true' : undefined} style={previewFullscreen && preview !== undefined ? { position: 'fixed', inset: 0, width: '100vw', maxWidth: 'none', zIndex: 90, borderLeft: 'none' } : { width: asideWidth }}>
         {review !== undefined
           ? <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0, flex: 1 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px', borderBottom: `0.5px solid ${COLORS.border}`, flex: 'none' }}>

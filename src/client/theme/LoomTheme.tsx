@@ -9,6 +9,7 @@ import { cssText as bridgeCss } from './LoomTheme.module.css'
 import { cssText as topbarCss } from '../shell/LoomTopbar.module.css'
 import { cssText as sidebarCss } from '../shell/LoomSidebarParts.module.css'
 import { cssText as buttonCss } from '../ui/Button.module.css'
+import { cssText as shellCss } from '../shell/LoomShell.module.css'
 import classes from './LoomTheme.module.css'
 
 /** Class that bridges DSH component aliases onto Loom design tokens. */
@@ -22,5 +23,6 @@ export function LoomThemeStyles(): JSX.Element {
     <style data-loom-topbar>{topbarCss}</style>
     <style data-loom-sidebar>{sidebarCss}</style>
     <style data-loom-button>{buttonCss}</style>
+    <style data-loom-shell>{shellCss}</style>
   </>
 }
