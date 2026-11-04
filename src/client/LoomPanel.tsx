@@ -230,6 +230,7 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
   const [preferences, setPreferences] = useState<LoomPreferences>(readPreferences)
   const [view, setView] = useState<View>(preferences.view)
   const [route, setRoute] = useState<LoomRoute>(() => typeof window === 'undefined' ? 'task' : parseLoomHash(window.location.hash).route)
+  const [darkTheme, setDarkTheme] = useState(() => typeof document === 'undefined' ? false : document.body.hasAttribute('data-ds-dark-theme'))
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [narrow, setNarrow] = useState(() => typeof window !== 'undefined' && window.innerWidth <= 940)
   const [viewport, setViewport] = useState(() => ({ width: typeof window === 'undefined' ? 1440 : window.innerWidth, height: typeof window === 'undefined' ? 900 : window.innerHeight }))
@@ -242,6 +243,15 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
       const hash = `#${next}`
       if (window.location.hash !== hash) window.location.hash = hash
     }
+  }, [])
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+    const body = document.body
+    const sync = (): void => setDarkTheme(body.hasAttribute('data-ds-dark-theme'))
+    sync()
+    const observer = new MutationObserver(sync)
+    observer.observe(body, { attributes: true, attributeFilter: ['data-ds-dark-theme'] })
+    return () => observer.disconnect()
   }, [])
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -863,7 +873,7 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
   const createVersionFor = (projectRecord: ProjectRecord): VersionRecord | undefined => snapshot?.versions.filter(candidate => candidate.projectId === projectRecord.id).at(-1)
   const createDisabledVersion = currentProject === undefined
   const createDisabledTask = currentVersion === undefined
-  return <div data-theme="blue" className={`${LOOM_ROOT_CLASS} ${shell.root}`}>
+  return <div data-theme={darkTheme ? 'dark' : 'blue'} className={`${LOOM_ROOT_CLASS} ${shell.root}`}>
     <LoomThemeStyles />
     <style>{`
       :root {
