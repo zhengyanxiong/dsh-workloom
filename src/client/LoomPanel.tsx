@@ -942,7 +942,14 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
       onToggleMenu={() => setMenuOpen(value => !value)}
       onSelectProject={(id) => { setProject(id); setVersion(undefined); setTask(undefined); setSelected(undefined) }}
       onSelectVersion={(id) => { setVersion(id); setTask(undefined); setSelected(undefined); if (id !== undefined) { const owner = snapshot?.versions.find(candidate => candidate.id === id); if (owner !== undefined) setProject(owner.projectId) } }}
-      onNavigate={navigate}
+      onNavigate={(next) => {
+        if (next === 'task') setSelected(undefined)
+        else if (next === 'session') {
+          const candidate = selected ?? activeSessionRows.at(-1)?.id ?? taskSessions.at(-1)?.sessionId
+          if (candidate !== undefined) setSelected(candidate as SessionId)
+        }
+        navigate(next)
+      }}
       onOpenCreate={openCreate}
       onToggleAside={() => setAsideOpen(value => { const next = !value; setPreferences(current => ({ ...current, contextOpen: next })); return next })}
       onOpenSettings={() => setSettingsOpen(true)}
@@ -1047,6 +1054,8 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
             onSession={(id) => { selectSession(id as SessionId); navigate('session') }}
             onBoard={() => navigate('board')}
           />
+        : route === 'session' && selected === undefined
+        ? <main style={center}><p style={{ ...note, margin: 20 }}>{t('chooseSession')}</p></main>
         : view === 'kanban'
         ? <LoomKanban
             t={t}
