@@ -68,7 +68,7 @@ export function LoomTopbar(props: LoomTopbarProps): JSX.Element {
       <LoomBrandMark size={22} />
       <span className={classes.brandName}>{t('brand')}</span>
     </span>
-    <button type="button" className={classes.divider} aria-label={sidebarCollapsed ? t('side.expand') : t('side.collapse')} aria-pressed={sidebarCollapsed} onClick={onToggleSidebarCollapsed} style={{ padding: 0, border: 0, background: 'transparent', cursor: 'pointer' }}><IconPanelLeftOutlineRegular size={14} /></button>
+    <LoomButton className="loom-sidebar-toggle" variant="ghost" size="sm" iconOnly icon={<IconPanelLeftOutlineRegular size={14} />} aria-label={sidebarCollapsed ? t('side.expand') : t('side.collapse')} aria-pressed={sidebarCollapsed} title={sidebarCollapsed ? t('side.expand') : t('side.collapse')} onClick={onToggleSidebarCollapsed} />
     <span aria-hidden className={classes.divider} />
     <label className={classes.context}>
       <span className={classes.contextLabel}>{t('top.project')}</span>

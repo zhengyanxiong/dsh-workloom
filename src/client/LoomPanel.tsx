@@ -941,10 +941,6 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
       onSelectVersion={(id) => { setVersion(id); setTask(undefined); setSelected(undefined); if (id !== undefined) { const owner = snapshot?.versions.find(candidate => candidate.id === id); if (owner !== undefined) setProject(owner.projectId) } }}
       onNavigate={(next) => {
         if (next === 'task') setSelected(undefined)
-        else if (next === 'session') {
-          const candidate = selected ?? activeSessionRows.at(-1)?.id ?? taskSessions.at(-1)?.sessionId
-          if (candidate !== undefined) setSelected(candidate as SessionId)
-        }
         navigate(next)
       }}
       onOpenCreate={openCreate}
