@@ -10,21 +10,22 @@ import {
   IconPinOutlineRegular, Tag,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { TaskRecord } from 'dsh-workloom/types'
-import { COLORS, metaLine, PRIORITY_META, STATUS_META } from '../shell.ts'
+import { COLORS, PRIORITY_META, STATUS_META } from '../shell.ts'
 import type { LoomKey } from '../locales.ts'
 import { workspaceName, type RecentSession } from '../projection.ts'
+import classes from './LoomSidebarParts.module.css'
 
 type Translate = (key: LoomKey) => string
 
 export function TreeRow(props: { depth: number; active?: boolean; expanded?: boolean; icon?: ReactNode; badge?: string; label: ReactNode; color?: string; count?: string; onClick: () => void }) {
   const { depth, active, expanded, icon, badge, label, color, count, onClick } = props
-  return <button type="button" aria-expanded={expanded} onClick={onClick} style={{ display: 'flex', alignItems: 'center', gap: 7, width: '100%', textAlign: 'left', background: active === true ? COLORS.panel3 : 'transparent', border: 'none', borderLeft: `2px solid ${active === true ? COLORS.accent : 'transparent'}`, padding: `5px 12px 5px ${String(14 + depth * 13)}px`, color: active === true ? COLORS.text : COLORS.dim, cursor: 'pointer', font: 'inherit', fontSize: depth === 2 ? 12 : 13 }}>
-    {expanded !== undefined && <span aria-hidden style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 12, height: 12, flex: 'none', color: COLORS.dim, opacity: .9 }}>{expanded ? <IconChevronDownOutlineRegular size={12} /> : <IconChevronRightOutlineRegular size={12} />}</span>}
+  return <button type="button" aria-expanded={expanded} onClick={onClick} className={`${classes.treeRow} ${active === true ? classes.treeRowActive : ''}`} style={{ paddingLeft: `${String(12 + depth * 13)}px` }}>
+    {expanded !== undefined && <span aria-hidden className={classes.treeChevron}>{expanded ? <IconChevronDownOutlineRegular size={12} /> : <IconChevronRightOutlineRegular size={12} />}</span>}
     {icon !== undefined && <span>{icon}</span>}
-    {badge !== undefined && <span style={{ fontSize: 10, color: COLORS.cyan, background: 'rgba(57,197,207,.12)', padding: '0 5px', borderRadius: 4 }}>{badge}</span>}
-    <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
-    {count !== undefined && <span style={{ marginLeft: 'auto', ...metaLine }}>{count}</span>}
-    {color !== undefined && <span style={{ marginLeft: count === undefined ? 'auto' : 0, color, fontSize: 10 }}>●</span>}
+    {badge !== undefined && <span className={classes.treeBadge}>{badge}</span>}
+    <span className={classes.treeLabel}>{label}</span>
+    {count !== undefined && <span className={classes.treeCount}>{count}</span>}
+    {color !== undefined && <span aria-hidden className={classes.treeDot} style={{ color }}>●</span>}
   </button>
 }
 
@@ -40,51 +41,42 @@ export function SidebarSessionRow({ t, row, projectName, taskTitle, temporary, a
   onSelect: () => void
 }) {
   const workspace = workspaceName(row.cwd)
-  const detail = [projectName, taskTitle, workspace, row.title].filter((value): value is string => value !== undefined && value !== '').join(' · ')
-  return <button type="button" aria-pressed={active} title={detail} onClick={onSelect}
-    style={{ display: 'flex', alignItems: 'flex-start', gap: 7, width: '100%', padding: '6px 10px', textAlign: 'left', border: 'none', borderRadius: 'var(--dsw-radius-sm)', background: active ? COLORS.panel3 : 'transparent', color: 'inherit', cursor: 'pointer', font: 'inherit' }}>
-    <span aria-hidden style={{ flex: 'none', width: 6, height: 6, marginTop: 6, borderRadius: 999, background: row.running ? COLORS.green : COLORS.border }} />
-    <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
-      <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12, fontWeight: active ? 500 : 400, color: active ? COLORS.text : COLORS.dim }}>{row.title || t('untitledSession')}</span>
-      <span style={{ display: 'flex', alignItems: 'center', gap: 5, minWidth: 0, fontSize: 10.5, color: COLORS.faint }}>
-        {temporary
-          ? <>
-              <Tag tone="info">{t('session.temporary')}</Tag>
-              {projectName !== undefined && <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{projectName}</span>}
-            </>
-          : <>
-              {projectName !== undefined && <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: COLORS.dim }}>{projectName}</span>}
-              {projectName !== undefined && taskTitle !== undefined && <span aria-hidden style={{ flex: 'none', color: COLORS.faint }}>·</span>}
-              {taskTitle !== undefined
-                ? <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{taskTitle}</span>
-                : projectName === undefined && workspace !== undefined && <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{workspace}</span>}
-            </>}
+  return <button type="button" className={`${classes.sessionRow} ${active ? classes.sessionRowActive : ''}`} onClick={onSelect}>
+    <span className={classes.sessionDot} style={{ background: row.running ? 'var(--color-success)' : 'var(--color-line)' }} />
+    <span className={classes.sessionBody}>
+      <span className={classes.sessionTitle}>{row.title || t('untitledSession')}</span>
+      <span className={classes.sessionMeta}>
+        {temporary ? <>
+          <Tag tone="info">{t('session.temporary')}</Tag>
+          {projectName !== undefined && <span className={classes.sessionMetaText}>{projectName}</span>}
+        </> : <>
+          {projectName !== undefined && <span className={classes.sessionMetaText}>{projectName}</span>}
+          {projectName !== undefined && taskTitle !== undefined && <span aria-hidden>·</span>}
+          {taskTitle !== undefined
+            ? <span className={classes.sessionMetaText}>{taskTitle}</span>
+            : projectName === undefined && workspace !== undefined && <span className={classes.sessionMetaText}>{workspace}</span>}
+        </>}
       </span>
     </span>
   </button>
 }
 
 export function PinButton({ pinned, label, onToggle }: { pinned: boolean; label: string; onToggle: () => void }) {
-  return <button type="button" aria-label={label} aria-pressed={pinned} title={label} onClick={onToggle}
-    style={{ flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, border: 'none', background: 'transparent', color: pinned ? COLORS.green : COLORS.faint, cursor: 'pointer', opacity: pinned ? 1 : 0.6 }}>
+  return <button type="button" aria-label={label} aria-pressed={pinned} title={label} onClick={onToggle} className={`${classes.pinButton} ${pinned ? classes.pinButtonActive : ''}`}>
     {pinned ? <IconPinFillRegular size={14} /> : <IconPinOutlineRegular size={14} />}
   </button>
 }
 
 export function TreeIconAction({ label, icon, onClick, danger = false }: { label: string; icon: ReactNode; onClick: () => void; danger?: boolean }) {
-  return <button type="button" className="loom-row-action" aria-label={label} title={label} onClick={onClick}
-    style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, padding: 0, border: 'none', borderRadius: 4, background: 'transparent', color: danger ? COLORS.error : COLORS.dim, cursor: 'pointer' }}>
-    {icon}
-  </button>
+  return <button type="button" className={`${classes.rowAction} ${danger ? classes.rowActionDanger : ''}`} aria-label={label} title={label} onClick={onClick}>{icon}</button>
 }
 
 export function SidebarSectionToggle({ label, count, icon, open, onToggle }: { label: string; count?: string | undefined; icon?: ReactNode | undefined; open: boolean; onToggle: () => void }) {
-  return <button type="button" className="loom-sidebar-section-head" aria-expanded={open} onClick={onToggle}
-    style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', padding: '7px 12px 4px', border: 'none', background: 'transparent', color: COLORS.faint, cursor: 'pointer', font: 'inherit', ...metaLine, fontWeight: 500 }}>
-    <span aria-hidden style={{ display: 'inline-flex', flex: 'none', opacity: .85 }}>{open ? <IconChevronDownOutlineRegular size={11} /> : <IconChevronRightOutlineRegular size={11} />}</span>
+  return <button type="button" className={classes.sectionHead} aria-expanded={open} onClick={onToggle}>
+    <span aria-hidden className={classes.sectionChevron}>{open ? <IconChevronDownOutlineRegular size={11} /> : <IconChevronRightOutlineRegular size={11} />}</span>
     {icon !== undefined && <span aria-hidden style={{ display: 'inline-flex', flex: 'none' }}>{icon}</span>}
-    <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
-    {count !== undefined && <span style={{ marginLeft: 'auto', fontWeight: 400, flex: 'none' }}>{count}</span>}
+    <span className={classes.sectionLabel}>{label}</span>
+    {count !== undefined && <span className={classes.sectionCount}>{count}</span>}
   </button>
 }
 
