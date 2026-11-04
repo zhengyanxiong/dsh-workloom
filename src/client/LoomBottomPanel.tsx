@@ -3,9 +3,10 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { IconFullscreenOutlineRegular, Tag } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { AuditEntry } from 'dsh-workloom/types'
 import { LoomDiff, type LoadWorkspaceChanges } from './LoomDiff.tsx'
-import { ACTOR_LABEL, AUDIT_LABEL, COLORS, metaLine } from './shell.ts'
+import { ACTOR_LABEL, AUDIT_LABEL, metaLine } from './shell.ts'
 import type { TokenUsageView } from './projection.ts'
 import type { LoomKey } from './locales.ts'
+import classes from './LoomBottomPanel.module.css'
 
 type Translate = (key: LoomKey) => string
 
@@ -77,28 +78,28 @@ export function LoomBottomPanel(props: LoomBottomPanelProps): ReactNode {
     return () => { window.removeEventListener('keydown', onKey) }
   }, [diffFullscreen])
   const diffBody = <LoomDiff t={t} workspaceId={workspaceId} {...(attemptId === undefined ? {} : { attemptId })} loadChanges={loadChanges} wrap={wrap} onToggleWrap={onToggleWrap} {...onOpenInRight === undefined ? {} : { onOpenInRight }} {...onChangesCount === undefined ? {} : { onChangesCount }} />
-  return <section style={{ flex: 'none', borderTop: `0.5px solid ${COLORS.border}`, background: COLORS.panel2, display: 'flex', flexDirection: 'column' }}>
-    <div style={{ display: 'flex', alignItems: 'center', gap: 2, padding: '0 8px', height: 34, overflowX: 'auto', borderBottom: collapsed ? 'none' : `0.5px solid ${COLORS.border}` }}>
-      {PANES.map(item => <button key={item.id} type="button" onClick={() => { onPane(item.id); if (collapsed) onToggle() }} style={{ height: '100%', flex: 'none', padding: '0 13px', display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap', background: 'none', border: 'none', borderBottom: `2px solid ${pane === item.id && !collapsed ? COLORS.accent : 'transparent'}`, color: pane === item.id && !collapsed ? COLORS.text : COLORS.dim, cursor: 'pointer', font: 'inherit', fontSize: 12 }}>{t(item.key)}{item.id === 'diff' ? <CountBadge count={diffCount} /> : item.id === 'sessions' ? <CountBadge count={sessionCount ?? 0} /> : item.id === 'runtime' ? <CountBadge count={runningCount ?? 0} /> : item.id === 'audit' ? <CountBadge count={audit.length} /> : null}</button>)}
-      {!collapsed && pane === 'diff' && <button type="button" title={t('diff.fullscreen')} aria-label={t('diff.fullscreen')} onClick={() => setDiffFullscreen(true)} style={{ marginLeft: 'auto', flex: 'none', display: 'flex', alignItems: 'center', gap: 5, height: '100%', padding: '0 10px', whiteSpace: 'nowrap', border: 'none', background: 'transparent', color: COLORS.faint, cursor: 'pointer', font: 'inherit', fontSize: 11 }}><IconFullscreenOutlineRegular size={13} />{t('diff.fullscreen')}</button>}
-      <button type="button" onClick={onToggle} style={{ marginLeft: !collapsed && pane === 'diff' ? 0 : 'auto', flex: 'none', position: 'sticky', right: 0, zIndex: 1, background: COLORS.panel2, border: 'none', color: COLORS.faint, cursor: 'pointer', font: 'inherit', fontSize: 11, padding: '0 10px', whiteSpace: 'nowrap' }}>{collapsed ? `▴ ${t('bottom.expand')}` : `▾ ${t('bottom.collapse')}`}</button>
+  return <section className={classes.panel}>
+    <div className={`${classes.tabbar} ${collapsed ? classes.tabbarCollapsed : ''}`}>
+      {PANES.map(item => <button key={item.id} type="button" className={`${classes.tab} ${pane === item.id && !collapsed ? classes.tabActive : ''}`} onClick={() => { onPane(item.id); if (collapsed) onToggle() }}>{t(item.key)}{item.id === 'diff' ? <CountBadge count={diffCount} /> : item.id === 'sessions' ? <CountBadge count={sessionCount ?? 0} /> : item.id === 'runtime' ? <CountBadge count={runningCount ?? 0} /> : item.id === 'audit' ? <CountBadge count={audit.length} /> : null}</button>)}
+      {!collapsed && pane === 'diff' && <button type="button" className={classes.fullscreenButton} title={t('diff.fullscreen')} aria-label={t('diff.fullscreen')} onClick={() => setDiffFullscreen(true)}><IconFullscreenOutlineRegular size={13} />{t('diff.fullscreen')}</button>}
+      <button type="button" onClick={onToggle} className={`${classes.toggleButton} ${!collapsed && pane === 'diff' ? classes.toggleButtonWithFullscreen : ''}`}>{collapsed ? `▴ ${t('bottom.expand')}` : `▾ ${t('bottom.collapse')}`}</button>
     </div>
-    {!collapsed && <div style={{ height: bodyHeight, overflow: 'auto', padding: '10px 16px', fontSize: 11.5, fontFamily: pane === 'sessions' || pane === 'runtime' || pane === 'graph' ? 'var(--sans)' : 'ui-monospace, "Cascadia Code", monospace', lineHeight: 1.75 }}>
+    {!collapsed && <div className={`${classes.body} ${pane === 'sessions' || pane === 'runtime' || pane === 'graph' ? classes.bodyText : classes.bodyMono}`} style={{ height: bodyHeight }}>
       {pane === 'diff' && diffBody}
       {pane === 'sessions' && sessionsContent}
       {pane === 'runtime' && runtimeContent}
       {pane === 'graph' && graphContent}
       {pane === 'audit' && (audit.length === 0
         ? <p style={{ ...metaLine, margin: 0 }}>{t('bottom.activityEmpty')}</p>
-        : audit.map(entry => <div key={entry.id} style={{ display: 'flex', gap: 12, minWidth: 0 }}>
-            <span style={{ color: COLORS.faint, whiteSpace: 'nowrap' }}>{new Date(entry.at).toLocaleTimeString([], { hour12: false })}</span>
-            <span style={{ color: COLORS.cyan, whiteSpace: 'nowrap' }}>{t(AUDIT_LABEL[entry.event])}</span>
-            <span style={{ color: COLORS.dim, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.detail ?? entry.sessionId ?? entry.taskId ?? entry.workspaceId ?? '—'}</span>
-            <span style={{ marginLeft: 'auto', color: COLORS.faint, whiteSpace: 'nowrap' }}>{t(ACTOR_LABEL[entry.actor])}</span>
+        : audit.map(entry => <div key={entry.id} className={classes.auditRow}>
+            <span className={classes.auditTime}>{new Date(entry.at).toLocaleTimeString([], { hour12: false })}</span>
+            <span className={classes.auditEvent}>{t(AUDIT_LABEL[entry.event])}</span>
+            <span className={classes.auditDetail}>{entry.detail ?? entry.sessionId ?? entry.taskId ?? entry.workspaceId ?? '—'}</span>
+            <span className={classes.auditActor}>{t(ACTOR_LABEL[entry.actor])}</span>
           </div>))}
       {pane === 'costs' && (usage === undefined
         ? <p style={{ ...metaLine, margin: 0 }}>{t('ctx.notTracked')}</p>
-        : <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        : <div className={classes.usage}>
             <span>{t('ctx.usageInput')}: {String(usage.uncachedInputTokens)}</span>
             <span>{t('ctx.usageOutput')}: {String(usage.outputTokens)}</span>
             <span>{t('ctx.usageCached')}: {String(usage.cacheReadTokens + usage.cacheWriteTokens)}</span>
@@ -106,13 +107,13 @@ export function LoomBottomPanel(props: LoomBottomPanelProps): ReactNode {
             <span style={metaLine}>{t('ctx.usageNote')}</span>
           </div>)}
     </div>}
-    {diffFullscreen && pane === 'diff' && <section aria-label={t('diff.title')} style={{ position: 'fixed', inset: 0, zIndex: 90, background: COLORS.panel, display: 'flex', flexDirection: 'column' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderBottom: `0.5px solid ${COLORS.border}`, flex: 'none' }}>
-        <strong style={{ fontSize: 13 }}>{t('diff.title')}</strong>
+    {diffFullscreen && pane === 'diff' && <section aria-label={t('diff.title')} className={classes.fullscreen}>
+      <div className={classes.fullscreenHead}>
+        <strong className={classes.fullscreenTitle}>{t('diff.title')}</strong>
         <span style={{ ...metaLine, marginLeft: 'auto' }}>{t('diff.files')}</span>
-        <button type="button" title={t('diff.exitFullscreen')} aria-label={t('diff.exitFullscreen')} onClick={() => setDiffFullscreen(false)} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, border: `0.5px solid ${COLORS.border}`, borderRadius: 6, background: 'transparent', color: COLORS.text, cursor: 'pointer', font: 'inherit', fontSize: 11, padding: '4px 8px' }}><IconFullscreenOutlineRegular size={13} />{t('diff.exitFullscreen')}</button>
+        <button type="button" className={classes.exitButton} title={t('diff.exitFullscreen')} aria-label={t('diff.exitFullscreen')} onClick={() => setDiffFullscreen(false)}><IconFullscreenOutlineRegular size={13} />{t('diff.exitFullscreen')}</button>
       </div>
-      <div style={{ flex: 1, minHeight: 0 }}>{diffBody}</div>
+      <div className={classes.fullscreenBody}>{diffBody}</div>
     </section>}
   </section>
 }
