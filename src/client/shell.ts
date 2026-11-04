@@ -15,17 +15,17 @@ export const COLORS = {
   selected: 'var(--loom-selected)',
   border: 'var(--loom-border)',
   borderStrong: 'var(--loom-border-strong)',
-  text: 'var(--dsw-alias-label-primary)',
-  dim: 'var(--dsw-alias-label-secondary)',
-  faint: 'var(--dsw-alias-label-caption)',
+  text: 'var(--color-ink)',
+  dim: 'var(--color-ink-3)',
+  faint: 'var(--color-muted)',
   /** Design brand blue; DSH's brand alias is monochrome, so accents use this token. */
   accent: 'var(--loom-accent)',
-  business: 'var(--dsw-alias-state-business-primary)',
-  green: 'var(--dsw-alias-state-success-primary)',
-  warn: 'var(--dsw-alias-state-warn-primary)',
-  error: 'var(--dsw-alias-state-error-primary)',
-  cyan: '#39c5cf',
-  purple: '#8B6FD6',
+  business: 'var(--color-accent)',
+  green: 'var(--color-success)',
+  warn: 'var(--color-warning)',
+  error: 'var(--color-danger)',
+  cyan: 'var(--color-accent)',
+  purple: 'var(--color-accent-ink)',
 } as const
 
 /** Business-state presentation shared by the board, cards and header. */

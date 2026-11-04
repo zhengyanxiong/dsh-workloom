@@ -1,0 +1,290 @@
+/* 由 design/tokens.json 生成，请勿手改。改 tokens.json 后重跑 build-tokens.mjs */
+
+:root {
+  --color-bg: #FFFFFF;
+  --color-surface: #FFFFFF;
+  --color-panel: #F9FAFB;
+  --color-ink: #101828;
+  --color-ink-2: #344054;
+  --color-ink-3: #475467;
+  --color-muted: #667085;
+  --color-line: #E4E7EC;
+  --color-line-soft: #F2F4F7;
+  --color-line-strong: #D0D5DD;
+  --color-accent: #2563EB;
+  --color-accent-solid: #2563EB;
+  --color-accent-soft: #EAF2FE;
+  --color-accent-ink: #1D4ED8;
+  --color-success: #067647;
+  --color-success-soft: #F6FEF9;
+  --color-success-line: #D1FADF;
+  --color-warning: #B45309;
+  --color-warning-soft: #FFF7E6;
+  --color-danger: #B42318;
+  --color-danger-soft: #FEF3F2;
+  --font-display: "Noto Sans SC", "Segoe UI", "Microsoft YaHei UI", sans-serif;
+  --font-body: "Noto Sans SC", "Segoe UI", "Microsoft YaHei UI", sans-serif;
+  --font-mono: "Cascadia Mono", "JetBrains Mono", Consolas, "SFMono-Regular", monospace;
+  --text-display-size: 26px;
+  --text-display-lh: 1.25;
+  --text-display-tracking: -0.02em;
+  --text-display-weight: 600;
+  --text-h1-size: 22px;
+  --text-h1-lh: 1.3;
+  --text-h1-tracking: -0.012em;
+  --text-h1-weight: 600;
+  --text-stat-size: 19px;
+  --text-stat-lh: 1.2;
+  --text-stat-tracking: -0.02em;
+  --text-stat-weight: 600;
+  --text-h2-size: 15px;
+  --text-h2-lh: 1.47;
+  --text-h2-tracking: 0;
+  --text-h2-weight: 600;
+  --text-h3-size: 13px;
+  --text-h3-lh: 1.5;
+  --text-h3-tracking: 0;
+  --text-h3-weight: 600;
+  --text-compact-size: 12.5px;
+  --text-compact-lh: 1.5;
+  --text-compact-tracking: 0;
+  --text-compact-weight: 400;
+  --text-body-size: 13.5px;
+  --text-body-lh: 1.75;
+  --text-body-tracking: 0;
+  --text-body-weight: 400;
+  --text-small-size: 11.5px;
+  --text-small-lh: 1.55;
+  --text-small-tracking: 0;
+  --text-small-weight: 400;
+  --text-label-size: 10.5px;
+  --text-label-lh: 1.45;
+  --text-label-tracking: 0.04em;
+  --text-label-weight: 500;
+  --text-micro-size: 9.5px;
+  --text-micro-lh: 1.4;
+  --text-micro-tracking: 0.02em;
+  --text-micro-weight: 500;
+  --text-nano-size: 9px;
+  --text-nano-lh: 1.4;
+  --text-nano-tracking: 0.02em;
+  --text-nano-weight: 500;
+  --text-mono-size: 11.5px;
+  --text-mono-lh: 1.55;
+  --text-mono-tracking: 0;
+  --text-mono-weight: 400;
+  --space-1: 2px;
+  --space-2: 4px;
+  --space-3: 6px;
+  --space-4: 8px;
+  --space-5: 10px;
+  --space-6: 12px;
+  --space-7: 14px;
+  --space-8: 16px;
+  --space-9: 18px;
+  --space-10: 20px;
+  --space-11: 24px;
+  --space-12: 28px;
+  --space-13: 32px;
+  --space-14: 40px;
+  --space-15: 48px;
+  --space-16: 64px;
+  --space-gutter: 14px;
+  --space-section: 26px;
+  --radius-xs: 5px;
+  --radius-sm: 7px;
+  --radius-md: 9px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+  --radius-pill: 999px;
+  --shadow-card: 0 1px 2px rgba(16,24,40,0.04);
+  --shadow-button: 0 0 0 1px rgba(16,24,40,0.04), 0 1px 2px rgba(16,24,40,0.06);
+  --shadow-float: 0 1px 2px rgba(16,24,40,0.04), 0 10px 28px -24px rgba(16,24,40,0.35);
+  --motion-fast: 130ms;
+  --motion-base: 180ms;
+  --motion-slow: 300ms;
+  --motion-ease: cubic-bezier(0.2, 0.6, 0.2, 1);
+  --container-max: 1240px;
+  --container-narrow: 780px;
+  --container-chat: 764px;
+  --container-session: 748px;
+  --container-board: 1400px;
+  --container-project: 1180px;
+  --container-nav: 256px;
+  --container-rail: 344px;
+  --container-topbar: 56px;
+  --container-bottom-bar: 34px;
+  --container-bottom-panel: 320px;
+  --container-diff-tree-min: 240px;
+  --container-diff-tree-max: 340px;
+  --container-diff-gutter: 42px;
+}
+
+[data-theme='dark'] {
+  --color-bg: #141619;
+  --color-surface: #1B1E23;
+  --color-panel: #101215;
+  --color-ink: #EDEAE3;
+  --color-ink-2: #B7BDC6;
+  --color-ink-3: #8C949E;
+  --color-muted: #7E8691;
+  --color-line: #2A2F36;
+  --color-line-soft: #23272D;
+  --color-line-strong: #363C45;
+  --color-accent: #9DB4FF;
+  --color-accent-solid: #5686FE;
+  --color-accent-soft: #1B2433;
+  --color-accent-ink: #9DB4FF;
+  --color-success: #88C6A6;
+  --color-success-soft: #18221C;
+  --color-success-line: #23382C;
+  --color-warning: #E3AC61;
+  --color-warning-soft: #2C2318;
+  --color-danger: #E39D88;
+  --color-danger-soft: #2B1D18;
+}
+
+.type-display {
+  font-family: var(--font-body);
+  font-size: var(--text-display-size);
+  line-height: var(--text-display-lh);
+  letter-spacing: var(--text-display-tracking);
+  font-weight: var(--text-display-weight);
+}
+
+.type-h1 {
+  font-family: var(--font-body);
+  font-size: var(--text-h1-size);
+  line-height: var(--text-h1-lh);
+  letter-spacing: var(--text-h1-tracking);
+  font-weight: var(--text-h1-weight);
+}
+
+.type-stat {
+  font-family: var(--font-body);
+  font-size: var(--text-stat-size);
+  line-height: var(--text-stat-lh);
+  letter-spacing: var(--text-stat-tracking);
+  font-weight: var(--text-stat-weight);
+}
+
+.type-h2 {
+  font-family: var(--font-body);
+  font-size: var(--text-h2-size);
+  line-height: var(--text-h2-lh);
+  letter-spacing: var(--text-h2-tracking);
+  font-weight: var(--text-h2-weight);
+}
+
+.type-h3 {
+  font-family: var(--font-body);
+  font-size: var(--text-h3-size);
+  line-height: var(--text-h3-lh);
+  letter-spacing: var(--text-h3-tracking);
+  font-weight: var(--text-h3-weight);
+}
+
+.type-compact {
+  font-family: var(--font-body);
+  font-size: var(--text-compact-size);
+  line-height: var(--text-compact-lh);
+  letter-spacing: var(--text-compact-tracking);
+  font-weight: var(--text-compact-weight);
+}
+
+.type-body {
+  font-family: var(--font-body);
+  font-size: var(--text-body-size);
+  line-height: var(--text-body-lh);
+  letter-spacing: var(--text-body-tracking);
+  font-weight: var(--text-body-weight);
+}
+
+.type-small {
+  font-family: var(--font-body);
+  font-size: var(--text-small-size);
+  line-height: var(--text-small-lh);
+  letter-spacing: var(--text-small-tracking);
+  font-weight: var(--text-small-weight);
+}
+
+.type-label {
+  font-family: var(--font-body);
+  font-size: var(--text-label-size);
+  line-height: var(--text-label-lh);
+  letter-spacing: var(--text-label-tracking);
+  font-weight: var(--text-label-weight);
+}
+
+.type-micro {
+  font-family: var(--font-mono);
+  font-size: var(--text-micro-size);
+  line-height: var(--text-micro-lh);
+  letter-spacing: var(--text-micro-tracking);
+  font-weight: var(--text-micro-weight);
+}
+
+.type-nano {
+  font-family: var(--font-mono);
+  font-size: var(--text-nano-size);
+  line-height: var(--text-nano-lh);
+  letter-spacing: var(--text-nano-tracking);
+  font-weight: var(--text-nano-weight);
+}
+
+.type-mono {
+  font-family: var(--font-mono);
+  font-size: var(--text-mono-size);
+  line-height: var(--text-mono-lh);
+  letter-spacing: var(--text-mono-tracking);
+  font-weight: var(--text-mono-weight);
+}
+
+/* 由 design/tokens.json 生成，请勿手改。改 tokens.json 后重跑 build-themes.mjs */
+[data-theme='white'] {
+  --color-bg: #FFFFFF;
+  --color-surface: #FFFFFF;
+  --color-panel: #F8FAFC;
+  --color-ink: #16181C;
+  --color-ink-2: #444A52;
+  --color-ink-3: #5F6670;
+  --color-muted: #727A85;
+  --color-line: #E6E9ED;
+  --color-line-soft: #F0F2F5;
+  --color-line-strong: #D3D8DF;
+  --color-accent: #2563EB;
+  --color-accent-solid: #2563EB;
+  --color-accent-soft: #EEF1F5;
+  --color-accent-ink: #1D4ED8;
+  --color-success: #067647;
+  --color-success-soft: #F6FEF9;
+  --color-success-line: #D1FADF;
+  --color-warning: #B45309;
+  --color-warning-soft: #FFF7E6;
+  --color-danger: #B42318;
+  --color-danger-soft: #FEF3F2;
+}
+
+[data-theme='light'] {
+  --color-bg: #F6F4EF;
+  --color-surface: #FFFFFF;
+  --color-panel: #F0EDE6;
+  --color-ink: #1A1D22;
+  --color-ink-2: #454C55;
+  --color-ink-3: #5C636D;
+  --color-muted: #6F7680;
+  --color-line: #E4E0D7;
+  --color-line-soft: #EEEAE2;
+  --color-line-strong: #D6D1C6;
+  --color-accent: #3B5BDB;
+  --color-accent-solid: #3B5BDB;
+  --color-accent-soft: #EDE9E1;
+  --color-accent-ink: #2F49A8;
+  --color-success: #2E6A49;
+  --color-success-soft: #F5F8F3;
+  --color-success-line: #DAE7D7;
+  --color-warning: #875709;
+  --color-warning-soft: #F7EDDA;
+  --color-danger: #95402C;
+  --color-danger-soft: #F8E9E2;
+}

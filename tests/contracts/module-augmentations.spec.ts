@@ -12,7 +12,7 @@ async function sourceFiles(directory: string): Promise<string[]> {
   for (const entry of entries) {
     const path = join(directory, entry.name)
     if (entry.isDirectory()) files.push(...await sourceFiles(path))
-    else if (['.ts', '.tsx'].includes(extname(entry.name))) files.push(path)
+    else if (['.ts', '.tsx'].includes(extname(entry.name)) && !entry.name.endsWith('.d.ts')) files.push(path)
   }
   return files
 }

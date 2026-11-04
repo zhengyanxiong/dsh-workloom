@@ -24,6 +24,7 @@ import { LoomDirectoryBrowser } from './LoomDirectoryBrowser.tsx'
 import { LoomReviewPreview } from './LoomReviewPreview.tsx'
 import { LoomTopbar } from './shell/LoomTopbar.tsx'
 import { LoomOverview } from './shell/LoomOverview.tsx'
+import { LoomThemeStyles } from './theme/LoomTheme.tsx'
 import { parseLoomHash, type LoomRoute } from './shell/router.ts'
 import { PinButton, ProjectTaskRow, SidebarSectionToggle, SidebarSessionRow, TreeIconAction, TreeRow, versionChip } from './shell/LoomSidebarParts.tsx'
 import { openFilePreview, workspacePreview, workspaceReviewPreview } from './preview.ts'
@@ -68,7 +69,7 @@ type CreateKind = 'project' | 'import' | 'version' | 'task'
 type EditKind = 'project' | 'version' | 'task'
 
 const frame: CSSProperties = { position: 'relative', display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, color: COLORS.text, background: COLORS.bg, fontSize: 13, overflow: 'hidden' }
-const sidebar: CSSProperties = { width: 320, flex: 'none', background: COLORS.panel2, borderRight: `0.5px solid ${COLORS.border}`, overflowY: 'auto', padding: '8px 0' }
+const sidebar: CSSProperties = { width: 256, flex: 'none', background: COLORS.panel2, borderRight: `0.5px solid ${COLORS.border}`, overflowY: 'auto', padding: '8px 0' }
 const center: CSSProperties = { flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, background: COLORS.panel }
 const aside: CSSProperties = { width: 344, flex: 'none', display: 'flex', flexDirection: 'column', borderLeft: `0.5px solid ${COLORS.border}`, background: COLORS.panel }
 const modalOverlay: CSSProperties = { position: 'fixed', inset: 0, zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, overflow: 'auto', background: 'rgba(0,0,0,.42)' }
@@ -864,33 +865,24 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
   const createVersionFor = (projectRecord: ProjectRecord): VersionRecord | undefined => snapshot?.versions.filter(candidate => candidate.projectId === projectRecord.id).at(-1)
   const createDisabledVersion = currentProject === undefined
   const createDisabledTask = currentVersion === undefined
-  return <div style={frame}>
+  return <div style={frame} data-theme="blue">
+    <LoomThemeStyles />
     <style>{`
       :root {
-        --loom-canvas: #f3f4f6;
-        --loom-surface: #ffffff;
-        --loom-surface-2: #fbfbfc;
-        --loom-surface-3: #f0f2f5;
-        --loom-selected: #f0f5fd;
-        --loom-accent: #4176e6;
-        --loom-accent-hover: #3568d4;
-        --loom-accent-active: #2d5cc2;
-        --loom-on-accent: #ffffff;
-        --loom-border: rgba(15, 17, 21, .10);
-        --loom-border-strong: rgba(15, 17, 21, .16);
-      }
-      body[data-ds-dark-theme] {
-        --loom-canvas: #151517;
-        --loom-surface: #232324;
-        --loom-surface-2: #2c2c2e;
-        --loom-surface-3: #353638;
-        --loom-selected: #263247;
-        --loom-accent: #5686fe;
-        --loom-accent-hover: #6b98ff;
-        --loom-accent-active: #4a79ea;
-        --loom-on-accent: #0f1115;
-        --loom-border: rgba(255, 255, 255, .20);
-        --loom-border-strong: rgba(255, 255, 255, .28);
+        --loom-canvas: var(--color-bg);
+        --loom-surface: var(--color-surface);
+        --loom-surface-2: var(--color-panel);
+        --loom-surface-3: var(--color-line-soft);
+        --loom-selected: var(--color-accent-soft);
+        --loom-accent: var(--color-accent);
+        --loom-accent-hover: var(--color-accent-ink);
+        --loom-accent-active: var(--color-accent-ink);
+        --loom-on-accent: var(--color-bg);
+        --loom-border: var(--color-line);
+        --loom-border-strong: var(--color-line-strong);
+        --loom-text: var(--color-ink);
+        --loom-dim: var(--color-ink-3);
+        --loom-faint: var(--color-muted);
       }
       .loom-branch-menu { --dsw-menu-surface-fill: var(--loom-surface); --dsw-menu-backdrop-filter: none; width: var(--loom-branch-menu-width, 320px) !important; max-width: none !important; background: var(--loom-surface) !important; border: 0.5px solid var(--loom-border) !important; box-shadow: 0 12px 32px rgba(15, 17, 21, .16) !important; }
       .loom-workspace-switch { align-self: flex-start; }
@@ -940,8 +932,7 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
       version={version}
       snapshot={snapshot}
       activeCount={activeCount}
-      view={view}
-      overviewActive={route === 'home'}
+      route={route}
       asideOpen={asideOpen}
       createDisabledVersion={createDisabledVersion}
       createDisabledTask={createDisabledTask}
@@ -951,8 +942,7 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
       onToggleMenu={() => setMenuOpen(value => !value)}
       onSelectProject={(id) => { setProject(id); setVersion(undefined); setTask(undefined); setSelected(undefined) }}
       onSelectVersion={(id) => { setVersion(id); setTask(undefined); setSelected(undefined); if (id !== undefined) { const owner = snapshot?.versions.find(candidate => candidate.id === id); if (owner !== undefined) setProject(owner.projectId) } }}
-      onViewChange={(next) => { setView(next); setPreferences(current => ({ ...current, view: next })); navigate(next === 'kanban' ? 'board' : 'task') }}
-      onOverview={() => navigate('home')}
+      onNavigate={navigate}
       onOpenCreate={openCreate}
       onToggleAside={() => setAsideOpen(value => { const next = !value; setPreferences(current => ({ ...current, contextOpen: next })); return next })}
       onOpenSettings={() => setSettingsOpen(true)}
