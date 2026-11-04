@@ -38,6 +38,7 @@ import { LoomVersionDetail } from './LoomVersionDetail.tsx'
 import { LoomSessionActivity, type LoomSubagentRow } from './LoomSessionActivity.tsx'
 import { LoomVersionGraph } from './LoomVersionGraph.tsx'
 import { LoomSessionGraph, type LoomTaskSessionRow } from './LoomSessionGraph.tsx'
+import { LoomSessionList } from './LoomSessionList.tsx'
 import { autoWorkspaceRepositoryPath } from '../domain/workspace.ts'
 import { activeWorkspaceCount, aggregateTokenUsage, boundSessions, tokenUsageOf, currentWorkspace, taskAttemptRows, taskSessionRows, workspaceName, type ShellFilter } from './projection.ts'
 import { deriveVersionContext } from '../shared/version-context.ts'
@@ -1048,7 +1049,11 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
             onBoard={() => navigate('board')}
           />
         : route === 'session' && selected === undefined
-        ? <main className={shell.center}><p style={{ ...note, margin: 20 }}>{t('chooseSession')}</p></main>
+        ? <main className={shell.center}><div style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {detailTask === undefined
+              ? <p style={{ ...note, margin: 0 }}>{t('chooseSession')}</p>
+              : <LoomSessionList t={t} rows={detailAttemptRows} selectedSessionId={selected} onOpenSession={openAttemptSession} />}
+          </div></main>
         : view === 'kanban'
         ? <LoomKanban
             t={t}
