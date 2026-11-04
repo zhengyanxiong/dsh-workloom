@@ -115,23 +115,32 @@ export function installLoomSurface(ui: LoomUi, host: LoomHostPort, t: Translate)
   ui.effect(() => {
     if (typeof window === 'undefined') return () => { /* No DOM to observe. */ }
     let collapsedByLoom = false
+    let probes = 0
+    let probeTimer = 0
     const sidebarWidth = (): number => document.querySelector('[class*="sidebarCol"]')?.getBoundingClientRect().width ?? 0
     const sync = (): void => {
+      window.clearTimeout(probeTimer)
       if (window.innerWidth < 1024) return
       const active = ui.layout.panelInfo.getSnapshot().activePanelId === PANEL_ID
       if (active) {
-        if (readPreferences().autoCollapseSidebar && !collapsedByLoom && sidebarWidth() > 80) {
+        if (!readPreferences().autoCollapseSidebar) return
+        if (!collapsedByLoom && sidebarWidth() > 80) {
           ui.layout.toggleSidebar()
           collapsedByLoom = true
+          probes = 0
+        } else if (!collapsedByLoom && probes < 12) {
+          probes += 1
+          probeTimer = window.setTimeout(sync, 80)
         }
-      } else if (collapsedByLoom && sidebarWidth() < 80) {
-        ui.layout.toggleSidebar()
+      } else if (collapsedByLoom) {
+        if (sidebarWidth() < 80) ui.layout.toggleSidebar()
         collapsedByLoom = false
+        probes = 0
       }
     }
-    const timer = window.setTimeout(sync, 60)
+    const initial = window.setTimeout(sync, 80)
     const dispose = ui.layout.panelInfo.subscribe(sync)
-    return () => { window.clearTimeout(timer); dispose() }
+    return () => { window.clearTimeout(initial); window.clearTimeout(probeTimer); dispose() }
   }, 'loom: collapse the native sidebar while active')
 }
 
