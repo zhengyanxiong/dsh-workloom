@@ -873,10 +873,10 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
   const createVersionFor = (projectRecord: ProjectRecord): VersionRecord | undefined => snapshot?.versions.filter(candidate => candidate.projectId === projectRecord.id).at(-1)
   const createDisabledVersion = currentProject === undefined
   const createDisabledTask = currentVersion === undefined
-  return <div data-theme={darkTheme ? 'dark' : 'blue'} className={`${LOOM_ROOT_CLASS} ${shell.root}`}>
+  return <div data-theme={darkTheme ? 'dark' : 'blue'} className={`${LOOM_ROOT_CLASS} loom-root ${shell.root}`}>
     <LoomThemeStyles />
     <style>{`
-      :root {
+      .loom-root {
         --loom-canvas: var(--color-bg);
         --loom-surface: var(--color-surface);
         --loom-surface-2: var(--color-panel);
