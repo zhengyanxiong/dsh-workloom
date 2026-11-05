@@ -1,12 +1,13 @@
 /** Kanban view with metrics, project swimlanes and the overview panel. */
-import { useRef, type CSSProperties } from 'react'
+import { useRef } from 'react'
 import { IconCloseOutlineRegular, IconFolderCloseRegular, IconSearchOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { CatalogSnapshot, ProjectRecord, TaskRecord } from 'dsh-workloom/types'
 import type { BoardColumn } from './board.ts'
 import { boardBlockers, boardMetrics, boundSessions, flatBoard, projectLanes, type ShellFilter } from './projection.ts'
-import { AUDIT_LABEL, canMoveTask, COLORS, metaLine, sectionTitle, select, shortCommit, PRIORITY_META, STATUS_META, STATUS_ORDER } from './shell.ts'
+import { AUDIT_LABEL, canMoveTask, COLORS, metaLine, sectionTitle, shortCommit, PRIORITY_META, STATUS_META, STATUS_ORDER } from './shell.ts'
 import { relativeTime } from './time.ts'
 import type { LoomKey } from './locales.ts'
+import classes from './LoomKanban.module.css'
 
 type Translate = (key: LoomKey) => string
 
@@ -39,26 +40,8 @@ export interface LoomKanbanProps {
   readonly onNewCard: (project: ProjectRecord) => void
 }
 
-const toolbar: CSSProperties = { flex: 'none', padding: '9px 14px 0', background: COLORS.panel, borderBottom: `0.5px solid ${COLORS.border}` }
-const metricsRow: CSSProperties = { display: 'flex', alignItems: 'center', height: 24, minWidth: 0, overflow: 'hidden' }
-const metricStyle: CSSProperties = { display: 'flex', alignItems: 'baseline', gap: 5, height: 16, padding: '0 10px', borderRight: `0.5px solid ${COLORS.border}`, color: COLORS.faint, fontSize: 10, whiteSpace: 'nowrap' }
-const filterBar: CSSProperties = { display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 5, padding: '7px 0 10px', minWidth: 0 }
-const filterChip: CSSProperties = { ...select, height: 25, fontSize: 10.5, padding: '0 7px', background: COLORS.panel, flex: 'none', maxWidth: 132 }
-const searchBox: CSSProperties = { flex: 1, minWidth: 90, height: 25, display: 'flex', alignItems: 'center', gap: 5, padding: '0 8px', border: `0.5px solid ${COLORS.border}`, borderRadius: 6, background: COLORS.panel, color: COLORS.faint }
-const modeTrack: CSSProperties = { flex: 'none', display: 'flex', gap: 1, padding: 2, borderRadius: 6, background: COLORS.panel3, marginLeft: 'auto' }
-const modeButton: CSSProperties = { height: 21, padding: '0 7px', border: 'none', borderRadius: 4, background: 'transparent', color: COLORS.faint, font: 'inherit', fontSize: 9.5, cursor: 'pointer' }
-const boardArea: CSSProperties = { flex: 1, minHeight: 0, overflow: 'auto', padding: '9px 12px 12px', background: COLORS.panel2, display: 'flex', flexDirection: 'column', gap: 9 }
-const laneStyle: CSSProperties = { display: 'flex', flexDirection: 'column', minHeight: 210, gap: 4 }
-const laneHead: CSSProperties = { height: 23, display: 'flex', alignItems: 'center', gap: 5, padding: '0 2px', flex: 'none' }
-const laneName: CSSProperties = { fontSize: 11, fontWeight: 500, color: COLORS.dim, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }
-const columnsGrid: CSSProperties = { flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: 'repeat(5, minmax(150px, 1fr))', gap: 6, marginTop: 2 }
-const card: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 4, textAlign: 'left', width: '100%', background: COLORS.panel, border: `0.5px solid ${COLORS.border}`, borderLeftWidth: 2, borderRadius: 6, padding: '6px 7px', cursor: 'pointer', color: 'inherit', font: 'inherit', flex: 'none', overflow: 'hidden' }
-const cardTitle: CSSProperties = { fontWeight: 500, fontSize: 11.5, lineHeight: 1.35, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', overflowWrap: 'anywhere' }
-const cardDescription: CSSProperties = { fontSize: 10, lineHeight: 1.4, color: COLORS.faint, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', overflowWrap: 'anywhere' }
-const chipBase: CSSProperties = { padding: '1px 4px', borderRadius: 3, font: '9px/1.35 ui-monospace, monospace', whiteSpace: 'nowrap' }
-
 function Metric({ value, label, color, first }: { value: number; label: string; color?: string; first?: boolean }) {
-  return <div style={{ ...metricStyle, ...(first === true ? { paddingLeft: 0 } : {}) }}><b style={{ fontWeight: 400, fontSize: 13, color: color ?? COLORS.text, fontFamily: 'ui-monospace, monospace' }}>{String(value)}</b><span>{label}</span></div>
+  return <div className={`${classes.metric} ${first === true ? classes.metricFirst : ''}`}><b className={classes.metricValue} style={color === undefined ? undefined : { color }}>{String(value)}</b><span>{label}</span></div>
 }
 
 function Card({ task, versionName, sessions, live, versionProjects, moduleNamesByProject, t, onSelect }: { task: TaskRecord; versionName: string; sessions: number; live: boolean; versionProjects: ReadonlyMap<string, string>; moduleNamesByProject: ReadonlyMap<string, ReadonlyMap<string, string>>; t: Translate; onSelect: (task: TaskRecord) => void }) {
@@ -69,20 +52,20 @@ function Card({ task, versionName, sessions, live, versionProjects, moduleNamesB
   const modules = (task.moduleIds ?? []).map(moduleId => moduleNamesByProject.get(versionProjects.get(task.versionId) ?? '')?.get(moduleId) ?? moduleId)
   const lastDragAt = useRef(0)
   const executing = live
-  return <button type="button" data-loom-hover="card" className={executing ? 'loom-kb-card-running' : undefined} draggable onDragStart={event => { lastDragAt.current = Date.now(); event.dataTransfer?.setData('text/plain', task.id); if (event.dataTransfer !== null) event.dataTransfer.effectAllowed = 'move' }} onDragEnd={() => { lastDragAt.current = Date.now() }} style={{ ...card, borderLeftColor: meta.color }} onClick={() => { if (Date.now() - lastDragAt.current > 500) onSelect(task) }}>
-    <span style={cardTitle}>{task.title}</span>
-    {task.description !== undefined && task.description !== '' && <span style={cardDescription}>{task.description}</span>}
-    <span style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
-      {versionName !== '' && <span style={{ ...chipBase, background: 'color-mix(in srgb, var(--loom-accent) 10%, transparent)', color: COLORS.accent }}>{versionName}</span>}
-      <span style={{ ...chipBase, background: 'color-mix(in srgb, var(--dsw-alias-label-primary) 6%, transparent)', color: priorityMeta.color }}>{t(priorityMeta.key)}</span>
-      {task.attempts.length > 1 && <span style={{ ...chipBase, color: COLORS.faint }}>↻ {String(task.attempts.length)}</span>}
+  return <button type="button" data-loom-hover="card" className={`${classes.card} ${executing ? 'loom-kb-card-running' : ''}`} draggable onDragStart={event => { lastDragAt.current = Date.now(); event.dataTransfer?.setData('text/plain', task.id); if (event.dataTransfer !== null) event.dataTransfer.effectAllowed = 'move' }} onDragEnd={() => { lastDragAt.current = Date.now() }} style={{ borderLeftColor: meta.color }} onClick={() => { if (Date.now() - lastDragAt.current > 500) onSelect(task) }}>
+    <span className={classes.cardTitle}>{task.title}</span>
+    {task.description !== undefined && task.description !== '' && <span className={classes.cardDescription}>{task.description}</span>}
+    <span className={classes.chips}>
+      {versionName !== '' && <span className={classes.chip} style={{ background: 'color-mix(in srgb, var(--color-accent) 10%, transparent)', color: 'var(--color-accent)' }}>{versionName}</span>}
+      <span className={classes.chip} style={{ background: 'color-mix(in srgb, var(--color-ink) 6%, transparent)', color: priorityMeta.color }}>{t(priorityMeta.key)}</span>
+      {task.attempts.length > 1 && <span className={classes.chip} style={{ color: 'var(--color-muted)' }}>↻ {String(task.attempts.length)}</span>}
     </span>
-    <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, paddingTop: 4, borderTop: `0.5px solid ${COLORS.border}`, color: COLORS.faint, fontSize: 9, minWidth: 0, lineHeight: 1.2 }}>
-      <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+    <span className={classes.cardFooter}>
+      <span className={classes.cardModules}>
         {modules.length === 0 ? '—' : modules.slice(0, 2).join(' · ')}{modules.length > 2 ? ` +${String(modules.length - 2)}` : ''}
       </span>
-      <span style={{ flex: 'none', display: 'flex', gap: 5, alignItems: 'center' }}>
-        {commit !== undefined && <span style={{ fontFamily: 'ui-monospace, monospace' }}>🔒 {commit}</span>}
+      <span className={classes.cardMeta}>
+        {commit !== undefined && <span style={{ fontFamily: 'var(--font-mono)' }}>🔒 {commit}</span>}
         <span data-loom-time>{relativeTime(task.updatedAt)}</span>
         <span>{sessions > 0 ? `${String(sessions)} ${t('kb.sessions')}` : '—'}</span>
       </span>
@@ -109,15 +92,15 @@ function Column({ column, t, wipLimit, versionNames, versionProjects, moduleName
     aria-label={t(meta.key)}
     onDragOver={event => { event.preventDefault(); if (event.dataTransfer !== null) event.dataTransfer.dropEffect = 'move' }}
     onDrop={event => { event.preventDefault(); const id = event.dataTransfer?.getData('text/plain'); if (id !== undefined && id !== '') onDropTask(id as TaskRecord['id'], column.status) }}
-    style={{ minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column', background: COLORS.panel2, border: `0.5px solid ${COLORS.border}`, borderRadius: 7, overflow: 'hidden' }}>
-    <div style={{ flex: 'none', height: 27, display: 'flex', alignItems: 'center', gap: 5, padding: '0 7px', borderBottom: `0.5px solid ${COLORS.border}`, background: COLORS.panel3, fontSize: 10 }}>
+    className={classes.column}>
+    <div className={classes.columnHead}>
       <span style={{ width: 5, height: 5, borderRadius: 999, background: meta.color, flex: 'none' }} />
-      <span style={{ color: COLORS.dim, whiteSpace: 'nowrap' }}>{t(meta.key)}</span>
-      <span style={{ marginLeft: 'auto', padding: '1px 4px', border: `0.5px solid ${COLORS.border}`, borderRadius: 5, background: COLORS.panel, color: COLORS.faint, font: '9px/1.15 ui-monospace, monospace' }}>{String(column.tasks.length)}</span>
+      <span className={classes.columnName}>{t(meta.key)}</span>
+      <span className={classes.columnCount}>{String(column.tasks.length)}</span>
       {column.status === 'running' && <span title={t('kb.wipHint')} style={{ fontSize: 8.5, color: overLimit ? COLORS.error : COLORS.warn, background: overLimit ? 'color-mix(in srgb, var(--dsw-alias-state-error-primary) 14%, transparent)' : 'color-mix(in srgb, var(--dsw-alias-state-warn-primary) 12%, transparent)', borderRadius: 3, padding: '1px 4px' }}>{t('kb.wipCount').replace('{count}', String(column.tasks.length)).replace('{limit}', String(wipLimit))}</span>}
     </div>
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 5, padding: 6, flex: 1, minHeight: 0, overflowY: 'auto' }}>
-      {column.tasks.length === 0 && <span style={{ ...metaLine, textAlign: 'center', padding: '12px 5px', border: `0.5px dashed ${COLORS.border}`, borderRadius: 5, fontSize: 9.5 }}>{t('kb.empty')}</span>}
+    <div className={classes.columnBody}>
+      {column.tasks.length === 0 && <span className={classes.empty}>{t('kb.empty')}</span>}
       {column.tasks.map(task => <Card key={task.id} task={task} versionName={versionNames.get(task.versionId) ?? ''} sessions={sessionCounts.get(task.id) ?? 0} live={liveTaskIds.has(task.id)} versionProjects={versionProjects} moduleNamesByProject={moduleNamesByProject} t={t} onSelect={onSelect} />)}
     </div>
   </div>
@@ -146,74 +129,74 @@ export function LoomKanban(props: LoomKanbanProps) {
   const lanes = projectLanes(snapshot, filter)
   const flat = flatBoard(snapshot, filter)
   const moduleProjectId = projectValue === '' ? '' : projectValue
-  return <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', background: COLORS.panel }}>
-    <div style={toolbar}>
-      <div style={metricsRow}>
+  return <div className={classes.root}>
+    <div className={classes.toolbar}>
+      <div className={classes.metricsRow}>
         <Metric first value={metrics.cards} label={t('kb.cards')} />
         <Metric value={metrics.running} label={t('kb.running')} color={COLORS.accent} />
         <Metric value={metrics.activeSessions} label={t('kb.activeSessions')} />
         <Metric value={metrics.review} label={t('kb.review')} color={COLORS.purple} />
         <Metric value={metrics.completed} label={t('kb.completed')} color={COLORS.green} />
-        <span role="status" title={t('kb.wipHint')} style={{ marginLeft: 'auto', padding: '0 10px', fontSize: 10, color: overWip ? COLORS.error : COLORS.faint, whiteSpace: 'nowrap' }}>
+        <span role="status" title={t('kb.wipHint')} className={classes.wip} style={{ color: overWip ? 'var(--color-danger)' : 'var(--color-muted)' }}>
           {overWip
             ? t('kb.wipExceeded').replace('{count}', String(metrics.running)).replace('{limit}', String(wipLimit))
             : t('kb.wipWithin').replace('{count}', String(metrics.running)).replace('{limit}', String(wipLimit))}
         </span>
       </div>
-      <div style={filterBar}>
-        <select aria-label={t('top.project')} value={projectValue} onChange={event => { onProject(event.target.value) }} style={filterChip}>
+      <div className={classes.filterBar}>
+        <select aria-label={t('top.project')} value={projectValue} onChange={event => { onProject(event.target.value) }} className={classes.filterChip}>
           <option value="">{t('top.allProjects')}</option>
           {snapshot.projects.map(project => <option key={project.id} value={project.id}>{project.config.name}</option>)}
         </select>
-        <select aria-label={t('top.version')} value={versionValue} onChange={event => { onVersion(event.target.value) }} style={filterChip}>
+        <select aria-label={t('top.version')} value={versionValue} onChange={event => { onVersion(event.target.value) }} className={classes.filterChip}>
           <option value="">{t('top.allVersions')}</option>
           {versions.map(version => <option key={version.id} value={version.id}>{version.name}</option>)}
         </select>
-        <select aria-label={t('kb.status')} value={statusValue} onChange={event => onStatus(event.target.value)} style={filterChip}>
+        <select aria-label={t('kb.status')} value={statusValue} onChange={event => onStatus(event.target.value)} className={classes.filterChip}>
           <option value="">{t('kb.allStatuses')}</option>
           {STATUS_ORDER.map(status => <option key={status} value={status}>{t(STATUS_META[status].key)}</option>)}
         </select>
-        <select aria-label={t('kb.priority')} value={priorityValue} onChange={event => onPriority(event.target.value)} style={filterChip}>
+        <select aria-label={t('kb.priority')} value={priorityValue} onChange={event => onPriority(event.target.value)} className={classes.filterChip}>
           <option value="">{t('kb.priority')}</option>
           <option value="low">{t('task.priority.low')}</option>
           <option value="normal">{t('task.priority.normal')}</option>
           <option value="high">{t('task.priority.high')}</option>
         </select>
-        <select aria-label={t('kb.module')} value={moduleValue} onChange={event => onModule(event.target.value)} disabled={moduleProjectId === ''} style={{ ...filterChip, opacity: moduleProjectId === '' ? 0.55 : 1 }}>
+        <select aria-label={t('kb.module')} value={moduleValue} onChange={event => onModule(event.target.value)} className={classes.filterChip} disabled={moduleProjectId === ''}>
           <option value="">{t('kb.module')}</option>
           {snapshot.projects.filter(project => project.id === moduleProjectId).flatMap(project => project.config.modules).map(module => <option key={module.id} value={module.id}>{module.path}</option>)}
         </select>
-        <label style={searchBox}>
+        <label className={classes.searchBox}>
           <IconSearchOutlineRegular size={11} />
-          <input aria-label={t('kb.search')} placeholder={t('kb.search')} value={searchValue} onChange={event => onSearch(event.target.value)} style={{ flex: 1, minWidth: 0, border: 'none', outline: 'none', background: 'transparent', color: COLORS.text, font: 'inherit', fontSize: 10.5 }} />
+          <input aria-label={t('kb.search')} placeholder={t('kb.search')} value={searchValue} onChange={event => onSearch(event.target.value)} className={classes.searchInput} />
         </label>
-        <div style={modeTrack}>
-          <button type="button" aria-pressed={mode === 'grouped'} onClick={() => onMode('grouped')} style={{ ...modeButton, ...(mode === 'grouped' ? { background: COLORS.panel, color: COLORS.text, boxShadow: '0 1px 2px rgba(15,17,21,.10)' } : {}) }}>{t('kb.grouped')}</button>
-          <button type="button" aria-pressed={mode === 'flat'} onClick={() => onMode('flat')} style={{ ...modeButton, ...(mode === 'flat' ? { background: COLORS.panel, color: COLORS.text, boxShadow: '0 1px 2px rgba(15,17,21,.10)' } : {}) }}>{t('kb.flat')}</button>
+        <div className={classes.modeTrack}>
+          <button type="button" aria-pressed={mode === 'grouped'} onClick={() => onMode('grouped')} className={`${classes.modeButton} ${mode === 'grouped' ? classes.modeButtonActive : ''}`}>{t('kb.grouped')}</button>
+          <button type="button" aria-pressed={mode === 'flat'} onClick={() => onMode('flat')} className={`${classes.modeButton} ${mode === 'flat' ? classes.modeButtonActive : ''}`}>{t('kb.flat')}</button>
         </div>
-        {hasFilters && <button type="button" aria-label={t('kb.clearFilters')} title={t('kb.clearFilters')} onClick={onClearFilters} style={{ ...filterChip, display: 'inline-flex', alignItems: 'center', gap: 4, cursor: 'pointer', color: COLORS.dim }}>
+        {hasFilters && <button type="button" aria-label={t('kb.clearFilters')} title={t('kb.clearFilters')} onClick={onClearFilters} className={classes.filterChip}>
           <IconCloseOutlineRegular size={10} />{t('kb.clearFilters')}
         </button>}
       </div>
     </div>
-    <div style={boardArea}>
+    <div className={classes.boardArea}>
       {mode === 'grouped'
-        ? <div style={{ display: 'flex', flexDirection: 'column', gap: 10, flex: 1, minHeight: 0 }}>
-            {lanes.map(({ project, versions: projectVersions, columns, count }, index) => <div key={project.id} style={{ ...laneStyle, flex: `${index === 0 ? '1.25' : '0.82'} 1 0` }}>
-              <div style={laneHead}>
+        ? <div className={classes.lanes}>
+            {lanes.map(({ project, versions: projectVersions, columns, count }, index) => <div key={project.id} className={classes.lane} style={{ flex: `${index === 0 ? '1.25' : '0.82'} 1 0` }}>
+              <div className={classes.laneHead}>
                 <span style={{ display: 'flex', color: COLORS.faint }}><IconFolderCloseRegular size={11} /></span>
-                <span style={laneName}>{project.config.name}</span>
-                <span style={{ ...metaLine, fontSize: 9, fontFamily: 'ui-monospace, monospace' }}>{String(count)}</span>
-                <span style={{ ...metaLine, fontSize: 9 }}>{String(projectVersions.length)} {t('kb.laneSub')}</span>
-                <button type="button" style={{ marginLeft: 'auto', border: 'none', background: 'transparent', color: COLORS.faint, font: 'inherit', fontSize: 9.5, cursor: 'pointer', padding: '2px 0' }} onClick={() => onNewCard(project)}>＋ {t('kb.newCard')}</button>
+                <span className={classes.laneName}>{project.config.name}</span>
+                <span className={classes.laneMeta}>{String(count)}</span>
+                <span className={classes.laneMeta}>{String(projectVersions.length)} {t('kb.laneSub')}</span>
+                <button type="button" className={classes.laneAction} onClick={() => onNewCard(project)}>＋ {t('kb.newCard')}</button>
               </div>
-              <div className="loom-kb-columns" style={columnsGrid}>
+              <div className={`loom-kb-columns ${classes.columns}`}>
                 {columns.map(column => <Column key={column.status} column={column} t={t} wipLimit={wipLimit} versionNames={versionNames} versionProjects={versionProjects} moduleNamesByProject={moduleNamesByProject} sessionCounts={sessionCounts} liveTaskIds={liveTaskIds} onSelect={onSelect} onDropTask={handleDrop} />)}
               </div>
             </div>)}
             {lanes.length === 0 && <p style={metaLine}>{t('kb.empty')}</p>}
           </div>
-        : <div className="loom-kb-columns" style={{ ...columnsGrid, flex: 1, minHeight: 210, marginTop: 0 }}>
+        : <div className={`loom-kb-columns ${classes.columns} ${classes.flat}`}>
             {flat.map(column => <Column key={column.status} column={column} t={t} wipLimit={wipLimit} versionNames={versionNames} versionProjects={versionProjects} moduleNamesByProject={moduleNamesByProject} sessionCounts={sessionCounts} liveTaskIds={liveTaskIds} onSelect={onSelect} onDropTask={handleDrop} />)}
           </div>}
     </div>
@@ -285,7 +268,7 @@ export function LoomKanbanAside({ t, snapshot, filter, onSelectSession }: { t: T
       <h4 style={sectionTitle}>{t('kb.projects')}</h4>
       {snapshot.projects.length === 0 && <p style={metaLine}>{t('kb.panelNone')}</p>}
       {snapshot.projects.map(project => <div key={project.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '5px 0', borderTop: `0.5px solid ${COLORS.border}`, fontSize: 10, color: COLORS.dim }}>
-        <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{project.config.name}</span>
+        <span className={classes.cardModules}>{project.config.name}</span>
         <b style={{ color: COLORS.faint, font: '9px/1 ui-monospace, monospace', fontWeight: 400 }}>{String(projectTasks.get(project.id) ?? 0)}</b>
       </div>)}
     </section>
