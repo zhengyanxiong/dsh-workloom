@@ -1134,6 +1134,7 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
                     selectedSessionId={executionSession}
                     onSelectSession={id => setExecutionSession(id as SessionId)}
                     onOpenSession={openAttemptSession}
+                    onBack={() => navigate('board')}
                   />
                 : displayVersion !== undefined && snapshot !== undefined
                   ? <LoomVersionDetail

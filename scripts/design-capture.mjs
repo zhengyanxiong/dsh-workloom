@@ -23,6 +23,7 @@ if (url === undefined) {
 }
 const outDir = arg('out', 'design/shots')
 const route = arg('route', 'home')
+const name = arg('name', route)
 const suffix = arg('suffix', '')
 const evalExpr = arg('eval')
 const widths = arg('widths', '1440,768,375').split(',').map(value => Number(value)).filter(Number.isFinite)
@@ -94,7 +95,7 @@ try {
     await send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: false })
     await sleep(400)
     const shot = await send('Page.captureScreenshot', { format: 'png' })
-    const file = path.join(outDir, `loom-${route}${suffix}@${String(width)}.png`)
+    const file = path.join(outDir, `loom-${name}${suffix}@${String(width)}.png`)
     await writeFile(file, Buffer.from(shot.data, 'base64'))
     console.log(`captured ${file}`)
   }

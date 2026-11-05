@@ -25,11 +25,14 @@ export interface LoomOutcomePanelProps {
   /** Whether comparisons wrap wide lines instead of scrolling sideways. */
   readonly wrap: boolean
   readonly onToggleWrap: () => void
+  /** Render without the outer card chrome and duplicate heading (page owns the stage title). */
+  readonly embedded?: boolean
 }
 
 type DecisionTarget = TransitionTaskRequest['target']
 
 const card: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0, padding: '16px 18px', background: COLORS.panel, border: `0.5px solid ${COLORS.border}`, borderRadius: 10 }
+const embeddedCard: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0 }
 const heading: CSSProperties = { display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap', margin: 0, color: COLORS.text, fontSize: 12.5, fontWeight: 500, lineHeight: 1.4 }
 const headingSpacer: CSSProperties = { marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }
 const notice: CSSProperties = { margin: 0, padding: '8px 10px', borderRadius: 7, color: COLORS.dim, background: COLORS.panel2, border: `0.5px solid ${COLORS.border}`, fontSize: 11.5, lineHeight: 1.6 }
@@ -83,7 +86,7 @@ function EvidenceList({ label, items }: { label: string; items: readonly string[
  * @param props - selected task, catalog snapshot, transition wire and Diff reader.
  * @returns the acceptance decision card.
  */
-export function LoomOutcomePanel({ t, task, snapshot, actions, loadChanges, wrap, onToggleWrap }: LoomOutcomePanelProps): ReactNode {
+export function LoomOutcomePanel({ t, task, snapshot, actions, loadChanges, wrap, onToggleWrap, embedded = false }: LoomOutcomePanelProps): ReactNode {
   const [basis, setBasis] = useState('')
   const [basisMissing, setBasisMissing] = useState(false)
   const [showDiff, setShowDiff] = useState(false)
@@ -124,15 +127,18 @@ export function LoomOutcomePanel({ t, task, snapshot, actions, loadChanges, wrap
     }
   }
 
-  return <section style={card} aria-label={t('outcome.title')}>
-    <h4 style={heading}>
-      <IconCheckOutlineRegular size={12} />
-      {t('outcome.title')}
-      <span style={headingSpacer}>
-        {state !== undefined && <Tag tone={state === 'accepted' ? 'success' : state === 'rejected' ? 'danger' : 'info'}>{t(OUTCOME_STATE_KEY[state])}</Tag>}
-        {outcome?.testResults === undefined && <span style={pill}>{t('outcome.noTestsBadge')}</span>}
-      </span>
-    </h4>
+  const badges = <>
+    {state !== undefined && <Tag tone={state === 'accepted' ? 'success' : state === 'rejected' ? 'danger' : 'info'}>{t(OUTCOME_STATE_KEY[state])}</Tag>}
+    {outcome?.testResults === undefined && <span style={pill}>{t('outcome.noTestsBadge')}</span>}
+  </>
+  return <section style={embedded ? embeddedCard : card} aria-label={t('outcome.title')}>
+    {embedded
+      ? <div style={headingSpacer}>{badges}</div>
+      : <h4 style={heading}>
+        <IconCheckOutlineRegular size={12} />
+        {t('outcome.title')}
+        <span style={headingSpacer}>{badges}</span>
+      </h4>}
 
     {outcome === undefined
       ? <p style={notice}>{t('outcome.noOutcome')}</p>
