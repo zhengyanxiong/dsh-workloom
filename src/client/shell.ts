@@ -49,6 +49,9 @@ export const STATUS_DOT: Readonly<Record<TaskStatus, StateDotState>> = {
 /** Status order shown by the board and tree. */
 export const STATUS_ORDER: readonly TaskStatus[] = ['pending', 'running', 'review', 'completed', 'failed']
 
+/** Board display order: active work opens the board, archived failures trail it. */
+export const BOARD_STATUS_ORDER: readonly TaskStatus[] = ['running', 'pending', 'review', 'completed', 'failed']
+
 /** Whether a human may move a card between business states without starting a new round. */
 export function canMoveTask(from: TaskStatus, to: TaskStatus): boolean {
   return (from === 'running' && (to === 'review' || to === 'failed'))

@@ -1,0 +1,40 @@
+/* Segmented view switch; token-driven so every page shares one control. */
+.track {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  flex: none;
+  padding: 2px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-sm);
+  background: var(--color-panel);
+}
+
+.segment {
+  height: 22px;
+  padding: 0 var(--space-2);
+  border: 0;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--color-muted);
+  font: inherit;
+  font-size: var(--text-label-size);
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.segment:hover:not(.active) {
+  color: var(--color-ink);
+}
+
+.active {
+  background: var(--color-surface);
+  color: var(--color-ink);
+  box-shadow: var(--shadow-button);
+}
+
+.segment:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
