@@ -58,3 +58,34 @@
 .empty { padding: var(--space-8); color: var(--color-muted); font-size: var(--text-small-size); }
 @media (max-width: 1180px) { .grid { grid-template-columns: minmax(0, 1fr); } .stats { grid-template-columns: repeat(3, minmax(0, 1fr)); } .side { flex-direction: row; flex-wrap: wrap; } .side .card { flex: 1 1 240px; } }
 @media (max-width: 860px) { .page { padding: var(--space-8) var(--space-5); } .head { flex-direction: column; } .versions { grid-template-columns: minmax(0, 1fr); } .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } .colWorkspace { display: none; } .colTask { width: 55%; } .colStatus { width: 22%; } .colUpdate { width: 23%; } }
+
+.projectBar { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.projectSelect { height: 30px; max-width: 240px; padding: 0 var(--space-2); border: 1px solid var(--color-line); border-radius: var(--radius-sm); background: var(--color-surface); color: var(--color-ink); font: inherit; font-size: var(--text-small-size); cursor: pointer; }
+.projectSelect:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+.metricCard { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-4) var(--space-4); border: 1px solid var(--color-line); border-radius: var(--radius-lg); background: var(--color-surface); min-width: 0; }
+.metricTop { display: flex; align-items: center; gap: var(--space-2); color: var(--color-muted); font-size: var(--text-label-size); }
+.metricDot { width: 6px; height: 6px; flex: none; border-radius: var(--radius-pill); }
+.metricValue { color: var(--color-ink); font-family: var(--font-body); font-size: var(--text-h2-size); line-height: var(--text-h2-lh); font-weight: var(--text-h2-weight); }
+.metricHint { color: var(--color-muted); font-family: var(--font-body); font-size: var(--text-label-size); line-height: var(--text-label-lh); }
+.metricTrack { height: 4px; border-radius: var(--radius-pill); background: var(--color-line-soft); overflow: hidden; margin-top: auto; }
+.metricFill { height: 100%; border-radius: var(--radius-pill); background: var(--color-accent); }
+.distribution { display: flex; flex-direction: column; gap: var(--space-3); }
+.distributionBar { display: flex; width: 100%; height: 10px; overflow: hidden; border-radius: var(--radius-pill); background: var(--color-line-soft); }
+.distributionSegment { height: 100%; min-width: 0; }
+.distributionLegend { display: flex; flex-wrap: wrap; gap: var(--space-3); }
+.legendItem { display: inline-flex; align-items: center; gap: var(--space-1); color: var(--color-ink-3); font-size: var(--text-label-size); }
+.legendDot { width: 6px; height: 6px; flex: none; border-radius: var(--radius-pill); }
+.workspaceStatus { flex: none; display: inline-flex; align-items: center; gap: var(--space-1); color: var(--color-success); font-size: var(--text-label-size); }
+.workspaceStatusPending { color: var(--color-warning); }
+.workspaceStatusFailed { color: var(--color-danger); }
+.tableRow { transition: background-color 140ms ease; }
+.tableRow:hover { background: var(--color-panel); }
+.statusTag { display: inline-flex; align-items: center; gap: var(--space-1); color: var(--color-ink-3); font-size: var(--text-label-size); white-space: nowrap; }
+.statusDot { width: 6px; height: 6px; border-radius: var(--radius-pill); flex: none; }
+.quickActions { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-2); }
+@media (max-width: 860px) {
+  .projectBar { width: 100%; }
+  .projectSelect { flex: 1; max-width: none; }
+  .metricCard { padding: var(--space-3); }
+  .distributionLegend { gap: var(--space-2); }
+}
