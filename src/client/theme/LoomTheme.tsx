@@ -9,6 +9,7 @@ import { cssText as bridgeCss } from './LoomTheme.module.css'
 import { cssText as topbarCss } from '../shell/LoomTopbar.module.css'
 import { cssText as sidebarCss } from '../shell/LoomSidebarParts.module.css'
 import { cssText as buttonCss } from '../ui/Button.module.css'
+import { cssText as selectCss } from '../ui/Select.module.css'
 import { cssText as shellCss } from '../shell/LoomShell.module.css'
 import { cssText as bottomCss } from '../LoomBottomPanel.module.css'
 import { cssText as overviewCss } from '../shell/LoomOverview.module.css'
@@ -26,6 +27,7 @@ export function LoomThemeStyles(): JSX.Element {
     <style data-loom-topbar>{topbarCss}</style>
     <style data-loom-sidebar>{sidebarCss}</style>
     <style data-loom-button>{buttonCss}</style>
+    <style data-loom-select>{selectCss}</style>
     <style data-loom-shell>{shellCss}</style>
     <style data-loom-bottom>{bottomCss}</style>
     <style data-loom-overview>{overviewCss}</style>

@@ -3,6 +3,7 @@ import { IconBranchOutlineRegular, IconFolderOpenRegular, IconPlusOutlineRegular
 import type { CatalogSnapshot, ProjectRecord, TaskRecord, VersionRecord } from 'dsh-workloom/types'
 import { ACTOR_LABEL, AUDIT_LABEL, STATUS_META } from '../shell.ts'
 import { LoomButton } from '../ui/Button.tsx'
+import { LoomSelect } from '../ui/Select.tsx'
 import { absoluteTime, relativeTime } from '../time.ts'
 import type { LoomKey } from '../locales.ts'
 import classes from './LoomProjectPage.module.css'
@@ -56,9 +57,9 @@ export function LoomProjectPage({ t, snapshot, project, version, onProject, onVe
         <div className={classes.headText}>
           <p className={classes.eyebrow}>{t('project.title')} / {pageProject.config.name}</p>
           <div className={classes.titleLine}>
-            <select className={classes.projectSelect} aria-label={t('project.title')} value={pageProject.id} onChange={event => { const next = snapshot.projects.find(candidate => candidate.id === event.target.value); if (next !== undefined) onProject(next) }}>
+            <LoomSelect className={classes.projectSelect} aria-label={t('project.title')} value={pageProject.id} onChange={event => { const next = snapshot.projects.find(candidate => candidate.id === event.target.value); if (next !== undefined) onProject(next) }}>
               {snapshot.projects.map(candidate => <option key={candidate.id} value={candidate.id}>{candidate.config.name}</option>)}
-            </select>
+            </LoomSelect>
             <span className={classes.active}>● {t('project.active')}</span>
           </div>
           <p className={classes.summary}>{pageProject.config.sources.length} {t('source.repo')} · {pageProject.config.subProjects?.length ?? 0} {t('project.subProjects')} · {versions.length} {t('project.versions')} · {t('project.recentActivity')}</p>
@@ -78,18 +79,20 @@ export function LoomProjectPage({ t, snapshot, project, version, onProject, onVe
       </div>
       <section>
         <div className={classes.sectionHead}><h2 className={classes.sectionTitle}>{t('project.versions')}</h2><span className={classes.sectionHint}>{t('project.versionHint')}</span><button type="button" className={classes.sectionLink} onClick={onBoard}>{t('view.kanban')} →</button></div>
-        <div className={classes.versions}>{versions.map(candidate => <button key={candidate.id} type="button" className={`${classes.version} ${candidate.id === activeVersion?.id ? classes.versionActive : ''}`} onClick={() => onVersion(candidate)}>
-          <span className={classes.versionName}>{candidate.name}</span>
+        <div className={classes.versions}>{versions.map(candidate => <button key={candidate.id} type="button" data-loom-hover="card" className={`${classes.version} ${candidate.id === activeVersion?.id ? classes.versionActive : ''}`} onClick={() => onVersion(candidate)}>
+          <span className={classes.versionTop}><span className={classes.versionName}>{candidate.name}</span>{candidate.id === activeVersion?.id && <span className={classes.versionCurrent}>{t('project.currentVersion')}</span>}</span>
           <span className={classes.versionMeta}>{candidate.description ?? t('project.noDescription')}</span>
           <span className={classes.versionMeta}>{snapshot.tasks.filter(task => task.versionId === candidate.id).length} {t('nav.tasks')} · {snapshot.workspaces.filter(workspace => workspace.versionId === candidate.id).length} {t('project.workspaces')}</span>
         </button>)}{versions.length === 0 && <p className={classes.empty}>{t('project.noVersions')}</p>}</div>
       </section>
       <section className={classes.card}>
         <div className={classes.sectionHead}><h2 className={classes.sectionTitle}>{t('project.taskDistribution')}</h2><span className={classes.sectionHint}>{tasks.length} {t('nav.tasks')}</span></div>
-        <div className={classes.distribution}>
-          <div className={classes.distributionBar}>{statusRows.map(row => row.count === 0 ? null : <span key={row.label} className={classes.distributionSegment} style={{ width: `${String((row.count / totalStatus) * 100)}%`, background: row.color }} title={`${row.label} ${String(row.count)}`} />)}</div>
-          <div className={classes.distributionLegend}>{statusRows.map(row => <span key={row.label} className={classes.legendItem}><span className={classes.legendDot} style={{ background: row.color }} />{row.label} <b>{String(row.count)}</b></span>)}</div>
-        </div>
+        <div className={classes.distributionGrid}>{statusRows.map(row => <div key={row.label} className={classes.distributionItem}>
+          <span className={classes.legendDot} style={{ background: row.color }} />
+          <span className={classes.distributionLabel}>{row.label}</span>
+          <strong className={classes.distributionValue}>{String(row.count)}</strong>
+          <div className={classes.distributionTrack}><span className={classes.distributionFill} style={{ width: `${String(Math.round((row.count / Math.max(1, tasks.length)) * 100))}%`, background: row.color }} /></div>
+        </div>)}</div>
       </section>
       <div className={classes.grid}>
         <div className={classes.main}>
