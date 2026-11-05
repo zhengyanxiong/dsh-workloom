@@ -57,9 +57,7 @@ export function LoomProjectPage({ t, snapshot, project, version, onProject, onVe
         <div className={classes.headText}>
           <p className={classes.eyebrow}>{t('project.title')} / {pageProject.config.name}</p>
           <div className={classes.titleLine}>
-            <LoomSelect className={classes.projectSelect} aria-label={t('project.title')} value={pageProject.id} onChange={event => { const next = snapshot.projects.find(candidate => candidate.id === event.target.value); if (next !== undefined) onProject(next) }}>
-              {snapshot.projects.map(candidate => <option key={candidate.id} value={candidate.id}>{candidate.config.name}</option>)}
-            </LoomSelect>
+            <LoomSelect className={classes.projectSelect} ariaLabel={t('project.title')} value={pageProject.id} options={snapshot.projects.map(candidate => ({ value: candidate.id, label: candidate.config.name, description: candidate.config.sources[0]?.repo ?? undefined }))} onChange={value => { const next = snapshot.projects.find(candidate => candidate.id === value); if (next !== undefined) onProject(next) }} />
             <span className={classes.active}>● {t('project.active')}</span>
           </div>
           <p className={classes.summary}>{pageProject.config.sources.length} {t('source.repo')} · {pageProject.config.subProjects?.length ?? 0} {t('project.subProjects')} · {versions.length} {t('project.versions')} · {t('project.recentActivity')}</p>
@@ -108,7 +106,19 @@ export function LoomProjectPage({ t, snapshot, project, version, onProject, onVe
           </section>
         </div>
         <aside className={classes.side}>
-          <section className={classes.card}><div className={classes.sectionHead}><h2 className={classes.sectionTitle}>{t('project.structure')}</h2></div><div className={classes.structure}><div className={classes.structureNode}><IconFolderOpenRegular size={12} />{pageProject.config.name}</div>{pageProject.config.subProjects?.map(sub => <div key={sub.id} className={`${classes.structureNode} ${classes.structureNodeSub}`}><IconBranchOutlineRegular size={11} />{sub.name}</div>)}</div></section>
+          <section className={classes.card}><div className={classes.sectionHead}><h2 className={classes.sectionTitle}>{t('project.structure')}</h2></div><div className={classes.structureTree}>
+            <div className={classes.structureRoot}>
+              <span className={classes.structureIcon}><IconFolderOpenRegular size={15} /></span>
+              <span className={classes.structureBody}><span className={classes.structureName}>{pageProject.config.name}</span><span className={classes.structurePath}>{pageProject.config.sources[0]?.repo ?? t('source.repo')}</span></span>
+              <span className={classes.structureTag}>{t('project.mainRepository')}</span>
+            </div>
+            {pageProject.config.subProjects !== undefined && pageProject.config.subProjects.length > 0 && <div className={classes.structureChildren}>{pageProject.config.subProjects.map(sub => <div key={sub.id} className={classes.structureChild}>
+              <span className={classes.structureRail} aria-hidden />
+              <span className={classes.structureIconSub}><IconBranchOutlineRegular size={13} /></span>
+              <span className={classes.structureBody}><span className={classes.structureNameSub}>{sub.name}</span><span className={classes.structurePath}>{sub.sources.length} {t('source.repo')} · {sub.modules.length} {t('project.modules')}</span></span>
+            </div>)}</div>}
+            <div className={classes.structureFooter}>{pageProject.config.sources.length} {t('source.repo')} · {pageProject.config.modules.length} {t('project.modules')}</div>
+          </div></section>
           <section className={classes.card}><div className={classes.sectionHead}><h2 className={classes.sectionTitle}>{t('project.info')}</h2></div><div className={classes.info}><div className={classes.infoRow}><span className={classes.infoLabel}>{t('project.modules')}</span><span className={classes.infoValue}>{pageProject.config.modules.length}</span></div><div className={classes.infoRow}><span className={classes.infoLabel}>{t('project.currentVersion')}</span><span className={classes.infoValue}>{activeVersion?.name ?? '—'}</span></div><div className={classes.infoRow}><span className={classes.infoLabel}>{t('project.subProjects')}</span><span className={classes.infoValue}>{pageProject.config.subProjects?.length ?? 0}</span></div></div></section>
           <section className={classes.card}><div className={classes.sectionHead}><h2 className={classes.sectionTitle}>{t('project.recentActivity')}</h2></div><div className={classes.activity}>{recent.map(entry => <div key={entry.id} className={classes.activityRow}><span className={classes.activityDot} /><span className={classes.activityText}>{t(AUDIT_LABEL[entry.event])} · {t(ACTOR_LABEL[entry.actor])}</span></div>)}{recent.length === 0 && <p className={classes.hint}>{t('bottom.activityEmpty')}</p>}</div></section>
         </aside>

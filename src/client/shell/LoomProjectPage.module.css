@@ -46,9 +46,19 @@
 .table tbody tr:hover { background: var(--color-panel); }
 .taskTitle { color: var(--color-ink-2); }
 .colTask { width: 42%; } .colWorkspace { width: 22%; } .colStatus { width: 18%; } .colUpdate { width: 18%; text-align: right; }
-.structure { display: flex; flex-direction: column; gap: var(--space-2); margin-top: var(--space-2); }
-.structureNode { display: flex; align-items: center; gap: var(--space-2); min-width: 0; color: var(--color-ink-2); font-size: var(--text-small-size); }
-.structureNodeSub { padding-left: var(--space-4); color: var(--color-muted); font-size: var(--text-label-size); }
+.structureTree { display: flex; flex-direction: column; gap: var(--space-2); margin-top: var(--space-2); }
+.structureRoot { position: relative; display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2); border: 1px solid var(--color-line); border-radius: var(--radius-md); background: var(--color-panel); }
+.structureIcon { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; flex: none; border-radius: var(--radius-sm); background: var(--color-accent-soft); color: var(--color-accent-ink); }
+.structureIconSub { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; flex: none; color: var(--color-muted); }
+.structureBody { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0; }
+.structureName { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--color-ink); font-size: var(--text-small-size); font-weight: 600; }
+.structureNameSub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--color-ink-2); font-size: var(--text-small-size); }
+.structurePath { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--color-muted); font-family: var(--font-mono); font-size: var(--text-nano-size); }
+.structureTag { flex: none; padding: 0 var(--space-2); border-radius: var(--radius-xs); background: var(--color-success-soft); color: var(--color-success); font-size: var(--text-nano-size); line-height: 18px; }
+.structureChildren { display: flex; flex-direction: column; gap: 1px; margin-left: var(--space-3); padding-left: var(--space-4); border-left: 1px dashed var(--color-line-strong); }
+.structureChild { position: relative; display: flex; align-items: center; gap: var(--space-2); min-width: 0; padding: var(--space-1) 0; }
+.structureRail { position: absolute; left: calc(var(--space-4) * -1); top: 50%; width: var(--space-4); height: 1px; background: var(--color-line); }
+.structureFooter { padding-top: var(--space-1); color: var(--color-muted); font-family: var(--font-mono); font-size: var(--text-nano-size); }
 .info { display: flex; flex-direction: column; gap: 1px; margin-top: var(--space-2); }
 .infoRow { display: flex; justify-content: space-between; gap: var(--space-3); padding: var(--space-2) 0; border-top: 1px solid var(--color-line-soft); font-size: var(--text-label-size); }
 .infoLabel { color: var(--color-muted); }
@@ -62,7 +72,7 @@
 @media (max-width: 860px) { .page { padding: var(--space-8) var(--space-5); } .head { flex-direction: column; } .versions { grid-template-columns: minmax(0, 1fr); } .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } .colWorkspace { display: none; } .colTask { width: 55%; } .colStatus { width: 22%; } .colUpdate { width: 23%; } }
 
 .projectBar { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
-.projectSelect { max-width: 240px; }
+.projectSelect { width: 240px; max-width: 100%; }
 .metricCard { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-4) var(--space-4); border: 1px solid var(--color-line); border-radius: var(--radius-lg); background: var(--color-surface); min-width: 0; }
 .metricTop { display: flex; align-items: center; gap: var(--space-2); color: var(--color-muted); font-size: var(--text-label-size); }
 .metricDot { width: 6px; height: 6px; flex: none; border-radius: var(--radius-pill); }
