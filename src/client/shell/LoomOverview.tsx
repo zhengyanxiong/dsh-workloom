@@ -2,7 +2,7 @@
  * Overview route: answer what is running, what needs review and what happened
  * recently using only committed catalog data.
  */
-import { IconBranchOutlineRegular, IconCheckOutlineRegular, IconPlusOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconCheckOutlineRegular, IconNewChatOutlineRegular, IconPlusOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { CatalogSnapshot, ProjectRecord, TaskRecord } from 'dsh-workloom/types'
 import { AUDIT_LABEL } from '../shell.ts'
 import { LoomButton } from '../ui/Button.tsx'
@@ -122,7 +122,7 @@ export function LoomOverview({ t, snapshot, activeWorkspaceCount, onTask, onProj
           <section className={classes.card}>
             <div className={classes.cardHead}><h2 className={classes.cardTitle}>{t('sessions')}</h2><button type="button" className={classes.cardLink}>{t('view.all')} →</button></div>
             {recentSessions.length === 0 ? <p className={classes.empty}>{t('noSessions')}</p> : recentSessions.map(({ sessionId, task }) => <button key={`${sessionId}-${task.id}`} type="button" className={classes.row} onClick={() => onSession(sessionId)}>
-              <IconBranchOutlineRegular size={12} />
+              <IconNewChatOutlineRegular size={12} />
               <span className={classes.rowMain}><span className={classes.rowTitle}>{task.title}</span><span className={classes.rowSub}>{projectName(task)} · {versionName(task)}</span></span>
               <span className={classes.rowSide}><span className={classes.rowSideTime}>{timeAgo(Number(task.updatedAt ?? 0))}</span></span>
             </button>)}
