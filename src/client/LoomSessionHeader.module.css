@@ -1,0 +1,58 @@
+/* Session header: task context pills above the native conversation. */
+.header {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  min-height: 40px;
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--color-line);
+  background: var(--color-bg);
+}
+
+.title {
+  min-width: 0;
+  color: var(--color-ink);
+  font-size: var(--text-compact-size);
+  line-height: var(--text-compact-lh);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  height: 19px;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-xs);
+  color: var(--color-ink-3);
+  font-size: var(--text-label-size);
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.pillProject {
+  color: var(--color-accent-ink);
+  border-color: color-mix(in srgb, var(--color-accent) 45%, transparent);
+  background: var(--color-accent-soft);
+}
+
+.pillVersion {
+  color: var(--color-accent-ink);
+  border-color: color-mix(in srgb, var(--color-accent) 30%, transparent);
+}
+
+.pillLock {
+  font-family: var(--font-mono);
+  font-size: var(--text-nano-size);
+}
+
+.actions {
+  margin-left: auto;
+  display: flex;
+  gap: var(--space-1);
+  flex-wrap: wrap;
+}

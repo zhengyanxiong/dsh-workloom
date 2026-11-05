@@ -26,6 +26,7 @@ const route = arg('route', 'home')
 const name = arg('name', route)
 const suffix = arg('suffix', '')
 const evalExpr = arg('eval')
+const settle = Number(arg('settle', '500'))
 const widths = arg('widths', '1440,768,375').split(',').map(value => Number(value)).filter(Number.isFinite)
 const height = Number(arg('height', '1000'))
 const chrome = process.env.CHROME_PATH ?? '/home/bernie/.cache/ms-playwright/chromium-1228/chrome-linux64/chrome'
@@ -89,7 +90,7 @@ try {
   await sleep(800)
   if (evalExpr !== undefined) {
     console.log(`eval: ${String(await evaluate(evalExpr))}`)
-    await sleep(500)
+    await sleep(settle)
   }
   for (const width of widths) {
     await send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: false })

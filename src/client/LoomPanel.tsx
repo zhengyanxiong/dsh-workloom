@@ -24,6 +24,7 @@ import { LoomFilePreview } from './LoomFilePreview.tsx'
 import { LoomDirectoryBrowser } from './LoomDirectoryBrowser.tsx'
 import { LoomReviewPreview } from './LoomReviewPreview.tsx'
 import { LoomTopbar } from './shell/LoomTopbar.tsx'
+import { LoomSessionHeader } from './LoomSessionHeader.tsx'
 import { LoomOverview } from './shell/LoomOverview.tsx'
 import { LoomProjectPage } from './shell/LoomProjectPage.tsx'
 import { LOOM_ROOT_CLASS, LoomThemeStyles } from './theme/LoomTheme.tsx'
@@ -45,7 +46,7 @@ import { LoomSessionList } from './LoomSessionList.tsx'
 import { autoWorkspaceRepositoryPath } from '../domain/workspace.ts'
 import { activeWorkspaceCount, aggregateTokenUsage, boundSessions, tokenUsageOf, currentWorkspace, taskAttemptRows, taskSessionRows, workspaceName, type ShellFilter } from './projection.ts'
 import { deriveVersionContext } from '../shared/version-context.ts'
-import { COLORS, failureReport, metaLine, pill, select, shortCommit, thrownFailureReport, PRIORITY_META, STATUS_META, type FailureReport } from './shell.ts'
+import { COLORS, failureReport, metaLine, select, shortCommit, thrownFailureReport, type FailureReport } from './shell.ts'
 import { reportLoomFailure } from './feedback.ts'
 import { NS, type LoomKey } from './locales.ts'
 import { presetDisplayText, type BuiltInPresetCopyKey } from '@deepseek-ai/dsh-agent-preset-registry/display'
@@ -80,7 +81,6 @@ const modalTitle: CSSProperties = { fontSize: 18, fontWeight: 500, lineHeight: 1
 const modalHint: CSSProperties = { margin: '0 0 12px', color: COLORS.dim, fontSize: 12, lineHeight: 1.55 }
 const modalSub: CSSProperties = { marginTop: 7, color: COLORS.dim, fontSize: 12, lineHeight: 1.5 }
 const MODAL_WIDTH: Readonly<Record<CreateKind | EditKind, number>> = { project: 760, import: 640, version: 660, task: 660 }
-const convHeader: CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', padding: '9px 16px', borderBottom: `0.5px solid ${COLORS.border}`, minHeight: 40, flex: 'none' }
 const note: CSSProperties = { padding: 12, borderRadius: 8, color: COLORS.dim, background: COLORS.panel2, lineHeight: 1.6, margin: 0 }
 
 function ProjectItem({ candidate, versions, tasks, activeProject, activeVersionId, activeTaskId, open, openVersions, pinned, t, onProject, onVersion, onTask, onPin, onNewVersion, onEditProject, onDeleteProject, onEditVersion, onDeleteVersion, onNewTask, onEditTask, onDeleteTask }: {
@@ -1102,19 +1102,18 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
             }}
           />
         : <main className={shell.center}>
-            {selected !== undefined && <div style={convHeader}>
-              <span style={{ fontWeight: 700, fontSize: 13, overflowWrap: 'anywhere' }}>{headerTitle}</span>
-              {displayProject !== undefined && <span style={{ ...pill, color: '#7db3ff', borderColor: 'rgba(47,129,247,.45)' }}>{displayProject.config.name}</span>}
-              {displayVersion !== undefined && <span style={{ ...pill, color: COLORS.cyan, borderColor: 'rgba(57,197,207,.4)' }}>{displayVersion.name}</span>}
-              {detailTask !== undefined && <span style={{ ...pill, color: PRIORITY_META[detailPriority].color }}>{t(PRIORITY_META[detailPriority].key)}</span>}
-              {detailModules.slice(0, 2).map((module, index) => <span key={`${module}-${String(index)}`} style={pill}>{module}</span>)}
-              {shortCommit(detailTask?.attempts.at(-1)?.lock) !== undefined && <span style={pill}>🔒 {shortCommit(detailTask?.attempts.at(-1)?.lock)}</span>}
-              {detailTask !== undefined && <span style={pill}>{t('task.status')}: {t(STATUS_META[detailTask.status].key)}</span>}
-              <span style={{ marginLeft: 'auto', display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                {selected !== undefined && detailTask !== undefined && <Button size="sm" variant="ghost" onClick={() => setSelected(undefined)}>{t('task.details')}</Button>}
-                {selected !== undefined && <Button size="sm" variant="ghost" icon={<IconCloseOutlineRegular />} onClick={() => setSelected(undefined)}>{t('session.close')}</Button>}
-              </span>
-            </div>}
+            {selected !== undefined && <LoomSessionHeader
+              t={t}
+              title={headerTitle}
+              projectName={displayProject?.config.name}
+              versionName={displayVersion?.name}
+              priority={detailPriority}
+              modules={detailModules}
+              lock={shortCommit(detailTask?.attempts.at(-1)?.lock)}
+              taskStatus={detailTask?.status}
+              onDetails={detailTask === undefined ? undefined : () => setSelected(undefined)}
+              onClose={() => setSelected(undefined)}
+            />}
             {selected !== undefined
               ? (available
                   ? <SessionProvider key={held.id} session={held.reference}>{renderSlot('loom.conversation', {})}</SessionProvider>
