@@ -83,7 +83,7 @@ function Card({ task, versionName, sessions, live, versionProjects, moduleNamesB
       </span>
       <span style={{ flex: 'none', display: 'flex', gap: 5, alignItems: 'center' }}>
         {commit !== undefined && <span style={{ fontFamily: 'ui-monospace, monospace' }}>🔒 {commit}</span>}
-        <span>{relativeTime(task.updatedAt)}</span>
+        <span data-loom-time>{relativeTime(task.updatedAt)}</span>
         <span>{sessions > 0 ? `${String(sessions)} ${t('kb.sessions')}` : '—'}</span>
       </span>
     </span>

@@ -57,7 +57,7 @@ export function SidebarSessionRow({ t, row, projectName, taskTitle, temporary, a
             ? <span className={classes.sessionMetaText}>{taskTitle}</span>
             : projectName === undefined && workspace !== undefined && <span className={classes.sessionMetaText}>{workspace}</span>}
         </>}
-        <time className={classes.sessionTime} dateTime={absoluteTime(row.updatedAt)} title={absoluteTime(row.updatedAt)}>{relativeTime(row.updatedAt)}</time>
+        <time data-loom-time className={classes.sessionTime} dateTime={absoluteTime(row.updatedAt)} title={absoluteTime(row.updatedAt)}>{relativeTime(row.updatedAt)}</time>
       </span>
     </span>
   </button>
@@ -95,7 +95,7 @@ export function ProjectTaskRow({ task, active, t, onClick }: { task: TaskRecord;
       <span style={{ display: 'flex', alignItems: 'center', gap: 5, minWidth: 0, fontSize: 10.5, color: COLORS.faint }}>
         <span>{t(status.key)}</span>
         {priority !== 'normal' && <><span aria-hidden>·</span><span style={{ color: priorityMeta.color }}>{t(priorityMeta.key)}</span></>}
-        <time style={{ marginLeft: 'auto', color: COLORS.faint, fontFamily: 'var(--font-mono)', fontSize: 'var(--text-nano-size)' }} dateTime={absoluteTime(task.updatedAt)} title={absoluteTime(task.updatedAt)}>{relativeTime(task.updatedAt)}</time>
+        <time data-loom-time style={{ marginLeft: 'auto' }} dateTime={absoluteTime(task.updatedAt)} title={absoluteTime(task.updatedAt)}>{relativeTime(task.updatedAt)}</time>
       </span>
     </span>
   </button>

@@ -88,7 +88,7 @@ export function LoomOverview({ t, snapshot, activeWorkspaceCount, onTask, onProj
             {active.length === 0 ? <p className={classes.empty}>{t('task.empty')}</p> : active.map(task => <button key={task.id} type="button" className={classes.row} data-loom-hover="row" onClick={() => onTask(task)}>
               <span className={classes.dot} style={{ background: task.status === 'running' ? 'var(--color-warning)' : 'var(--color-accent)' }} />
               <span className={classes.rowMain}><span className={classes.rowTitle}>{task.title}</span><span className={classes.rowSub}>{projectName(task)} · {versionName(task)} · {task.attempts.at(-1)?.sessionIds[0]?.slice(0, 12) ?? '—'}</span></span>
-              <span className={classes.rowSide}><span className={classes.rowSideLabel}>{task.status === 'running' ? t('kb.running') : t('kb.review')}</span><span className={classes.rowSideTime}>{relativeTime(task.updatedAt)}</span></span>
+              <span className={classes.rowSide}><span className={classes.rowSideLabel}>{task.status === 'running' ? t('kb.running') : t('kb.review')}</span><span data-loom-time className={classes.rowSideTime}>{relativeTime(task.updatedAt)}</span></span>
             </button>)}
           </section>
           <section className={classes.card}>
@@ -116,14 +116,14 @@ export function LoomOverview({ t, snapshot, activeWorkspaceCount, onTask, onProj
             {recentSessions.length === 0 ? <p className={classes.empty}>{t('noSessions')}</p> : recentSessions.map(({ sessionId, task }) => <button key={`${sessionId}-${task.id}`} type="button" className={classes.row} data-loom-hover="row" onClick={() => onSession(sessionId)}>
               <IconNewChatOutlineRegular size={12} />
               <span className={classes.rowMain}><span className={classes.rowTitle}>{task.title}</span><span className={classes.rowSub}>{projectName(task)} · {versionName(task)}</span></span>
-              <span className={classes.rowSide}><span className={classes.rowSideTime}>{relativeTime(task.updatedAt)}</span></span>
+              <span className={classes.rowSide}><span data-loom-time className={classes.rowSideTime}>{relativeTime(task.updatedAt)}</span></span>
             </button>)}
           </section>
           <section className={classes.card}>
             <div className={classes.cardHead}><h2 className={classes.cardTitle}>{t('audit')}</h2><span className={classes.rowMeta}>{date}</span></div>
             {recentAudit.length === 0 ? <p className={classes.empty}>{t('bottom.activityEmpty')}</p> : recentAudit.map(entry => <div key={entry.id} className={classes.activityRow}>
               <span className={classes.activityDot} />
-              <span className={classes.activityBody}><span className={classes.activityText}>{t(AUDIT_LABEL[entry.event])}</span><span className={classes.activityMeta}>{new Date(entry.at).toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit' })}</span></span>
+              <span className={classes.activityBody}><span className={classes.activityText}>{t(AUDIT_LABEL[entry.event])}</span><span data-loom-time className={classes.activityMeta}>{new Date(entry.at).toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit' })}</span></span>
             </div>)}
           </section>
         </div>

@@ -67,7 +67,7 @@
 .rowSub { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--color-muted); font-family: var(--font-body); font-size: var(--text-label-size); line-height: var(--text-label-lh); }
 .rowSide { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; flex: none; max-width: 30%; }
 .rowSideLabel { color: var(--color-ink-3); font-size: var(--text-label-size); white-space: nowrap; }
-.rowSideTime { color: var(--color-muted); font-family: var(--font-mono); font-size: var(--text-nano-size); white-space: nowrap; }
+.rowSideTime { white-space: nowrap; }
 .projectSub { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--color-muted); font-family: var(--font-mono); font-size: var(--text-nano-size); }
 .projectStats { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); color: var(--color-ink-3); font-size: var(--text-label-size); }
 .progress { display: block; height: 2px; border-radius: var(--radius-pill); background: var(--color-line-soft); overflow: hidden; }

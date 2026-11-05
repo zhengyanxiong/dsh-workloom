@@ -83,3 +83,14 @@
   [data-loom-hover] { transition: none; }
   [data-loom-hover='card']:hover { transform: none; }
 }
+
+
+[data-loom-time] {
+  color: var(--color-muted);
+  font-family: var(--font-body);
+  font-size: var(--text-label-size);
+  line-height: var(--text-label-lh);
+  letter-spacing: var(--text-label-tracking);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}

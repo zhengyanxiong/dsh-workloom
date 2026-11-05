@@ -111,7 +111,7 @@ export function LoomTaskWorkbench({ t, task, project, version, snapshot, audit, 
             <span>{modules.join(', ')}</span>
           </>}
           <span aria-hidden style={separator}>·</span>
-          <time style={{ fontFamily: 'var(--font-mono)', color: COLORS.faint }} dateTime={absoluteTime(task.updatedAt)} title={absoluteTime(task.updatedAt)}>{relativeTime(task.updatedAt)}</time>
+          <time data-loom-time dateTime={absoluteTime(task.updatedAt)} title={absoluteTime(task.updatedAt)}>{relativeTime(task.updatedAt)}</time>
         </div>
       </div>
     </header>

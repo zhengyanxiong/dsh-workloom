@@ -19,12 +19,14 @@ export function relativeTime(value: number | string | undefined, now = Date.now(
   if (millis === undefined) return ''
   const minutes = Math.max(0, Math.round((now - millis) / 60_000))
   if (minutes < 1) return '刚刚'
-  if (minutes < 60) return `${String(minutes)}m`
+  if (minutes < 60) return `${String(minutes)}分钟前`
   const hours = Math.round(minutes / 60)
-  if (hours < 24) return `${String(hours)}h`
+  if (hours < 24) return `${String(hours)}小时前`
   if (hours < 48) return '昨天'
   const days = Math.round(hours / 24)
-  return days < 7 ? `${String(days)}d` : new Date(millis).toLocaleDateString(undefined, { month: 'numeric', day: 'numeric' })
+  if (days < 7) return `${String(days)}天前`
+  const date = new Date(millis)
+  return `${String(date.getMonth() + 1)}月${String(date.getDate())}日`
 }
 
 /** Format the absolute timestamp for a native tooltip. */
