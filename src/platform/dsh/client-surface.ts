@@ -120,24 +120,46 @@ export function installLoomSurface(ui: LoomUi, host: LoomHostPort, t: Translate)
   ui.effect(() => {
     if (typeof window === 'undefined') return () => { /* No DOM to observe. */ }
     let collapsedByLoom = false
-    const sidebarWidth = (): number => document.querySelector('[class*="sidebarCol"]')?.getBoundingClientRect().width ?? 0
+    let railHidden = false
+    const sidebar = (): HTMLElement | null => document.querySelector<HTMLElement>('[class*="sidebarCol"]')
+    const sidebarWidth = (): number => sidebar()?.getBoundingClientRect().width ?? 0
+    const hideRail = (): void => {
+      const element = sidebar()
+      if (element !== null && !railHidden) {
+        element.style.display = 'none'
+        railHidden = true
+      }
+    }
+    const showRail = (): void => {
+      if (!railHidden) return
+      const element = sidebar()
+      if (element !== null) element.style.display = ''
+      railHidden = false
+    }
     const sync = (): void => {
       if (window.innerWidth < 1024) return
       const active = document.querySelector('.loom-root') !== null
       if (active) {
-        if (!readPreferences().autoCollapseSidebar || collapsedByLoom) return
+        if (!readPreferences().autoCollapseSidebar || collapsedByLoom) {
+          if (collapsedByLoom && readPreferences().autoCollapseSidebar) hideRail()
+          return
+        }
         if (sidebarWidth() > 80) {
           ui.layout.toggleSidebar()
           collapsedByLoom = true
+        } else if (sidebarWidth() > 0) {
+          collapsedByLoom = true
         }
+        if (collapsedByLoom) hideRail()
       } else if (collapsedByLoom) {
+        showRail()
         if (sidebarWidth() < 80) ui.layout.toggleSidebar()
         collapsedByLoom = false
       }
     }
     const timer = window.setInterval(sync, 250)
     sync()
-    return () => { window.clearInterval(timer) }
+    return () => { window.clearInterval(timer); showRail() }
   }, 'loom: collapse the native sidebar while active')
 }
 

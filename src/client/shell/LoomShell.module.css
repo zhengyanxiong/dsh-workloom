@@ -12,7 +12,7 @@
 }
 .body { flex: 1; display: flex; min-height: 0; }
 .sidebar {
-  width: 256px;
+  width: 240px;
   flex: none;
   overflow-y: auto;
   padding: var(--space-2) 0;
@@ -30,7 +30,7 @@
 }
 .sidebarBackdrop { position: absolute; inset: 0; top: 56px; z-index: 65; background: color-mix(in srgb, var(--color-ink) 35%, transparent); }
 @media (max-width: 1180px) {
-  .sidebar { width: 232px; }
+  .sidebar { width: 224px; }
 }
 @media (max-width: 940px) {
   .sidebar { display: none; }
