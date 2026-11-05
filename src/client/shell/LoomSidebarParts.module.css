@@ -41,6 +41,7 @@
 .sessionTitle { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--text-compact-size); color: inherit; }
 .sessionMeta { display: flex; align-items: center; gap: var(--space-1); min-width: 0; font-family: var(--font-body); font-size: var(--text-micro-size); color: var(--color-muted); }
 .sessionMetaText { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sessionTime { margin-left: auto; flex: none; color: var(--color-muted); font-family: var(--font-mono); font-size: var(--text-nano-size); }
 .taskRow { display: flex; align-items: flex-start; gap: var(--space-2); width: 100%; padding: var(--space-1) var(--space-2); border: 0; border-left: 2px solid transparent; background: transparent; color: inherit; text-align: left; cursor: pointer; font: inherit; }
 .taskRow:hover, .taskRowActive { background: var(--color-panel); }
 .taskRowActive { border-left-color: var(--color-accent); }

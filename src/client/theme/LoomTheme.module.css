@@ -59,3 +59,27 @@
   color: var(--color-ink);
   font-family: var(--font-body);
 }
+
+/* Shared data-row/card interaction. Components opt in with data-loom-hover. */
+[data-loom-hover] {
+  transition: background-color 140ms ease, border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
+}
+[data-loom-hover='row']:hover {
+  background-color: var(--color-line-soft) !important;
+}
+[data-loom-hover='card']:hover {
+  border-color: var(--color-line-strong) !important;
+  box-shadow: var(--shadow-card);
+  transform: translateY(-1px);
+}
+[data-loom-hover='stat']:hover {
+  border-color: var(--color-line-strong) !important;
+  background-color: var(--color-panel) !important;
+}
+@media (hover: none) {
+  [data-loom-hover='card']:hover { transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-loom-hover] { transition: none; }
+  [data-loom-hover='card']:hover { transform: none; }
+}

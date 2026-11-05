@@ -5,6 +5,7 @@ import type { CatalogSnapshot, ProjectRecord, TaskRecord } from 'dsh-workloom/ty
 import type { BoardColumn } from './board.ts'
 import { boardBlockers, boardMetrics, boundSessions, flatBoard, projectLanes, type ShellFilter } from './projection.ts'
 import { AUDIT_LABEL, canMoveTask, COLORS, metaLine, sectionTitle, select, shortCommit, PRIORITY_META, STATUS_META, STATUS_ORDER } from './shell.ts'
+import { relativeTime } from './time.ts'
 import type { LoomKey } from './locales.ts'
 
 type Translate = (key: LoomKey) => string
@@ -68,7 +69,7 @@ function Card({ task, versionName, sessions, live, versionProjects, moduleNamesB
   const modules = (task.moduleIds ?? []).map(moduleId => moduleNamesByProject.get(versionProjects.get(task.versionId) ?? '')?.get(moduleId) ?? moduleId)
   const lastDragAt = useRef(0)
   const executing = live
-  return <button type="button" className={executing ? 'loom-kb-card-running' : undefined} draggable onDragStart={event => { lastDragAt.current = Date.now(); event.dataTransfer?.setData('text/plain', task.id); if (event.dataTransfer !== null) event.dataTransfer.effectAllowed = 'move' }} onDragEnd={() => { lastDragAt.current = Date.now() }} style={{ ...card, borderLeftColor: meta.color }} onClick={() => { if (Date.now() - lastDragAt.current > 500) onSelect(task) }}>
+  return <button type="button" data-loom-hover="card" className={executing ? 'loom-kb-card-running' : undefined} draggable onDragStart={event => { lastDragAt.current = Date.now(); event.dataTransfer?.setData('text/plain', task.id); if (event.dataTransfer !== null) event.dataTransfer.effectAllowed = 'move' }} onDragEnd={() => { lastDragAt.current = Date.now() }} style={{ ...card, borderLeftColor: meta.color }} onClick={() => { if (Date.now() - lastDragAt.current > 500) onSelect(task) }}>
     <span style={cardTitle}>{task.title}</span>
     {task.description !== undefined && task.description !== '' && <span style={cardDescription}>{task.description}</span>}
     <span style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
@@ -82,6 +83,7 @@ function Card({ task, versionName, sessions, live, versionProjects, moduleNamesB
       </span>
       <span style={{ flex: 'none', display: 'flex', gap: 5, alignItems: 'center' }}>
         {commit !== undefined && <span style={{ fontFamily: 'ui-monospace, monospace' }}>🔒 {commit}</span>}
+        <span>{relativeTime(task.updatedAt)}</span>
         <span>{sessions > 0 ? `${String(sessions)} ${t('kb.sessions')}` : '—'}</span>
       </span>
     </span>

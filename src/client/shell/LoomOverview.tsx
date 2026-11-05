@@ -5,6 +5,7 @@
 import { IconCheckOutlineRegular, IconNewChatOutlineRegular, IconPlusOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { CatalogSnapshot, ProjectRecord, TaskRecord } from 'dsh-workloom/types'
 import { AUDIT_LABEL } from '../shell.ts'
+import { relativeTime } from '../time.ts'
 import { LoomButton } from '../ui/Button.tsx'
 import type { LoomKey } from '../locales.ts'
 import classes from './LoomOverview.module.css'
@@ -47,15 +48,6 @@ export function LoomOverview({ t, snapshot, activeWorkspaceCount, onTask, onProj
     return projectId === undefined ? '' : projectById.get(projectId)?.config.name ?? ''
   }
   const versionName = (task: TaskRecord): string => snapshot.versions.find(version => version.id === task.versionId)?.name ?? ''
-  const timeAgo = (timestamp: number | undefined): string => {
-    if (timestamp === undefined || !Number.isFinite(timestamp)) return ''
-    const millis = timestamp < 1_000_000_000_000 ? timestamp * 1000 : timestamp
-    const minutes = Math.max(0, Math.round((Date.now() - millis) / 60000))
-    if (minutes < 1) return 'now'
-    if (minutes < 60) return `${String(minutes)}m`
-    const hours = Math.round(minutes / 60)
-    return hours < 24 ? `${String(hours)}h` : `${String(Math.round(hours / 24))}d`
-  }
   const waiting = snapshot.tasks.filter(task => task.status === 'pending').length
   const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000
   const timedCompleted = completed.filter(task => {
@@ -84,19 +76,19 @@ export function LoomOverview({ t, snapshot, activeWorkspaceCount, onTask, onProj
         </div>
       </div>
       <div className={classes.stats}>
-        <button type="button" className={classes.stat} onClick={onBoard}><span className={classes.statTop}><span className={classes.statDot} style={{ background: 'var(--color-warning)' }} /><span className={classes.statLabel}>{t('kb.running')} {t('nav.tasks')}</span></span><span className={classes.statValue}>{running.length}</span><span className={classes.statHint}>{running.length} {t('kb.running')} · {waiting} {t('kb.queued')}</span><span className={classes.statBars}><span className={classes.statBar} style={{ height: '55%' }} /><span className={classes.statBar} style={{ height: '80%' }} /><span className={`${classes.statBar} ${classes.statBarMuted}`} style={{ height: '40%' }} /><span className={classes.statBar} style={{ height: '68%' }} /></span></button>
-        <button type="button" className={classes.stat}><span className={classes.statTop}><span className={classes.statDot} style={{ background: 'var(--color-success)' }} /><span className={classes.statLabel}>{t('kb.activeSessions')}</span></span><span className={classes.statValue}>{sessionCount}</span><span className={classes.statHint}>{sessionCount} {t('sessions')}</span><span className={classes.statBars}><span className={classes.statBar} style={{ height: '40%' }} /><span className={classes.statBar} style={{ height: '70%' }} /><span className={`${classes.statBar} ${classes.statBarMuted}`} style={{ height: '55%' }} /><span className={classes.statBar} style={{ height: '90%' }} /></span></button>
-        <button type="button" className={classes.stat} onClick={onBoard}><span className={classes.statTop}><span className={classes.statDot} style={{ background: 'var(--color-danger)' }} /><span className={classes.statLabel}>{t('kb.review')}</span></span><span className={classes.statValue}>{review.length}</span><span className={classes.statHint}>{t('kb.awaitingAcceptance')}</span><span className={classes.statBars}><span className={classes.statBar} style={{ height: '45%' }} /><span className={`${classes.statBar} ${classes.statBarMuted}`} style={{ height: '30%' }} /><span className={classes.statBar} style={{ height: '60%' }} /></span></button>
-        <button type="button" className={classes.stat} onClick={onBoard}><span className={classes.statTop}><span className={classes.statDot} style={{ background: 'var(--color-accent)' }} /><span className={classes.statLabel}>{t('kb.completed')} {t('overview.thisWeek')}</span></span><span className={classes.statValue}>{completedThisWeek}</span><span className={classes.statHint}>{completed.length} {t('kb.completed')}</span><span className={classes.statBars}><span className={classes.statBar} style={{ height: '60%' }} /><span className={classes.statBar} style={{ height: '85%' }} /><span className={classes.statBar} style={{ height: '100%' }} /><span className={`${classes.statBar} ${classes.statBarMuted}`} style={{ height: '35%' }} /></span></button>
+        <button type="button" className={classes.stat} data-loom-hover="stat" onClick={onBoard}><span className={classes.statTop}><span className={classes.statDot} style={{ background: 'var(--color-warning)' }} /><span className={classes.statLabel}>{t('kb.running')} {t('nav.tasks')}</span></span><span className={classes.statValue}>{running.length}</span><span className={classes.statHint}>{running.length} {t('kb.running')} · {waiting} {t('kb.queued')}</span><span className={classes.statBars}><span className={classes.statBar} style={{ height: '55%' }} /><span className={classes.statBar} style={{ height: '80%' }} /><span className={`${classes.statBar} ${classes.statBarMuted}`} style={{ height: '40%' }} /><span className={classes.statBar} style={{ height: '68%' }} /></span></button>
+        <button type="button" className={classes.stat} data-loom-hover="stat"><span className={classes.statTop}><span className={classes.statDot} style={{ background: 'var(--color-success)' }} /><span className={classes.statLabel}>{t('kb.activeSessions')}</span></span><span className={classes.statValue}>{sessionCount}</span><span className={classes.statHint}>{sessionCount} {t('sessions')}</span><span className={classes.statBars}><span className={classes.statBar} style={{ height: '40%' }} /><span className={classes.statBar} style={{ height: '70%' }} /><span className={`${classes.statBar} ${classes.statBarMuted}`} style={{ height: '55%' }} /><span className={classes.statBar} style={{ height: '90%' }} /></span></button>
+        <button type="button" className={classes.stat} data-loom-hover="stat" onClick={onBoard}><span className={classes.statTop}><span className={classes.statDot} style={{ background: 'var(--color-danger)' }} /><span className={classes.statLabel}>{t('kb.review')}</span></span><span className={classes.statValue}>{review.length}</span><span className={classes.statHint}>{t('kb.awaitingAcceptance')}</span><span className={classes.statBars}><span className={classes.statBar} style={{ height: '45%' }} /><span className={`${classes.statBar} ${classes.statBarMuted}`} style={{ height: '30%' }} /><span className={classes.statBar} style={{ height: '60%' }} /></span></button>
+        <button type="button" className={classes.stat} data-loom-hover="stat" onClick={onBoard}><span className={classes.statTop}><span className={classes.statDot} style={{ background: 'var(--color-accent)' }} /><span className={classes.statLabel}>{t('kb.completed')} {t('overview.thisWeek')}</span></span><span className={classes.statValue}>{completedThisWeek}</span><span className={classes.statHint}>{completed.length} {t('kb.completed')}</span><span className={classes.statBars}><span className={classes.statBar} style={{ height: '60%' }} /><span className={classes.statBar} style={{ height: '85%' }} /><span className={classes.statBar} style={{ height: '100%' }} /><span className={`${classes.statBar} ${classes.statBarMuted}`} style={{ height: '35%' }} /></span></button>
       </div>
       <div className={classes.columns}>
         <div className={classes.left}>
           <section className={classes.card}>
             <div className={classes.cardHead}><div><h2 className={classes.cardTitle}>{t('kb.running')} {t('nav.tasks')}</h2><p className={classes.cardSub}>{t('overview.recentActivity')}</p></div><button type="button" className={classes.cardLink} onClick={onBoard}>{t('view.kanban')} →</button></div>
-            {active.length === 0 ? <p className={classes.empty}>{t('task.empty')}</p> : active.map(task => <button key={task.id} type="button" className={classes.row} onClick={() => onTask(task)}>
+            {active.length === 0 ? <p className={classes.empty}>{t('task.empty')}</p> : active.map(task => <button key={task.id} type="button" className={classes.row} data-loom-hover="row" onClick={() => onTask(task)}>
               <span className={classes.dot} style={{ background: task.status === 'running' ? 'var(--color-warning)' : 'var(--color-accent)' }} />
               <span className={classes.rowMain}><span className={classes.rowTitle}>{task.title}</span><span className={classes.rowSub}>{projectName(task)} · {versionName(task)} · {task.attempts.at(-1)?.sessionIds[0]?.slice(0, 12) ?? '—'}</span></span>
-              <span className={classes.rowSide}><span className={classes.rowSideLabel}>{task.status === 'running' ? t('kb.running') : t('kb.review')}</span><span className={classes.rowSideTime}>{timeAgo(Number(task.updatedAt ?? 0))}</span></span>
+              <span className={classes.rowSide}><span className={classes.rowSideLabel}>{task.status === 'running' ? t('kb.running') : t('kb.review')}</span><span className={classes.rowSideTime}>{relativeTime(task.updatedAt)}</span></span>
             </button>)}
           </section>
           <section className={classes.card}>
@@ -104,7 +96,7 @@ export function LoomOverview({ t, snapshot, activeWorkspaceCount, onTask, onProj
             {snapshot.projects.length === 0 ? <p className={classes.empty}>{t('project.empty')}</p> : <div className={classes.projects}>
               {snapshot.projects.slice(0, 3).map(project => {
                 const projectTasks = snapshot.tasks.filter(task => task.versionId !== undefined && snapshot.versions.find(version => version.id === task.versionId)?.projectId === project.id)
-                return <button key={project.id} type="button" className={classes.project} onClick={() => onProject(project)}>
+                return <button key={project.id} type="button" className={classes.project} data-loom-hover="card" onClick={() => onProject(project)}>
                   <span className={classes.projectHead}><span className={classes.projectMark}>{project.config.name.slice(0, 1)}</span><span className={classes.projectName}>{project.config.name}</span></span>
                   <span className={classes.projectSub}>{sourceName(project)}</span>
                   <span className={classes.projectStats}><span>{projectTasks.length} {t('nav.tasks')} · {project.config.sources.length} {t('source.repo')}</span></span>
@@ -115,16 +107,16 @@ export function LoomOverview({ t, snapshot, activeWorkspaceCount, onTask, onProj
           </section>
           <section className={classes.card}>
             <div className={classes.cardHead}><h2 className={classes.cardTitle}>{t('overview.recentCompleted')}</h2><button type="button" className={classes.cardLink} onClick={onBoard}>{t('view.kanban')} →</button></div>
-            {recentCompleted.length === 0 ? <p className={classes.empty}>{t('task.empty')}</p> : <div className={classes.sectionGrid}>{recentCompleted.map(task => <button key={task.id} type="button" className={classes.sectionItem} onClick={() => onTask(task)}><span className={classes.sectionItemTitle}><IconCheckOutlineRegular size={12} className={classes.sectionCheck} />{task.title}</span><span className={classes.sectionItemMeta}>{projectName(task)} · {versionName(task)}</span></button>)}</div>}
+            {recentCompleted.length === 0 ? <p className={classes.empty}>{t('task.empty')}</p> : <div className={classes.sectionGrid}>{recentCompleted.map(task => <button key={task.id} type="button" className={classes.sectionItem} data-loom-hover="row" onClick={() => onTask(task)}><span className={classes.sectionItemTitle}><IconCheckOutlineRegular size={12} className={classes.sectionCheck} />{task.title}</span><span className={classes.sectionItemMeta}>{projectName(task)} · {versionName(task)}</span></button>)}</div>}
           </section>
         </div>
         <div className={classes.right}>
           <section className={classes.card}>
             <div className={classes.cardHead}><h2 className={classes.cardTitle}>{t('sessions')}</h2><button type="button" className={classes.cardLink}>{t('view.all')} →</button></div>
-            {recentSessions.length === 0 ? <p className={classes.empty}>{t('noSessions')}</p> : recentSessions.map(({ sessionId, task }) => <button key={`${sessionId}-${task.id}`} type="button" className={classes.row} onClick={() => onSession(sessionId)}>
+            {recentSessions.length === 0 ? <p className={classes.empty}>{t('noSessions')}</p> : recentSessions.map(({ sessionId, task }) => <button key={`${sessionId}-${task.id}`} type="button" className={classes.row} data-loom-hover="row" onClick={() => onSession(sessionId)}>
               <IconNewChatOutlineRegular size={12} />
               <span className={classes.rowMain}><span className={classes.rowTitle}>{task.title}</span><span className={classes.rowSub}>{projectName(task)} · {versionName(task)}</span></span>
-              <span className={classes.rowSide}><span className={classes.rowSideTime}>{timeAgo(Number(task.updatedAt ?? 0))}</span></span>
+              <span className={classes.rowSide}><span className={classes.rowSideTime}>{relativeTime(task.updatedAt)}</span></span>
             </button>)}
           </section>
           <section className={classes.card}>
