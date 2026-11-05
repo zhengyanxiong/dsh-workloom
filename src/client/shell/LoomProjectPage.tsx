@@ -44,10 +44,10 @@ export function LoomProjectPage({ t, snapshot, project, version, onProject, onVe
   const pending = tasks.filter(task => task.status === 'pending').length
   const totalStatus = Math.max(1, running + review + completed + pending + tasks.filter(task => task.status === 'failed').length)
   const statusRows = [
-    { label: t('kb.running'), count: running, color: 'var(--color-warning)' },
-    { label: t('kb.review'), count: review, color: 'var(--color-danger)' },
-    { label: t('kb.completed'), count: completed, color: 'var(--color-success)' },
-    { label: t('kb.queued'), count: pending, color: 'var(--color-muted)' },
+    { label: t('kb.running'), count: running, color: 'var(--color-accent)', soft: 'var(--color-accent-soft)' },
+    { label: t('kb.review'), count: review, color: 'var(--color-accent-ink)', soft: 'color-mix(in srgb, var(--color-accent-ink) 9%, var(--color-surface))' },
+    { label: t('kb.completed'), count: completed, color: 'var(--color-success)', soft: 'var(--color-success-soft)' },
+    { label: t('kb.queued'), count: pending, color: 'var(--color-muted)', soft: 'var(--color-panel)' },
   ]
   const recent = snapshot.audit.filter(entry => tasks.some(task => task.id === entry.taskId)).slice(-3).reverse()
   const projectTaskIds = new Set(snapshot.tasks.filter(task => versions.some(candidate => candidate.id === task.versionId)).map(task => task.id))
@@ -73,8 +73,8 @@ export function LoomProjectPage({ t, snapshot, project, version, onProject, onVe
       <div className={classes.stats}>
         <div className={classes.metricCard} data-loom-hover="stat"><div className={classes.metricTop}><span className={classes.metricDot} style={{ background: 'var(--color-accent)' }} /><span>{t('project.versions')}</span></div><span className={classes.metricValue}>{versions.length}</span><span className={classes.metricHint}>{t('project.versionHint')}</span><div className={classes.metricTrack}><div className={classes.metricFill} style={{ width: `${String(Math.min(100, versions.length * 24 + 8))}%` }} /></div></div>
         <div className={classes.metricCard} data-loom-hover="stat"><div className={classes.metricTop}><span className={classes.metricDot} style={{ background: 'var(--color-ink-3)' }} /><span>{t('nav.tasks')}</span></div><span className={classes.metricValue}>{[...projectTaskIds].length}</span><span className={classes.metricHint}>{tasks.length} {t('project.currentVersion')}</span><div className={classes.metricTrack}><div className={classes.metricFill} style={{ width: `${String(Math.min(100, [...projectTaskIds].length * 14 + 8))}%` }} /></div></div>
-        <div className={classes.metricCard} data-loom-hover="stat"><div className={classes.metricTop}><span className={classes.metricDot} style={{ background: 'var(--color-warning)' }} /><span>{t('kb.running')}</span></div><span className={classes.metricValue}>{running}</span><span className={classes.metricHint}>{t('project.activeWork')}</span><div className={classes.metricTrack}><div className={classes.metricFill} style={{ width: `${String(Math.round((running / totalStatus) * 100))}%` }} /></div></div>
-        <div className={classes.metricCard} data-loom-hover="stat"><div className={classes.metricTop}><span className={classes.metricDot} style={{ background: 'var(--color-danger)' }} /><span>{t('kb.review')}</span></div><span className={classes.metricValue}>{review}</span><span className={classes.metricHint}>{t('project.awaitingAcceptance')}</span><div className={classes.metricTrack}><div className={classes.metricFill} style={{ width: `${String(Math.round((review / totalStatus) * 100))}%` }} /></div></div>
+        <div className={classes.metricCard} data-loom-hover="stat"><div className={classes.metricTop}><span className={classes.metricDot} style={{ background: 'var(--color-accent)' }} /><span>{t('kb.running')}</span></div><span className={classes.metricValue}>{running}</span><span className={classes.metricHint}>{t('project.activeWork')}</span><div className={classes.metricTrack}><div className={classes.metricFill} style={{ width: `${String(Math.round((running / totalStatus) * 100))}%` }} /></div></div>
+        <div className={classes.metricCard} data-loom-hover="stat"><div className={classes.metricTop}><span className={classes.metricDot} style={{ background: 'var(--color-accent-ink)' }} /><span>{t('kb.review')}</span></div><span className={classes.metricValue}>{review}</span><span className={classes.metricHint}>{t('project.awaitingAcceptance')}</span><div className={classes.metricTrack}><div className={classes.metricFill} style={{ width: `${String(Math.round((review / totalStatus) * 100))}%` }} /></div></div>
         <div className={classes.metricCard} data-loom-hover="stat"><div className={classes.metricTop}><span className={classes.metricDot} style={{ background: 'var(--color-success)' }} /><span>{t('sessions')}</span></div><span className={classes.metricValue}>{sessions}</span><span className={classes.metricHint}>{t('project.attachedSessions')}</span><div className={classes.metricTrack}><div className={classes.metricFill} style={{ width: `${String(Math.min(100, sessions * 12 + 5))}%` }} /></div></div>
       </div>
       <section>
@@ -87,7 +87,7 @@ export function LoomProjectPage({ t, snapshot, project, version, onProject, onVe
       </section>
       <section className={classes.card}>
         <div className={classes.sectionHead}><h2 className={classes.sectionTitle}>{t('project.taskDistribution')}</h2><span className={classes.sectionHint}>{tasks.length} {t('nav.tasks')}</span></div>
-        <div className={classes.distributionGrid}>{statusRows.map(row => <div key={row.label} className={classes.distributionItem}>
+        <div className={classes.distributionGrid}>{statusRows.map(row => <div key={row.label} className={classes.distributionItem} data-loom-hover="stat" style={{ background: row.soft, borderColor: row.color }}>
           <span className={classes.legendDot} style={{ background: row.color }} />
           <span className={classes.distributionLabel}>{row.label}</span>
           <strong className={classes.distributionValue}>{String(row.count)}</strong>

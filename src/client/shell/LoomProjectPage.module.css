@@ -19,7 +19,7 @@
 .versions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); }
 .version { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; padding: var(--space-3); border: 1px solid var(--color-line); border-radius: var(--radius-md); background: var(--color-surface); text-align: left; cursor: pointer; font: inherit; }
 .version:hover { border-color: var(--color-line-strong); background: var(--color-panel); }
-.versionActive { border-color: var(--color-accent); background: color-mix(in srgb, var(--color-accent-soft) 72%, var(--color-surface)); box-shadow: inset 3px 0 0 var(--color-accent); }
+.versionActive { border-color: var(--color-accent); background: color-mix(in srgb, var(--color-accent-soft) 72%, var(--color-surface)); box-shadow: var(--shadow-card); }
 .versionTop { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
 .versionCurrent { margin-left: auto; flex: none; padding: 0 var(--space-2); border-radius: var(--radius-pill); background: var(--color-accent); color: var(--color-bg); font-size: var(--text-nano-size); line-height: 18px; }
 .versionName { color: var(--color-ink); font-size: var(--text-compact-size); font-weight: 600; }
@@ -92,7 +92,7 @@
 }
 
 .distributionGrid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-2); }
-.distributionItem { display: grid; grid-template-columns: 6px minmax(0, 1fr) auto; align-items: center; gap: var(--space-1) var(--space-2); min-width: 0; padding: var(--space-2) var(--space-3); border: 1px solid var(--color-line-soft); border-radius: var(--radius-md); background: var(--color-panel); }
+.distributionItem { display: grid; grid-template-columns: 6px minmax(0, 1fr) auto; align-items: center; gap: var(--space-1) var(--space-2); min-width: 0; padding: var(--space-2) var(--space-3); border: 1px solid var(--color-line); border-radius: var(--radius-md); background: var(--color-panel); }
 .distributionLabel { color: var(--color-ink-3); font-size: var(--text-label-size); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .distributionValue { color: var(--color-ink); font-family: var(--font-mono); font-size: var(--text-small-size); font-weight: 500; }
 .distributionTrack { grid-column: 2 / -1; height: 3px; overflow: hidden; border-radius: var(--radius-pill); background: var(--color-line); }
