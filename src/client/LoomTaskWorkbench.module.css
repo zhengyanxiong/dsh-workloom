@@ -296,3 +296,9 @@
     white-space: normal;
   }
 }
+
+/* Compact density trims stage padding without touching the type scale. */
+[data-density='compact'] .stage {
+  padding-top: var(--space-6);
+  padding-bottom: var(--space-6);
+}

@@ -19,6 +19,8 @@ import { cssText as projectCss } from '../shell/LoomProjectPage.module.css'
 import { cssText as kanbanCss } from '../LoomKanban.module.css'
 import { cssText as boardListCss } from '../LoomBoardList.module.css'
 import { cssText as taskCss } from '../LoomTaskWorkbench.module.css'
+import { cssText as settingsRowsCss } from '../LoomSettings.module.css'
+import { cssText as settingsCss } from '../LoomSettingsPage.module.css'
 import classes from './LoomTheme.module.css'
 
 /** Class that bridges DSH component aliases onto Loom design tokens. */
@@ -42,5 +44,7 @@ export function LoomThemeStyles(): JSX.Element {
     <style data-loom-kanban>{kanbanCss}</style>
     <style data-loom-board-list>{boardListCss}</style>
     <style data-loom-task>{taskCss}</style>
+    <style data-loom-settings-rows>{settingsRowsCss}</style>
+    <style data-loom-settings>{settingsCss}</style>
   </>
 }

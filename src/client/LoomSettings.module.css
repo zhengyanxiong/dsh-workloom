@@ -1,0 +1,61 @@
+/* Shared settings rows; token-driven so the page and future surfaces reuse them. */
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-7);
+  flex-wrap: wrap;
+  padding: var(--space-3);
+}
+
+.rowDivider {
+  border-top: 1px solid var(--color-line-soft);
+}
+
+.rowText {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  flex: 1 1 190px;
+}
+
+.rowLabel {
+  color: var(--color-ink);
+  font-size: var(--text-compact-size);
+  line-height: var(--text-compact-lh);
+}
+
+.rowDescription {
+  color: var(--color-muted);
+  font-size: var(--text-label-size);
+  line-height: var(--text-label-lh);
+}
+
+.selectWrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+}
+
+.select {
+  appearance: none;
+  min-width: 140px;
+  height: 30px;
+  padding: 0 var(--space-8) 0 var(--space-3);
+  color: var(--color-ink);
+  background: var(--color-panel);
+  border: 1px solid var(--color-line-strong);
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-size: var(--text-small-size);
+  cursor: pointer;
+}
+
+.selectChevron {
+  position: absolute;
+  right: var(--space-2);
+  display: flex;
+  color: var(--color-muted);
+  pointer-events: none;
+}

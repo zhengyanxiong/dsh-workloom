@@ -297,3 +297,13 @@
     justify-self: end;
   }
 }
+
+/* Compact density keeps the dense list readable but shorter. */
+[data-density='compact'] .row {
+  min-height: 36px;
+  padding: 3px var(--space-3);
+}
+
+[data-density='compact'] .groupHead {
+  height: 26px;
+}

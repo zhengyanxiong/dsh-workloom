@@ -594,3 +594,14 @@
   .title { font-size: var(--text-h2-size); line-height: var(--text-h2-lh); }
   .prioritySelect { width: 96px; }
 }
+
+/* Compact density tightens board cards without changing type size. */
+[data-density='compact'] .card {
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+}
+
+[data-density='compact'] .columnBody {
+  gap: var(--space-1);
+  padding: var(--space-1);
+}

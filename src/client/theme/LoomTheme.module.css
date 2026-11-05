@@ -94,3 +94,10 @@
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
+
+/* Reduced motion: the settings page can disable every Loom transition and animation. */
+.loomRoot[data-loom-reduced-motion='true'],
+.loomRoot[data-loom-reduced-motion='true'] * {
+  transition: none !important;
+  animation: none !important;
+}

@@ -15,7 +15,8 @@ import type {
   WorkspaceChangesRequest, WorkspaceRecord, VersionWorkspaceInput,
 } from 'dsh-workloom/types'
 import { ImportProjectForm, LockButton, ProjectForm, TaskForm, VersionForm, type AgentPresetOption, type VersionStep } from './LoomForms.tsx'
-import { LoomSettings, readPreferences, writePreferences, type LoomPreferences } from './LoomSettings.tsx'
+import { readPreferences, writePreferences, type LoomPreferences } from './LoomSettings.tsx'
+import { LoomSettingsPage } from './LoomSettingsPage.tsx'
 import type { ExecutionActions } from './LoomExecution.tsx'
 import { LoomBottomPanel, type LoomBottomPane } from './LoomBottomPanel.tsx'
 import { LoomResizeHandle } from './LoomResizeHandle.tsx'
@@ -26,6 +27,7 @@ import { LoomTopbar } from './shell/LoomTopbar.tsx'
 import { LoomOverview } from './shell/LoomOverview.tsx'
 import { LoomProjectPage } from './shell/LoomProjectPage.tsx'
 import { LOOM_ROOT_CLASS, LoomThemeStyles } from './theme/LoomTheme.tsx'
+import { resolveLoomTheme } from './theme/selection.ts'
 import shell from './shell/LoomShell.module.css'
 import { parseLoomHash, type LoomRoute } from './shell/router.ts'
 import { PinButton, ProjectTaskRow, SidebarSectionToggle, SidebarSessionRow, TreeIconAction, TreeRow, versionChip } from './shell/LoomSidebarParts.tsx'
@@ -232,14 +234,12 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
   const [view, setView] = useState<View>(preferences.view)
   const [route, setRoute] = useState<LoomRoute>(() => typeof window === 'undefined' ? 'task' : parseLoomHash(window.location.hash).route)
   const [darkTheme, setDarkTheme] = useState(() => typeof document === 'undefined' ? false : document.body.hasAttribute('data-ds-dark-theme'))
-  const [settingsOpen, setSettingsOpen] = useState(false)
   const [narrow, setNarrow] = useState(() => typeof window !== 'undefined' && window.innerWidth <= 940)
   const [viewport, setViewport] = useState(() => ({ width: typeof window === 'undefined' ? 1440 : window.innerWidth, height: typeof window === 'undefined' ? 900 : window.innerHeight }))
   const navigate = useCallback((next: LoomRoute): void => {
     setRoute(next)
     if (next === 'board') setView('kanban')
     else if (next === 'task' || next === 'session' || next === 'project') setView('workbench')
-    else if (next === 'settings') setSettingsOpen(true)
     if (typeof window !== 'undefined') {
       const hash = `#${next}`
       if (window.location.hash !== hash) window.location.hash = hash
@@ -261,8 +261,7 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
       setRoute(next)
       if (next === 'board') setView('kanban')
       else if (next === 'task' || next === 'session' || next === 'project') setView('workbench')
-      else if (next === 'settings') setSettingsOpen(true)
-    }
+      }
     apply()
     window.addEventListener('hashchange', apply)
     return () => window.removeEventListener('hashchange', apply)
@@ -354,12 +353,6 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
     }, () => { /* the project picker keeps the deployment default */ })
     return () => { active = false }
   }, [listAgentPresets, t])
-  useEffect(() => {
-    if (!settingsOpen) return
-    const close = (event: KeyboardEvent): void => { if (event.key === 'Escape') setSettingsOpen(false) }
-    window.addEventListener('keydown', close)
-    return () => window.removeEventListener('keydown', close)
-  }, [settingsOpen])
   useEffect(() => { setModalBusy(false) }, [create, edit])
   useEffect(() => {
     if (create === undefined && edit === undefined) return
@@ -874,7 +867,7 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
   const createVersionFor = (projectRecord: ProjectRecord): VersionRecord | undefined => snapshot?.versions.filter(candidate => candidate.projectId === projectRecord.id).at(-1)
   const createDisabledVersion = currentProject === undefined
   const createDisabledTask = currentVersion === undefined
-  return <div data-theme={darkTheme ? 'dark' : 'blue'} className={`${LOOM_ROOT_CLASS} loom-root ${shell.root}`}>
+  return <div data-theme={resolveLoomTheme(preferences.theme, darkTheme)} data-density={preferences.density} data-loom-reduced-motion={preferences.reducedMotion ? 'true' : undefined} className={`${LOOM_ROOT_CLASS} loom-root ${shell.root}`}>
     <LoomThemeStyles />
     <style>{`
       .loom-root {
@@ -892,6 +885,7 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
         --loom-text: var(--color-ink);
         --loom-dim: var(--color-ink-3);
         --loom-faint: var(--color-muted);
+        --text-body-size: ${String(preferences.fontSize)}px;
       }
       .loom-branch-menu { --dsw-menu-surface-fill: var(--loom-surface); --dsw-menu-backdrop-filter: none; width: var(--loom-branch-menu-width, 320px) !important; max-width: none !important; background: var(--loom-surface) !important; border: 0.5px solid var(--loom-border) !important; box-shadow: 0 12px 32px rgba(15, 17, 21, .16) !important; }
       .loom-workspace-switch { align-self: flex-start; }
@@ -954,7 +948,7 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
       }}
       onOpenCreate={openCreate}
       onToggleAside={() => setAsideOpen(value => { const next = !value; setPreferences(current => ({ ...current, contextOpen: next })); return next })}
-      onOpenSettings={() => setSettingsOpen(true)}
+      onOpenSettings={() => navigate('settings')}
     />
     <div className={shell.body}>
       {narrow && sidebarOpen && <div aria-hidden className={shell.sidebarBackdrop} onClick={() => setSidebarOpen(false)} />}
@@ -1055,10 +1049,19 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
             onProject={(record) => { setProject(record.id); setVersion(undefined); setTask(undefined); setSelected(undefined); navigate('project') }}
             onSession={(id) => { selectSession(id as SessionId); navigate('session') }}
             onBoard={() => navigate('board')}
-            onNewTask={() => { setSettingsOpen(false); openCreate('task') }}
+            onNewTask={() => openCreate('task')}
           />
         : route === 'project'
         ? <LoomProjectPage t={t} snapshot={snapshot ?? { projects: [], versions: [], locks: [], tasks: [], workspaces: [], temporarySessions: [], audit: [], executions: [] }} project={displayProject} version={displayVersion} onProject={(record) => { setProject(record.id); setVersion(undefined); setTask(undefined); setSelected(undefined); navigate('project') }} onVersion={(record) => { setVersion(record.id); setTask(undefined); setSelected(undefined) }} onTask={(record) => { selectTask(record); navigate('task') }} onBoard={() => navigate('board')} onNewTask={() => { if (displayProject !== undefined) setProject(displayProject.id); if (displayVersion !== undefined) setVersion(displayVersion.id); openCreate('task') }} onNewVersion={() => { if (displayProject !== undefined) setProject(displayProject.id); openCreate('version') }} onEditProject={() => openEdit('project')} />
+        : route === 'settings'
+        ? <LoomSettingsPage
+            t={t}
+            preferences={preferences}
+            pinned={(snapshot?.projects ?? []).filter(candidate => pinnedProjects.includes(candidate.id))}
+            onChange={updatePreferences}
+            onUnpin={id => setPinnedProjects(current => current.filter(candidate => candidate !== id))}
+            onBack={() => navigate('board')}
+          />
         : route === 'session' && selected === undefined
         ? <main className={shell.center}><div style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
             {detailTask === undefined
@@ -1172,7 +1175,7 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
                   </div>}
           </main>}
       {asideOpen && !previewFullscreen && <LoomResizeHandle label={t('layout.resizeAside')} orientation="vertical" value={asideWidth} min={asideMin} max={asideMax} invert onChange={setAsideWidth} className={view === 'kanban' ? 'loom-aside-handle loom-aside-handle-kanban' : 'loom-aside-handle'} />}
-      {asideOpen && route !== 'home' && route !== 'project' && route !== 'board' && <aside className={`${shell.aside} ${preview === undefined && review === undefined ? 'loom-aside' : 'loom-aside loom-aside-preview'}${view === 'kanban' ? ' loom-aside-kanban' : ''}`} data-loom-preview-fullscreen={previewFullscreen ? 'true' : undefined} style={previewFullscreen && preview !== undefined ? { position: 'fixed', inset: 0, width: '100vw', maxWidth: 'none', zIndex: 90, borderLeft: 'none' } : { width: asideWidth }}>
+      {asideOpen && route !== 'home' && route !== 'project' && route !== 'board' && route !== 'settings' && <aside className={`${shell.aside} ${preview === undefined && review === undefined ? 'loom-aside' : 'loom-aside loom-aside-preview'}${view === 'kanban' ? ' loom-aside-kanban' : ''}`} data-loom-preview-fullscreen={previewFullscreen ? 'true' : undefined} style={previewFullscreen && preview !== undefined ? { position: 'fixed', inset: 0, width: '100vw', maxWidth: 'none', zIndex: 90, borderLeft: 'none' } : { width: asideWidth }}>
         {review !== undefined
           ? <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0, flex: 1 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px', borderBottom: `0.5px solid ${COLORS.border}`, flex: 'none' }}>
@@ -1210,15 +1213,6 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
       onOpenInRight={(path) => { openFilePreview({ path, ...(previewSessionId === undefined ? {} : { sessionId: previewSessionId }), mode: 'diff' }); setAsideOpen(true) }}
       onToggle={() => setBottomCollapsed(value => !value)}
       onPane={setPane}
-    />
-    <LoomSettings
-      t={t}
-      open={settingsOpen}
-      preferences={preferences}
-      pinned={(snapshot?.projects ?? []).filter(candidate => pinnedProjects.includes(candidate.id))}
-      onChange={updatePreferences}
-      onUnpin={id => setPinnedProjects(current => current.filter(candidate => candidate !== id))}
-      onClose={() => setSettingsOpen(false)}
     />
     <LoomTemporaryDialog
       t={t}
