@@ -334,7 +334,7 @@ export function aggregateTokenUsage(values: readonly (object | undefined)[]): To
 
 /** Native Session state the workbench needs without importing the native store type. */
 export interface AttemptSessionLookup {
-  (sessionId: string): { readonly running: boolean; readonly displayTitle?: string } | undefined
+  (sessionId: string): { readonly running: boolean; readonly displayTitle?: string; readonly updatedAt?: number } | undefined
 }
 
 /** Why an attached Session cannot be opened, for a localized reason line. */
@@ -344,6 +344,7 @@ export type SessionUnavailableReason = 'missing' | 'failed'
 export interface AttemptSessionRow {
   readonly sessionId: string
   readonly title?: string
+  readonly updatedAt?: number
   readonly running: boolean
   readonly available: boolean
   readonly unavailableReason?: SessionUnavailableReason
@@ -382,6 +383,7 @@ export function taskAttemptRows(task: TaskRecord | undefined, lookup: AttemptSes
       return {
         sessionId,
         ...(state?.displayTitle === undefined ? {} : { title: state.displayTitle }),
+        ...(state?.updatedAt === undefined ? {} : { updatedAt: state.updatedAt }),
         running: state?.running === true,
         available: state !== undefined && !isFailed,
         ...(state === undefined ? { unavailableReason: 'missing' as const } : isFailed ? { unavailableReason: 'failed' as const } : {}),

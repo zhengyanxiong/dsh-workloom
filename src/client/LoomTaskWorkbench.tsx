@@ -10,6 +10,7 @@ import { ExecutionPanel, type ExecutionActions } from './LoomExecution.tsx'
 import { LoomOutcomePanel } from './LoomOutcomePanel.tsx'
 import { LoomExecutionQueue } from './LoomExecutionQueue.tsx'
 import type { TaskAttemptRow } from './projection.ts'
+import { absoluteTime, relativeTime } from './time.ts'
 
 type Translate = (key: LoomKey, params?: Readonly<Record<string, string>>) => string
 
@@ -109,6 +110,8 @@ export function LoomTaskWorkbench({ t, task, project, version, snapshot, audit, 
             <span aria-hidden style={separator}>·</span>
             <span>{modules.join(', ')}</span>
           </>}
+          <span aria-hidden style={separator}>·</span>
+          <time style={{ fontFamily: 'var(--font-mono)', color: COLORS.faint }} dateTime={absoluteTime(task.updatedAt)} title={absoluteTime(task.updatedAt)}>{relativeTime(task.updatedAt)}</time>
         </div>
       </div>
     </header>

@@ -3,6 +3,7 @@ import type { CSSProperties } from 'react'
 import { Button, StateDot, Tag } from '@deepseek-ai/dsh-client-ui-primitives'
 import { COLORS, metaLine, shortCommit, STATUS_META } from './shell.ts'
 import type { LoomKey } from './locales.ts'
+import { absoluteTime, relativeTime } from './time.ts'
 import type { AttemptSessionRow, SessionUnavailableReason, TaskAttemptRow } from './projection.ts'
 
 type Translate = (key: LoomKey, params?: Readonly<Record<string, string>>) => string
@@ -35,6 +36,7 @@ const sessionBody: CSSProperties = { display: 'flex', flexDirection: 'column', g
 const sessionTitle = (active: boolean): CSSProperties => ({ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12, fontWeight: active ? 500 : 400, color: active ? COLORS.text : COLORS.dim })
 const sessionMeta: CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', minWidth: 0, fontSize: 10.5, color: COLORS.faint }
 const sessionId: CSSProperties = { fontFamily: 'ui-monospace, monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
+const sessionTime: CSSProperties = { fontFamily: 'var(--font-mono)', color: COLORS.faint, whiteSpace: 'nowrap' }
 const reason: CSSProperties = { color: COLORS.warn, fontSize: 10.5, lineHeight: 1.4, minWidth: 0 }
 const sessionRow: CSSProperties = { display: 'flex', alignItems: 'stretch', gap: 2, minWidth: 0 }
 const retry: CSSProperties = { flex: 'none', alignSelf: 'center', padding: '0 4px' }
@@ -79,12 +81,13 @@ export function LoomSessionList({ t, rows, selectedSessionId, onOpenSession }: L
                     : session.running ? t('sessionList.running') : t('sessionList.idle')
                   return <li key={session.sessionId} style={sessionRow} className="loom-session-row">
                     <button type="button" aria-pressed={active} aria-label={`${t('session.open')} ${session.title ?? session.sessionId}`}
-                      onClick={() => onOpenSession(session.sessionId)} style={sessionButton(active, session.available)} className="loom-session-button">
+                      onClick={() => onOpenSession(session.sessionId)} style={sessionButton(active, session.available)} className="loom-session-button" data-loom-hover="row">
                       <StateDot state={dotState(session)} />
                       <span style={sessionBody}>
                         <span style={sessionTitle(active)}>{session.title ?? t('untitledSession')}</span>
                         <span style={sessionMeta}>
                           <span>{stateLabel}</span>
+                          {session.updatedAt !== undefined && <><span aria-hidden style={{ color: COLORS.border }}>·</span><time style={sessionTime} dateTime={absoluteTime(session.updatedAt)} title={absoluteTime(session.updatedAt)}>{relativeTime(session.updatedAt)}</time></>}
                           <span aria-hidden style={{ color: COLORS.border }}>·</span>
                           <span style={sessionId}>{session.sessionId.slice(0, 12)}</span>
                         </span>
