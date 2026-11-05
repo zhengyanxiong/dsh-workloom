@@ -12,6 +12,7 @@ import { cssText as buttonCss } from '../ui/Button.module.css'
 import { cssText as shellCss } from '../shell/LoomShell.module.css'
 import { cssText as bottomCss } from '../LoomBottomPanel.module.css'
 import { cssText as overviewCss } from '../shell/LoomOverview.module.css'
+import { cssText as projectCss } from '../shell/LoomProjectPage.module.css'
 import classes from './LoomTheme.module.css'
 
 /** Class that bridges DSH component aliases onto Loom design tokens. */
@@ -28,5 +29,6 @@ export function LoomThemeStyles(): JSX.Element {
     <style data-loom-shell>{shellCss}</style>
     <style data-loom-bottom>{bottomCss}</style>
     <style data-loom-overview>{overviewCss}</style>
+    <style data-loom-project>{projectCss}</style>
   </>
 }
