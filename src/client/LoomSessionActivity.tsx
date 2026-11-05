@@ -1,11 +1,11 @@
 /** Right-rail runtime view: active subagents, background jobs and a checkpointed fork action. */
-import { useEffect, useSyncExternalStore, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useSyncExternalStore, type ReactNode } from 'react'
 import { Button, StateDot, Tag } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { LoomJobsFace, LoomJobView } from '../ports/loom-jobs.ts'
 export type { LoomJobsFace, LoomJobView } from '../ports/loom-jobs.ts'
-import { COLORS } from './shell.ts'
 import type { LoomKey } from './locales.ts'
+import classes from './LoomSessionActivity.module.css'
 
 type Translate = (key: LoomKey, params?: Readonly<Record<string, string>>) => string
 
@@ -24,7 +24,6 @@ export interface LoomWorkspaceAccess {
   readonly waiting: readonly { readonly id: string; readonly label: string }[]
 }
 
-
 /** Inputs for the right-rail Session runtime section. */
 export interface LoomSessionActivityProps {
   readonly t: Translate
@@ -41,19 +40,6 @@ export interface LoomSessionActivityProps {
   readonly claiming?: boolean | undefined
   readonly claimError?: string | undefined
 }
-
-const section: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 8, padding: '11px 14px', borderBottom: `0.5px solid ${COLORS.border}` }
-const header: CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }
-const title: CSSProperties = { margin: 0, color: COLORS.text, fontSize: 11, fontWeight: 500 }
-const subhead: CSSProperties = { margin: '2px 0 0', color: COLORS.faint, fontSize: 9.5, letterSpacing: '.05em', textTransform: 'uppercase' }
-const empty: CSSProperties = { margin: 0, color: COLORS.faint, fontSize: 10.5, lineHeight: 1.5 }
-const row: CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, width: '100%', minWidth: 0, padding: '4px 0', border: 'none', background: 'transparent', color: 'inherit', textAlign: 'left', cursor: 'pointer', font: 'inherit' }
-const rowLabel: CSSProperties = { minWidth: 0, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: COLORS.dim, fontSize: 10.5 }
-const rowMeta: CSSProperties = { flex: 'none', color: COLORS.faint, fontSize: 9.5 }
-const alert: CSSProperties = { margin: 0, color: COLORS.error, fontSize: 10.5, lineHeight: 1.5 }
-const jobRow: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 1, padding: '4px 0', minWidth: 0 }
-const jobHead: CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }
-const jobDetail: CSSProperties = { margin: 0, color: COLORS.faint, fontSize: 9.5, lineHeight: 1.4, overflowWrap: 'anywhere' }
 
 const EMPTY_JOBS: { readonly rows: Readonly<Record<string, readonly LoomJobView[]>> } = { rows: {} }
 const NOOP = (): void => {}
@@ -75,7 +61,12 @@ function jobLabel(t: Translate, status: LoomJobView['status']): string {
   }
 }
 
-/** One compact runtime card for the current native Session. */
+/**
+ * Render the runtime card for the current native Session.
+ *
+ * @param props - session identity, execution access, subagents and background jobs.
+ * @returns the runtime section.
+ */
 export function LoomSessionActivity({ t, sessionId, subagents, jobs, workspaceAccess, openSession, forkSession, forking, forkError, canFork, onClaim, claiming, claimError }: LoomSessionActivityProps): ReactNode {
   const source = jobs?.state
   const subscribe = source === undefined ? (): (() => void) => NOOP : (listener: () => void): (() => void) => source.subscribe(listener)
@@ -88,56 +79,56 @@ export function LoomSessionActivity({ t, sessionId, subagents, jobs, workspaceAc
   const jobRows = sessionId === undefined ? [] : snapshot.rows[String(sessionId)] ?? []
   const liveJobs = jobRows.filter(job => job.status === 'running' || job.status === 'stopping')
   const orderedJobs = [...liveJobs, ...jobRows.filter(job => !liveJobs.includes(job))]
-  return <section style={section} aria-label={t('runtime.title')}>
-    <div style={header}>
-      <h4 style={title}>{t('runtime.title')}</h4>
-      <span style={{ marginLeft: 'auto', display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+  return <section className={classes.section} aria-label={t('runtime.title')}>
+    <div className={classes.header}>
+      <h4 className={classes.title}>{t('runtime.title')}</h4>
+      <span className={classes.headerActions}>
         <Button size="sm" variant="outline" disabled={!canFork || forking} onClick={forkSession}>{forking ? t('runtime.forking') : t('runtime.fork')}</Button>
       </span>
     </div>
-    {forkError !== undefined && <p role="alert" style={alert}>{forkError}</p>}
-    {claimError !== undefined && <p role="alert" style={alert}>{claimError}</p>}
+    {forkError !== undefined && <p role="alert" className={classes.alert}>{forkError}</p>}
+    {claimError !== undefined && <p role="alert" className={classes.alert}>{claimError}</p>}
     {workspaceAccess !== undefined && <>
-      <span style={subhead}>{t('runtime.workspace')}</span>
+      <span className={classes.subhead}>{t('runtime.workspace')}</span>
       {workspaceAccess.owner === undefined
-        ? <p style={empty}>{t('runtime.noOwner')}</p>
-        : <div style={jobRow}>
-            <div style={jobHead}>
+        ? <p className={classes.empty}>{t('runtime.noOwner')}</p>
+        : <div className={classes.jobRow}>
+            <div className={classes.jobHead}>
               <StateDot state={workspaceAccess.owner.running === true ? 'ongoing' : 'idle'} size={12} />
-              <span style={rowLabel} title={workspaceAccess.owner.id}>{workspaceAccess.owner.label}</span>
-              <span style={rowMeta}>{workspaceAccess.owner.id.slice(0, 12)}</span>
+              <span className={classes.rowLabel} title={workspaceAccess.owner.id}>{workspaceAccess.owner.label}</span>
+              <span className={classes.rowMeta}>{workspaceAccess.owner.id.slice(0, 12)}</span>
             </div>
-            {workspaceAccess.workspaceLabel !== undefined && <p style={jobDetail}>{workspaceAccess.workspaceLabel}</p>}
-            {workspaceAccess.owner.running !== true && onClaim !== undefined && <div style={{ display: 'flex', gap: 6, marginTop: 2 }}>
+            {workspaceAccess.workspaceLabel !== undefined && <p className={classes.jobDetail}>{workspaceAccess.workspaceLabel}</p>}
+            {workspaceAccess.owner.running !== true && onClaim !== undefined && <div className={classes.claimActions}>
               <Button size="sm" variant="primary" disabled={claiming === true} onClick={onClaim}>{claiming === true ? t('runtime.claiming') : t('runtime.claim')}</Button>
             </div>}
-            {workspaceAccess.owner.running === true && <p style={jobDetail}>{t('runtime.claimLiveHint')}</p>}
+            {workspaceAccess.owner.running === true && <p className={classes.jobDetail}>{t('runtime.claimLiveHint')}</p>}
           </div>}
-      {workspaceAccess.waiting.length > 0 && <div style={jobRow}>
-        <span style={rowMeta}>{t('runtime.waiting')} · {String(workspaceAccess.waiting.length)}</span>
-        {workspaceAccess.waiting.map(entry => <span key={entry.id} style={jobDetail} title={entry.id}>{entry.label} · {entry.id.slice(0, 12)}</span>)}
+      {workspaceAccess.waiting.length > 0 && <div className={classes.jobRow}>
+        <span className={classes.rowMeta}>{t('runtime.waiting')} · {String(workspaceAccess.waiting.length)}</span>
+        {workspaceAccess.waiting.map(entry => <span key={entry.id} className={classes.jobDetail} title={entry.id}>{entry.label} · {entry.id.slice(0, 12)}</span>)}
       </div>}
-      <p style={empty}>{workspaceAccess.owner?.id === sessionId ? t('runtime.youOwner') : workspaceAccess.waiting.some(entry => entry.id === sessionId) ? t('runtime.youWaiting') : t('runtime.youFree')}</p>
+      <p className={classes.empty}>{workspaceAccess.owner?.id === sessionId ? t('runtime.youOwner') : workspaceAccess.waiting.some(entry => entry.id === sessionId) ? t('runtime.youWaiting') : t('runtime.youFree')}</p>
     </>}
-    <span style={subhead}>{t('runtime.agents')} · {String(subagents.length)}</span>
+    <span className={classes.subhead}>{t('runtime.agents')} · {String(subagents.length)}</span>
     {subagents.length === 0
-      ? <p style={empty}>{t('runtime.noAgents')}</p>
-      : subagents.map(agent => <button key={agent.id} type="button" style={row} onClick={() => openSession(agent.id as SessionId)}>
+      ? <p className={classes.empty}>{t('runtime.noAgents')}</p>
+      : subagents.map(agent => <button key={agent.id} type="button" className={classes.row} onClick={() => openSession(agent.id as SessionId)}>
           <StateDot state={agent.running ? 'ongoing' : 'idle'} size={12} />
-          <span style={rowLabel} title={agent.label}>{agent.label}</span>
-          <span style={rowMeta}>{agent.mode}</span>
+          <span className={classes.rowLabel} title={agent.label}>{agent.label}</span>
+          <span className={classes.rowMeta}>{agent.mode}</span>
         </button>)}
     {jobs !== undefined && <>
-      <span style={{ ...subhead, display: 'flex', alignItems: 'center', gap: 6 }}>{t('runtime.jobs')} · {String(liveJobs.length)}</span>
+      <span className={`${classes.subhead} ${classes.subheadRow}`}>{t('runtime.jobs')} · {String(liveJobs.length)}</span>
       {orderedJobs.length === 0
-        ? <p style={empty}>{t('runtime.noJobs')}</p>
-        : orderedJobs.map(job => <div key={job.id} style={jobRow}>
-            <div style={jobHead}>
+        ? <p className={classes.empty}>{t('runtime.noJobs')}</p>
+        : orderedJobs.map(job => <div key={job.id} className={classes.jobRow}>
+            <div className={classes.jobHead}>
               <StateDot state={job.status === 'running' ? 'ongoing' : job.status === 'failed' ? 'error' : job.status === 'completed' ? 'done' : 'warning'} size={12} />
-              <span style={rowLabel} title={job.label}>{job.label}</span>
+              <span className={classes.rowLabel} title={job.label}>{job.label}</span>
               <Tag tone={jobTone(job.status)}>{jobLabel(t, job.status)}</Tag>
             </div>
-            {(job.progress ?? job.detail) !== undefined && <p style={jobDetail}>{job.progress ?? job.detail}</p>}
+            {(job.progress ?? job.detail) !== undefined && <p className={classes.jobDetail}>{job.progress ?? job.detail}</p>}
           </div>)}
     </>}
   </section>

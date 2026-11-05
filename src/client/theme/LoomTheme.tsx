@@ -22,6 +22,8 @@ import { cssText as taskCss } from '../LoomTaskWorkbench.module.css'
 import { cssText as settingsRowsCss } from '../LoomSettings.module.css'
 import { cssText as settingsCss } from '../LoomSettingsPage.module.css'
 import { cssText as sessionHeaderCss } from '../LoomSessionHeader.module.css'
+import { cssText as sessionGraphCss } from '../LoomSessionGraph.module.css'
+import { cssText as sessionActivityCss } from '../LoomSessionActivity.module.css'
 import classes from './LoomTheme.module.css'
 
 /** Class that bridges DSH component aliases onto Loom design tokens. */
@@ -48,5 +50,7 @@ export function LoomThemeStyles(): JSX.Element {
     <style data-loom-settings-rows>{settingsRowsCss}</style>
     <style data-loom-settings>{settingsCss}</style>
     <style data-loom-session-header>{sessionHeaderCss}</style>
+    <style data-loom-session-graph>{sessionGraphCss}</style>
+    <style data-loom-session-activity>{sessionActivityCss}</style>
   </>
 }
