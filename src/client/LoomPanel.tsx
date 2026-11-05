@@ -1092,6 +1092,7 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
             onClearFilters={() => { setFilterProject(''); setFilterVersion(''); setFilterStatus(''); setFilterPriority(''); setFilterModule(''); setKbSearch('') }}
             onSelect={selectTask}
             onMove={(record, target) => { void moveTask(record, target) }}
+            onNewTask={() => { if (currentProject !== undefined) setProject(currentProject.id); if (currentVersion !== undefined) setVersion(currentVersion.id); openCreate('task') }}
             onNewCard={(projectRecord) => {
               const latest = createVersionFor(projectRecord)
               setProject(projectRecord.id)
@@ -1171,7 +1172,7 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
                   </div>}
           </main>}
       {asideOpen && !previewFullscreen && <LoomResizeHandle label={t('layout.resizeAside')} orientation="vertical" value={asideWidth} min={asideMin} max={asideMax} invert onChange={setAsideWidth} className={view === 'kanban' ? 'loom-aside-handle loom-aside-handle-kanban' : 'loom-aside-handle'} />}
-      {asideOpen && route !== 'home' && route !== 'project' && <aside className={`${shell.aside} ${preview === undefined && review === undefined ? 'loom-aside' : 'loom-aside loom-aside-preview'}${view === 'kanban' ? ' loom-aside-kanban' : ''}`} data-loom-preview-fullscreen={previewFullscreen ? 'true' : undefined} style={previewFullscreen && preview !== undefined ? { position: 'fixed', inset: 0, width: '100vw', maxWidth: 'none', zIndex: 90, borderLeft: 'none' } : { width: asideWidth }}>
+      {asideOpen && route !== 'home' && route !== 'project' && route !== 'board' && <aside className={`${shell.aside} ${preview === undefined && review === undefined ? 'loom-aside' : 'loom-aside loom-aside-preview'}${view === 'kanban' ? ' loom-aside-kanban' : ''}`} data-loom-preview-fullscreen={previewFullscreen ? 'true' : undefined} style={previewFullscreen && preview !== undefined ? { position: 'fixed', inset: 0, width: '100vw', maxWidth: 'none', zIndex: 90, borderLeft: 'none' } : { width: asideWidth }}>
         {review !== undefined
           ? <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0, flex: 1 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px', borderBottom: `0.5px solid ${COLORS.border}`, flex: 'none' }}>

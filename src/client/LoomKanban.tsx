@@ -1,10 +1,11 @@
 /** Kanban view with metrics, project swimlanes and the overview panel. */
 import { useRef } from 'react'
-import { IconCloseOutlineRegular, IconFolderCloseRegular, IconSearchOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconCloseOutlineRegular, IconFolderCloseRegular, IconPlusOutlineRegular, IconSearchOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
+import { LoomButton } from './ui/Button.tsx'
 import type { CatalogSnapshot, ProjectRecord, TaskRecord } from 'dsh-workloom/types'
 import type { BoardColumn } from './board.ts'
 import { boardBlockers, boardMetrics, boundSessions, flatBoard, projectLanes, type ShellFilter } from './projection.ts'
-import { AUDIT_LABEL, canMoveTask, COLORS, metaLine, sectionTitle, shortCommit, PRIORITY_META, STATUS_META, STATUS_ORDER } from './shell.ts'
+import { AUDIT_LABEL, canMoveTask, COLORS, metaLine, sectionTitle, PRIORITY_META, STATUS_META, STATUS_ORDER } from './shell.ts'
 import { relativeTime } from './time.ts'
 import type { LoomKey } from './locales.ts'
 import classes from './LoomKanban.module.css'
@@ -38,48 +39,34 @@ export interface LoomKanbanProps {
   readonly onSelect: (task: TaskRecord) => void
   readonly onMove: (task: TaskRecord, target: TaskRecord['status']) => void
   readonly onNewCard: (project: ProjectRecord) => void
+  readonly onNewTask?: (() => void) | undefined
 }
 
 function Metric({ value, label, color, first }: { value: number; label: string; color?: string; first?: boolean }) {
   return <div className={`${classes.metric} ${first === true ? classes.metricFirst : ''}`}><b className={classes.metricValue} style={color === undefined ? undefined : { color }}>{String(value)}</b><span>{label}</span></div>
 }
 
-function Card({ task, versionName, sessions, live, versionProjects, moduleNamesByProject, t, onSelect }: { task: TaskRecord; versionName: string; sessions: number; live: boolean; versionProjects: ReadonlyMap<string, string>; moduleNamesByProject: ReadonlyMap<string, ReadonlyMap<string, string>>; t: Translate; onSelect: (task: TaskRecord) => void }) {
+function Card({ task, versionName, projectName, sessions, live, t, onSelect }: { task: TaskRecord; versionName: string; projectName: string; sessions: number; live: boolean; t: Translate; onSelect: (task: TaskRecord) => void }) {
   const meta = STATUS_META[task.status]
   const priority = task.priority ?? 'normal'
   const priorityMeta = PRIORITY_META[priority]
-  const commit = shortCommit(task.attempts.at(-1)?.lock)
-  const modules = (task.moduleIds ?? []).map(moduleId => moduleNamesByProject.get(versionProjects.get(task.versionId) ?? '')?.get(moduleId) ?? moduleId)
   const lastDragAt = useRef(0)
   const executing = live
   return <button type="button" data-loom-hover="card" className={`${classes.card} ${executing ? 'loom-kb-card-running' : ''}`} draggable onDragStart={event => { lastDragAt.current = Date.now(); event.dataTransfer?.setData('text/plain', task.id); if (event.dataTransfer !== null) event.dataTransfer.effectAllowed = 'move' }} onDragEnd={() => { lastDragAt.current = Date.now() }} style={{ borderLeftColor: meta.color }} onClick={() => { if (Date.now() - lastDragAt.current > 500) onSelect(task) }}>
+    <div className={classes.cardTop}><span className={classes.cardProject}>{projectName || versionName || '—'}</span><span className={classes.priority} style={{ color: priorityMeta.color, borderColor: 'var(--color-line)' }}>{t(priorityMeta.key)}</span></div>
     <span className={classes.cardTitle}>{task.title}</span>
     {task.description !== undefined && task.description !== '' && <span className={classes.cardDescription}>{task.description}</span>}
-    <span className={classes.chips}>
-      {versionName !== '' && <span className={classes.chip} style={{ background: 'color-mix(in srgb, var(--color-accent) 10%, transparent)', color: 'var(--color-accent)' }}>{versionName}</span>}
-      <span className={classes.chip} style={{ background: 'color-mix(in srgb, var(--color-ink) 6%, transparent)', color: priorityMeta.color }}>{t(priorityMeta.key)}</span>
-      {task.attempts.length > 1 && <span className={classes.chip} style={{ color: 'var(--color-muted)' }}>↻ {String(task.attempts.length)}</span>}
-    </span>
-    <span className={classes.cardFooter}>
-      <span className={classes.cardModules}>
-        {modules.length === 0 ? '—' : modules.slice(0, 2).join(' · ')}{modules.length > 2 ? ` +${String(modules.length - 2)}` : ''}
-      </span>
-      <span className={classes.cardMeta}>
-        {commit !== undefined && <span style={{ fontFamily: 'var(--font-mono)' }}>🔒 {commit}</span>}
-        <span data-loom-time>{relativeTime(task.updatedAt)}</span>
-        <span>{sessions > 0 ? `${String(sessions)} ${t('kb.sessions')}` : '—'}</span>
-      </span>
-    </span>
+    <div className={classes.cardState}><span className={classes.statusChip} style={{ color: meta.color }}><span className={classes.statusDot} style={{ background: meta.color }} />{t(meta.key)}</span>{task.attempts.at(-1)?.sessionIds[0] !== undefined && <span className={classes.sessionChip}>{task.attempts.at(-1)?.sessionIds[0]?.slice(0, 12)}</span>}</div>
+    <div className={classes.cardFooter}><time data-loom-time>{relativeTime(task.updatedAt)}</time><span className={classes.cardMeta}>{versionName !== '' && <span>{versionName}</span>}{sessions > 0 && <span>{sessions} {t('kb.sessions')}</span>}</span></div>
   </button>
 }
 
-function Column({ column, t, wipLimit, versionNames, versionProjects, moduleNamesByProject, sessionCounts, liveTaskIds, onSelect, onDropTask }: {
+function Column({ column, t, wipLimit, versionNames, projectNames, sessionCounts, liveTaskIds, onSelect, onDropTask }: {
   column: BoardColumn
   t: Translate
   wipLimit: number
   versionNames: ReadonlyMap<string, string>
-  versionProjects: ReadonlyMap<string, string>
-  moduleNamesByProject: ReadonlyMap<string, ReadonlyMap<string, string>>
+  projectNames: ReadonlyMap<string, string>
   sessionCounts: ReadonlyMap<string, number>
   liveTaskIds: ReadonlySet<string>
   onSelect: (task: TaskRecord) => void
@@ -101,7 +88,7 @@ function Column({ column, t, wipLimit, versionNames, versionProjects, moduleName
     </div>
     <div className={classes.columnBody}>
       {column.tasks.length === 0 && <span className={classes.empty}>{t('kb.empty')}</span>}
-      {column.tasks.map(task => <Card key={task.id} task={task} versionName={versionNames.get(task.versionId) ?? ''} sessions={sessionCounts.get(task.id) ?? 0} live={liveTaskIds.has(task.id)} versionProjects={versionProjects} moduleNamesByProject={moduleNamesByProject} t={t} onSelect={onSelect} />)}
+      {column.tasks.map(task => <Card key={task.id} task={task} versionName={versionNames.get(task.versionId) ?? ''} projectName={projectNames.get(task.versionId) ?? ''} sessions={sessionCounts.get(task.id) ?? 0} live={liveTaskIds.has(task.id)} t={t} onSelect={onSelect} />)}
     </div>
   </div>
 }
@@ -112,13 +99,12 @@ function Column({ column, t, wipLimit, versionNames, versionProjects, moduleName
  * @returns the board view.
  */
 export function LoomKanban(props: LoomKanbanProps) {
-  const { t, snapshot, liveTaskIds = new Set(), filter, mode, projectValue, versionValue, statusValue, priorityValue, moduleValue, searchValue, wipLimit, onMode, onProject, onVersion, onStatus, onPriority, onModule, onSearch, onClearFilters, onSelect, onMove, onNewCard } = props
+  const { t, snapshot, liveTaskIds = new Set(), filter, mode, projectValue, versionValue, statusValue, priorityValue, moduleValue, searchValue, wipLimit, onMode, onProject, onVersion, onStatus, onPriority, onModule, onSearch, onClearFilters, onSelect, onMove, onNewCard, onNewTask } = props
   const metrics = boardMetrics(snapshot, filter)
   const overWip = metrics.running > wipLimit
   const hasFilters = projectValue !== '' || versionValue !== '' || statusValue !== '' || priorityValue !== '' || moduleValue !== '' || searchValue.trim() !== ''
   const versionNames = new Map(snapshot.versions.map(version => [version.id, version.name]))
-  const versionProjects = new Map(snapshot.versions.map(version => [version.id, version.projectId]))
-  const moduleNamesByProject = new Map(snapshot.projects.map(project => [project.id, new Map(project.config.modules.map(module => [module.id, module.path]))]))
+  const projectNames = new Map(snapshot.versions.map(version => [version.id, snapshot.projects.find(project => project.id === version.projectId)?.config.name ?? '']))
   const sessionCounts = new Map<string, number>()
   const handleDrop = (taskId: TaskRecord['id'], target: TaskRecord['status']): void => {
     const record = snapshot.tasks.find(candidate => candidate.id === taskId)
@@ -130,6 +116,11 @@ export function LoomKanban(props: LoomKanbanProps) {
   const flat = flatBoard(snapshot, filter)
   const moduleProjectId = projectValue === '' ? '' : projectValue
   return <div className={classes.root}>
+    <header className={classes.boardHeader}>
+      <div className={classes.boardHeadText}><p className={classes.eyebrow}>{t('project.title')} / {t('view.kanban')}</p><h1 className={classes.boardTitle}>{t('board.title')}</h1><p className={classes.boardSummary}>{metrics.cards} {t('nav.tasks')} · {metrics.running} {t('kb.running')} · {metrics.review} {t('kb.review')}</p></div>
+      <div className={classes.boardActions}><LoomButton variant="secondary" size="md" onClick={onNewTask ?? (() => { const first = snapshot.projects[0]; if (first !== undefined) onNewCard(first) })} disabled={snapshot.projects.length === 0} icon={<IconPlusOutlineRegular size={14} />}>{t('top.newTask')}</LoomButton></div>
+    </header>
+    <div className={classes.projectTabs}><button type="button" className={`${classes.projectTab} ${projectValue === '' ? classes.projectTabActive : ''}`} onClick={() => onProject('')}>{t('top.allProjects')}</button>{snapshot.projects.map(project => <button key={project.id} type="button" className={`${classes.projectTab} ${projectValue === project.id ? classes.projectTabActive : ''}`} onClick={() => onProject(project.id)}>{project.config.name}</button>)}</div>
     <div className={classes.toolbar}>
       <div className={classes.metricsRow}>
         <Metric first value={metrics.cards} label={t('kb.cards')} />
@@ -191,13 +182,13 @@ export function LoomKanban(props: LoomKanbanProps) {
                 <button type="button" className={classes.laneAction} onClick={() => onNewCard(project)}>＋ {t('kb.newCard')}</button>
               </div>
               <div className={`loom-kb-columns ${classes.columns}`}>
-                {columns.map(column => <Column key={column.status} column={column} t={t} wipLimit={wipLimit} versionNames={versionNames} versionProjects={versionProjects} moduleNamesByProject={moduleNamesByProject} sessionCounts={sessionCounts} liveTaskIds={liveTaskIds} onSelect={onSelect} onDropTask={handleDrop} />)}
+                {columns.map(column => <Column key={column.status} column={column} t={t} wipLimit={wipLimit} versionNames={versionNames} projectNames={projectNames} sessionCounts={sessionCounts} liveTaskIds={liveTaskIds} onSelect={onSelect} onDropTask={handleDrop} />)}
               </div>
             </div>)}
             {lanes.length === 0 && <p style={metaLine}>{t('kb.empty')}</p>}
           </div>
         : <div className={`loom-kb-columns ${classes.columns} ${classes.flat}`}>
-            {flat.map(column => <Column key={column.status} column={column} t={t} wipLimit={wipLimit} versionNames={versionNames} versionProjects={versionProjects} moduleNamesByProject={moduleNamesByProject} sessionCounts={sessionCounts} liveTaskIds={liveTaskIds} onSelect={onSelect} onDropTask={handleDrop} />)}
+            {flat.map(column => <Column key={column.status} column={column} t={t} wipLimit={wipLimit} versionNames={versionNames} projectNames={projectNames} sessionCounts={sessionCounts} liveTaskIds={liveTaskIds} onSelect={onSelect} onDropTask={handleDrop} />)}
           </div>}
     </div>
   </div>
