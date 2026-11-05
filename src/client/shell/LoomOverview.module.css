@@ -70,8 +70,8 @@
 .rowSideTime { color: var(--color-muted); font-family: var(--font-mono); font-size: var(--text-nano-size); white-space: nowrap; }
 .projectSub { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--color-muted); font-family: var(--font-mono); font-size: var(--text-nano-size); }
 .projectStats { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); color: var(--color-ink-3); font-size: var(--text-label-size); }
-.progress { height: 2px; border-radius: var(--radius-pill); background: var(--color-line-soft); overflow: hidden; }
-.progressFill { height: 100%; border-radius: var(--radius-pill); background: var(--color-accent); }
+.progress { display: block; height: 2px; border-radius: var(--radius-pill); background: var(--color-line-soft); overflow: hidden; }
+.progressFill { display: block; height: 100%; border-radius: var(--radius-pill); background: var(--color-accent); }
 .sectionItem { border: 0; border-left: 2px solid var(--color-success-line); background: transparent; text-align: left; cursor: pointer; font: inherit; }
 .sectionItem:hover { border-left-color: var(--color-success); }
 .sectionItemTitle { display: flex; align-items: center; gap: var(--space-2); }
