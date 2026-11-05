@@ -23,6 +23,8 @@ if (url === undefined) {
 }
 const outDir = arg('out', 'design/shots')
 const route = arg('route', 'home')
+const suffix = arg('suffix', '')
+const evalExpr = arg('eval')
 const widths = arg('widths', '1440,768,375').split(',').map(value => Number(value)).filter(Number.isFinite)
 const height = Number(arg('height', '1000'))
 const chrome = process.env.CHROME_PATH ?? '/home/bernie/.cache/ms-playwright/chromium-1228/chrome-linux64/chrome'
@@ -84,11 +86,15 @@ try {
   await closeOnboarding()
   await evaluate(`window.location.hash = ${JSON.stringify(`#${route}`)}`)
   await sleep(800)
+  if (evalExpr !== undefined) {
+    console.log(`eval: ${String(await evaluate(evalExpr))}`)
+    await sleep(500)
+  }
   for (const width of widths) {
     await send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: false })
     await sleep(400)
     const shot = await send('Page.captureScreenshot', { format: 'png' })
-    const file = path.join(outDir, `loom-${route}@${String(width)}.png`)
+    const file = path.join(outDir, `loom-${route}${suffix}@${String(width)}.png`)
     await writeFile(file, Buffer.from(shot.data, 'base64'))
     console.log(`captured ${file}`)
   }

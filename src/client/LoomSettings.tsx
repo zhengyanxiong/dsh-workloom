@@ -11,6 +11,8 @@ type Translate = (key: LoomKey) => string
 export interface LoomPreferences {
   readonly view: 'workbench' | 'kanban'
   readonly kanbanMode: 'flat' | 'grouped'
+  /** Board opening mode; kanban is the drag surface, list is the dense table. */
+  readonly boardView: 'kanban' | 'list'
   readonly contextOpen: boolean
   /** Context-aside width in pixels. */
   readonly asideWidth: number
@@ -33,7 +35,7 @@ export interface LoomPreferences {
 }
 
 /** Defaults used when storage is empty or malformed. */
-export const DEFAULT_PREFERENCES: LoomPreferences = { view: 'workbench', kanbanMode: 'flat', contextOpen: true, asideWidth: 344, previewWidth: 560, bottomHeight: 220, sessionLimit: 5, previewWrap: true, wipLimit: 3, openOnLoad: false, collapseSidebar: false, autoCollapseSidebar: true }
+export const DEFAULT_PREFERENCES: LoomPreferences = { view: 'workbench', kanbanMode: 'flat', boardView: 'kanban', contextOpen: true, asideWidth: 344, previewWidth: 560, bottomHeight: 220, sessionLimit: 5, previewWrap: true, wipLimit: 3, openOnLoad: false, collapseSidebar: false, autoCollapseSidebar: true }
 const STORAGE_KEY = 'loom.preferences'
 
 /**
@@ -48,6 +50,7 @@ export function readPreferences(): LoomPreferences {
     const record = value as Record<string, unknown>
     const view = record.view === 'kanban' ? 'kanban' : 'workbench'
     const kanbanMode = record.kanbanMode === 'grouped' ? 'grouped' : 'flat'
+    const boardView = record.boardView === 'list' ? 'list' : 'kanban'
     const contextOpen = record.contextOpen !== false
     const previewWrap = record.previewWrap !== false
     const openOnLoad = record.openOnLoad === true
@@ -58,7 +61,7 @@ export function readPreferences(): LoomPreferences {
       return typeof raw === 'number' && Number.isFinite(raw) ? Math.min(Math.max(Math.round(raw), min), max) : fallback
     }
     return {
-      view, kanbanMode, contextOpen, previewWrap, openOnLoad, collapseSidebar, autoCollapseSidebar,
+      view, kanbanMode, boardView, contextOpen, previewWrap, openOnLoad, collapseSidebar, autoCollapseSidebar,
       asideWidth: size('asideWidth', DEFAULT_PREFERENCES.asideWidth, 320, 460),
       previewWidth: size('previewWidth', DEFAULT_PREFERENCES.previewWidth, 300, 720),
       bottomHeight: size('bottomHeight', DEFAULT_PREFERENCES.bottomHeight, 80, 320),
@@ -184,6 +187,12 @@ export function LoomSettings({ t, open, preferences, pinned, onChange, onUnpin, 
               <SelectField label={t('settings.kanbanMode')} value={preferences.kanbanMode} onChange={value => { onChange({ ...preferences, kanbanMode: value === 'flat' ? 'flat' : 'grouped' }) }}>
                 <option value="grouped">{t('kb.grouped')}</option>
                 <option value="flat">{t('kb.flat')}</option>
+              </SelectField>
+            } />
+            <SettingRow label={t('settings.boardView')} description={t('settings.boardViewHint')} control={
+              <SelectField label={t('settings.boardView')} value={preferences.boardView} onChange={value => { onChange({ ...preferences, boardView: value === 'list' ? 'list' : 'kanban' }) }}>
+                <option value="kanban">{t('view.kanban')}</option>
+                <option value="list">{t('view.list')}</option>
               </SelectField>
             } />
             <SettingRow label={t('settings.wipLimit')} description={t('settings.wipLimitHint')} control={

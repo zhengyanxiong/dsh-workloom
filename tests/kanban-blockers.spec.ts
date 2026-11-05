@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
 import { brandString } from '@deepseek-ai/dsh-brand'
 import type { CatalogSnapshot, Lock, ProjectRecord, TaskRecord, VersionRecord, WorkspaceRecord } from 'dsh-workloom/types'
-import { LoomKanban, LoomKanbanAside } from '../src/client/LoomKanban.tsx'
+import { LoomKanban } from '../src/client/LoomKanban.tsx'
 import { en, type LoomKey } from '../src/client/locales.ts'
 
 const t = (key: LoomKey) => en[key]
@@ -28,29 +28,29 @@ const snapshot: CatalogSnapshot = {
   projects: [project], versions: [version], locks: [lock], tasks: [review, running], workspaces: [workspace], temporarySessions: [], audit: [], executions: [],
 }
 const kanbanProps = {
-  t, snapshot, filter: {}, mode: 'flat' as const, projectValue: '', versionValue: '', statusValue: '', priorityValue: '', moduleValue: '', searchValue: '', wipLimit: 3,
-  onMode: () => undefined, onProject: () => undefined, onVersion: () => undefined, onStatus: () => undefined, onPriority: () => undefined,
-  onModule: () => undefined, onSearch: () => undefined, onClearFilters: () => undefined, onSelect: () => undefined, onMove: () => undefined, onNewCard: () => undefined,
+  t, snapshot, filter: {}, mode: 'flat' as const, boardView: 'kanban' as const,
+  projectValue: '', versionValue: '', statusValue: '', priorityValue: '', moduleValue: '', searchValue: '', wipLimit: 3,
+  onMode: () => undefined, onBoardView: () => undefined, onProject: () => undefined, onVersion: () => undefined,
+  onStatus: () => undefined, onPriority: () => undefined, onModule: () => undefined, onSearch: () => undefined,
+  onClearFilters: () => undefined, onSelect: () => undefined, onMove: () => undefined, onNewCard: () => undefined,
 }
 
-it('lists blocked cards with their concrete reason instead of a generic warning', () => {
-  const html = renderToStaticMarkup(createElement(LoomKanbanAside, { t, snapshot, filter: {}, onSelectSession: () => undefined }))
+it('aggregates blocked cards by their concrete reason above the columns', () => {
+  const html = renderToStaticMarkup(createElement(LoomKanban, kanbanProps))
   expect(html).toContain(en['kb.blocked'])
-  expect(html).toContain(en['kb.blockedApproval'])
-  expect(html).toContain('Await approval')
   expect(html).toContain(en['kb.blockedBySuggestion'])
-  expect(html).toContain(en['kb.blockedWorkspace'])
   expect(html).toContain(en['kb.blockedByPrepareFailed'])
+  expect(html).toContain('title="Await approval · Waiting workspace"')
 })
+
 it('filters by business status while keeping every other filter available', () => {
   const html = renderToStaticMarkup(createElement(LoomKanban, { ...kanbanProps, filter: { status: 'review' }, statusValue: 'review', projectValue: 'p1' }))
-  expect(html).toContain(en['kb.status'])
-  expect(html).toContain(en['kb.allStatuses'])
-  expect(html).toContain(en['kb.clearFilters'])
   expect(html).toContain('Await approval')
   expect(html).not.toContain('Waiting workspace')
+  expect(html).toContain(`aria-label="${en['kb.filter']}"`)
 })
-it('hides the clear action when no filter is active', () => {
+
+it('hides the clear action until the filter row is opened', () => {
   const html = renderToStaticMarkup(createElement(LoomKanban, kanbanProps))
   expect(html).not.toContain(en['kb.clearFilters'])
 })
