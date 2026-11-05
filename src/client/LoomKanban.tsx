@@ -182,13 +182,13 @@ export function LoomKanban(props: LoomKanbanProps) {
                 <button type="button" className={classes.laneAction} onClick={() => onNewCard(project)}>＋ {t('kb.newCard')}</button>
               </div>
               <div className={`loom-kb-columns ${classes.columns}`}>
-                {columns.map(column => <Column key={column.status} column={column} t={t} wipLimit={wipLimit} versionNames={versionNames} projectNames={projectNames} sessionCounts={sessionCounts} liveTaskIds={liveTaskIds} onSelect={onSelect} onDropTask={handleDrop} />)}
+                {columns.filter(column => column.status !== 'failed' || column.tasks.length > 0).map(column => <Column key={column.status} column={column} t={t} wipLimit={wipLimit} versionNames={versionNames} projectNames={projectNames} sessionCounts={sessionCounts} liveTaskIds={liveTaskIds} onSelect={onSelect} onDropTask={handleDrop} />)}
               </div>
             </div>)}
             {lanes.length === 0 && <p style={metaLine}>{t('kb.empty')}</p>}
           </div>
         : <div className={`loom-kb-columns ${classes.columns} ${classes.flat}`}>
-            {flat.map(column => <Column key={column.status} column={column} t={t} wipLimit={wipLimit} versionNames={versionNames} projectNames={projectNames} sessionCounts={sessionCounts} liveTaskIds={liveTaskIds} onSelect={onSelect} onDropTask={handleDrop} />)}
+            {flat.filter(column => column.status !== 'failed' || column.tasks.length > 0).map(column => <Column key={column.status} column={column} t={t} wipLimit={wipLimit} versionNames={versionNames} projectNames={projectNames} sessionCounts={sessionCounts} liveTaskIds={liveTaskIds} onSelect={onSelect} onDropTask={handleDrop} />)}
           </div>}
     </div>
   </div>

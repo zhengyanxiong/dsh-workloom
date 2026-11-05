@@ -33,7 +33,7 @@ export interface LoomPreferences {
 }
 
 /** Defaults used when storage is empty or malformed. */
-export const DEFAULT_PREFERENCES: LoomPreferences = { view: 'workbench', kanbanMode: 'grouped', contextOpen: true, asideWidth: 344, previewWidth: 560, bottomHeight: 220, sessionLimit: 5, previewWrap: true, wipLimit: 3, openOnLoad: false, collapseSidebar: false, autoCollapseSidebar: true }
+export const DEFAULT_PREFERENCES: LoomPreferences = { view: 'workbench', kanbanMode: 'flat', contextOpen: true, asideWidth: 344, previewWidth: 560, bottomHeight: 220, sessionLimit: 5, previewWrap: true, wipLimit: 3, openOnLoad: false, collapseSidebar: false, autoCollapseSidebar: true }
 const STORAGE_KEY = 'loom.preferences'
 
 /**
@@ -47,7 +47,7 @@ export function readPreferences(): LoomPreferences {
     if (typeof value !== 'object' || value === null || Array.isArray(value)) return DEFAULT_PREFERENCES
     const record = value as Record<string, unknown>
     const view = record.view === 'kanban' ? 'kanban' : 'workbench'
-    const kanbanMode = record.kanbanMode === 'flat' ? 'flat' : 'grouped'
+    const kanbanMode = record.kanbanMode === 'grouped' ? 'grouped' : 'flat'
     const contextOpen = record.contextOpen !== false
     const previewWrap = record.previewWrap !== false
     const openOnLoad = record.openOnLoad === true
