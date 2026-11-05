@@ -129,15 +129,17 @@ export function installLoomSurface(ui: LoomUi, host: LoomHostPort, t: Translate)
         if (sidebarWidth() > 80) {
           ui.layout.toggleSidebar()
           collapsedByLoom = true
+          document.body.classList.add('loom-fullwidth')
         }
       } else if (collapsedByLoom) {
+        document.body.classList.remove('loom-fullwidth')
         if (sidebarWidth() < 80) ui.layout.toggleSidebar()
         collapsedByLoom = false
       }
     }
     const timer = window.setInterval(sync, 250)
     sync()
-    return () => { window.clearInterval(timer) }
+    return () => { window.clearInterval(timer); document.body.classList.remove('loom-fullwidth') }
   }, 'loom: collapse the native sidebar while active')
 }
 
