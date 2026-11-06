@@ -10,7 +10,7 @@ import { en, type LoomKey } from '../src/client/locales.ts'
 const t = (key: LoomKey) => en[key]
 const project: ProjectRecord = { id: brandString<'loom.project'>('p1'), config: { name: 'Shop', sources: [{ id: 'web', repo: '/repos/web', path: '.' }], modules: [] } }
 const version: VersionRecord = { id: brandString<VersionRecord['id']>('v1'), projectId: project.id, name: 'v1', description: 'Checkout work', sources: [] }
-const lock = { id: brandString<'loom.lock'>('lock1'), versionId: version.id, repositories: [] }
+const lock = { id: brandString<'loom.lock'>('lock1'), versionId: version.id, repositories: [{ sourceId: brandString<'loom.source'>('web'), commit: 'abcdef1234567' }] }
 const sessionId = brandString<'SessionId'>('session-1')
 const workspaceId = brandString<'loom.workspace'>('w1')
 const workspace = { id: workspaceId, versionId: version.id, lock, rootPath: '/worktrees/shop', path: '/worktrees/shop', preparation: { status: 'ready' as const, at: 0 } }
@@ -55,4 +55,6 @@ it('shows the current-version status counts inline in the tasks header', () => {
   expect(html).toContain(en['task.status.review'])
   expect(html).not.toContain(en['task.status.completed'])
   expect(html).toContain(en['version.edit'])
+  expect(html).toContain('abcdef1')
+  expect(html).toContain(en['project.sessionRound'].replace('{round}', '1'))
 })

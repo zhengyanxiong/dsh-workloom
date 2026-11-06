@@ -1,7 +1,7 @@
 /** Project route: one project's versions, workspaces, tasks and structure. */
 import { IconBranchOutlineRegular, IconFolderOpenRegular, IconNewChatOutlineRegular, IconPlusOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { CatalogSnapshot, ProjectRecord, TaskRecord, VersionRecord } from 'dsh-workloom/types'
-import { ACTOR_LABEL, AUDIT_LABEL, STATUS_META } from '../shell.ts'
+import { ACTOR_LABEL, AUDIT_LABEL, STATUS_META, shortCommit } from '../shell.ts'
 import { LoomButton } from '../ui/Button.tsx'
 import { LoomSelect } from '../ui/Select.tsx'
 import { absoluteTime, relativeTime } from '../time.ts'
@@ -60,6 +60,8 @@ export function LoomProjectPage({ t, snapshot, project, version, onProject, onVe
   const activeVersion = (version !== undefined && versions.some(candidate => candidate.id === version.id) ? version : versions.at(-1))
   const tasks = activeVersion === undefined ? [] : snapshot.tasks.filter(task => task.versionId === activeVersion.id)
   const workspaces = activeVersion === undefined ? [] : snapshot.workspaces.filter(workspace => workspace.versionId === activeVersion.id)
+  const activeLock = activeVersion === undefined ? undefined : snapshot.locks.filter(candidate => candidate.versionId === activeVersion.id).at(-1)
+  const lockCommit = shortCommit(activeLock)
   const projectTasks = snapshot.tasks.filter(task => versions.some(candidate => candidate.id === task.versionId))
   const projectSessions = projectTasks.reduce((total, task) => total + task.attempts.reduce((sum, attempt) => sum + attempt.sessionIds.length, 0), 0)
   const projectRunning = projectTasks.filter(task => task.status === 'running').length
@@ -80,7 +82,7 @@ export function LoomProjectPage({ t, snapshot, project, version, onProject, onVe
   const visibleBuckets = buckets.filter(bucket => bucket.count > 0)
   const distributionAria = `${t('project.taskDistribution')} · ${visibleBuckets.map(bucket => `${t(bucket.label)} ${String(bucket.count)}`).join(' · ')}`
   const recent = snapshot.audit.filter(entry => tasks.some(task => task.id === entry.taskId)).slice(-3).reverse()
-  const sessionRows = [...projectTasks].sort((left, right) => updatedStamp(right) - updatedStamp(left)).flatMap(task => task.attempts.flatMap(attempt => attempt.sessionIds.map(sessionId => ({ sessionId, task, versionName: versions.find(candidate => candidate.id === task.versionId)?.name ?? '—' })))).slice(0, 6)
+  const sessionRows = [...projectTasks].sort((left, right) => updatedStamp(right) - updatedStamp(left)).flatMap(task => task.attempts.flatMap((attempt, attemptIndex) => attempt.sessionIds.map(sessionId => ({ sessionId, task, versionName: versions.find(candidate => candidate.id === task.versionId)?.name ?? '—', round: attemptIndex + 1 })))).slice(0, 6)
   return <main className={classes.page}>
     <div className={classes.inner}>
       <header className={classes.head}>
@@ -116,6 +118,7 @@ export function LoomProjectPage({ t, snapshot, project, version, onProject, onVe
         <div className={classes.main}>
           <section className={classes.card}>
             <div className={classes.versionHead}><h2 className={classes.versionTitle}>{activeVersion?.name ?? t('project.noVersion')}</h2><span className={classes.sectionHint}>{t('project.currentVersion')}</span><span className={classes.versionActions}><LoomButton variant="ghost" size="sm" onClick={onEditVersion} disabled={activeVersion === undefined}>{t('version.edit')}</LoomButton><LoomButton variant="ghost" size="sm" icon={<IconPlusOutlineRegular size={12} />} onClick={onNewTask} disabled={activeVersion === undefined}>{t('top.newTask')}</LoomButton></span></div>
+            <p className={classes.versionSub}>{workspaces.length} {t('project.workspaces')}{lockCommit !== undefined && <span> · {t('lock.title')} <code className={classes.versionCommit}>{lockCommit}</code></span>}</p>
             <p className={classes.description}>{activeVersion?.description ?? t('project.noDescription')}</p>
             <div className={classes.workspaceList}>{workspaces.map(workspace => <div key={workspace.id} className={classes.workspace}><span className={classes.workspaceName}>{workspace.label ?? workspace.id.slice(0, 8)}</span><span className={classes.workspacePath}>{workspace.rootPath ?? workspace.path ?? '—'}</span><span className={`${classes.workspaceStatus} ${workspace.preparation?.status === 'failed' ? classes.workspaceStatusFailed : workspace.preparation?.status === 'ready' ? '' : classes.workspaceStatusPending}`}><span className={classes.statusDot} style={{ background: workspace.preparation?.status === 'failed' ? 'var(--color-danger)' : workspace.preparation?.status === 'ready' ? 'var(--color-success)' : 'var(--color-warning)' }} />{workspace.preparation?.status === 'failed' ? t('project.workspaceGap') : workspace.preparation?.status === 'ready' ? t('project.ready') : t('project.workspacePending')}</span></div>)}{workspaces.length === 0 && <p className={classes.hint}>{t('project.noWorkspaces')}</p>}</div>
           </section>
@@ -135,7 +138,7 @@ export function LoomProjectPage({ t, snapshot, project, version, onProject, onVe
               ? <p className={classes.hint}>{t('noSessions')}</p>
               : <div className={classes.sessionList}>{sessionRows.map(row => <button key={row.sessionId} type="button" className={classes.sessionRow} data-loom-hover="row" onClick={() => onSession(row.sessionId)}>
                 <span className={classes.sessionIcon}><IconNewChatOutlineRegular size={13} /></span>
-                <span className={classes.sessionMain}><span className={classes.sessionTitle}>{row.task.title}</span><span className={classes.sessionMeta}>{row.versionName}</span></span>
+                <span className={classes.sessionMain}><span className={classes.sessionTitle}>{row.task.title}</span><span className={classes.sessionMeta}>{row.versionName} · {t('project.sessionRound').replace('{round}', String(row.round))}</span></span>
                 <span className={classes.sessionTime}>{relativeTime(row.task.updatedAt)}</span>
               </button>)}</div>}
           </section>

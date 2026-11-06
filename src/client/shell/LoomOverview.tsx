@@ -6,11 +6,15 @@ import { IconCheckOutlineRegular, IconNewChatOutlineRegular, IconPlusOutlineRegu
 import type { CatalogSnapshot, ProjectRecord, TaskRecord } from 'dsh-workloom/types'
 import { AUDIT_LABEL } from '../shell.ts'
 import { relativeTime } from '../time.ts'
+import { greetingPeriod } from '../greeting.ts'
 import { LoomButton } from '../ui/Button.tsx'
 import type { LoomKey } from '../locales.ts'
 import classes from './LoomOverview.module.css'
 
 type Translate = (key: LoomKey, params?: Readonly<Record<string, string>>) => string
+
+/** Local greeting copy for each part of the day. */
+const GREETING_KEYS = { morning: 'overview.greeting.morning', afternoon: 'overview.greeting.afternoon', evening: 'overview.greeting.evening' } as const
 
 /** Overview inputs and navigation intents. */
 export interface LoomOverviewProps {
@@ -42,6 +46,7 @@ export function LoomOverview({ t, snapshot, activeWorkspaceCount, onTask, onProj
   const recentAudit = snapshot.audit.slice(-4).reverse()
   const recentCompleted = completed.slice(-3).reverse()
   const date = new Date().toLocaleDateString(undefined, { month: 'long', day: 'numeric', weekday: 'short' })
+  const greeting = t(GREETING_KEYS[greetingPeriod(new Date().getHours())])
   const sessionCount = snapshot.tasks.reduce((total, task) => total + task.attempts.reduce((sum, attempt) => sum + attempt.sessionIds.length, 0), 0)
   const projectName = (task: TaskRecord): string => {
     const projectId = snapshot.versions.find(version => version.id === task.versionId)?.projectId
@@ -67,7 +72,7 @@ export function LoomOverview({ t, snapshot, activeWorkspaceCount, onTask, onProj
       <div className={classes.head}>
         <div className={classes.headText}>
           <p className={classes.eyebrow}>{t('nav.overview')}</p>
-          <h1 className={classes.title}>{t('overview.title')}</h1>
+          <h1 className={classes.title}>{greeting}</h1>
           <p className={classes.summary}>{activeWorkspaceCount} {t('top.activeWorkspaces')} · {snapshot.projects.length} {t('project.title')} · {sessionCount} {t('sessions')}</p>
         </div>
         <div className={classes.headMeta}>
