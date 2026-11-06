@@ -47,9 +47,9 @@ it('renders five project counters in one quiet row', () => {
   expect(html).not.toContain(en['project.activeWork'])
 })
 
-it('draws the current-version status distribution as a bar with a compact legend', () => {
+it('shows the current-version status counts inline in the tasks header', () => {
   const html = render()
-  expect(html).toContain('role="img"')
+  expect(html).toContain('role="group"')
   expect(html).toContain(en['project.taskDistribution'])
   expect(html).toContain(en['task.status.running'])
   expect(html).toContain(en['task.status.review'])
