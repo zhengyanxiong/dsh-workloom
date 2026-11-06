@@ -14,11 +14,11 @@ import { COLORS, failureKey, failureReport, thrownFailureReport, type FailureRep
 import { LoomCleanupDialog, type LoomCleanupFailure } from './LoomCleanupDialog.tsx'
 import { LoomTakeoverDialog } from './LoomTakeoverDialog.tsx'
 import { LoomPreparationPanel } from './LoomPreparationPanel.tsx'
+import { LoomSelect } from './ui/Select.tsx'
 import type { LoadWorkspaceChanges } from './LoomDiff.tsx'
 
 type Translate = (key: LoomKey) => string
 
-const button: CSSProperties = { color: 'inherit', background: 'transparent', border: '0.5px solid var(--dsw-alias-border-l4)', borderRadius: 6, padding: '6px 10px', cursor: 'pointer', font: 'inherit' }
 const box: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12, padding: 12, borderRadius: 8, background: 'var(--dsw-alias-bg-layer-1)' }
 const facts: CSSProperties = { display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: '5px 18px', minWidth: 0, color: COLORS.faint, fontSize: 11 }
 const fact: CSSProperties = { display: 'inline-flex', alignItems: 'baseline', gap: 5, minWidth: 0 }
@@ -30,7 +30,6 @@ const ownerLabel: CSSProperties = { color: COLORS.faint, fontSize: 11 }
 const ownerValue: CSSProperties = { minWidth: 0, overflowWrap: 'anywhere', color: COLORS.text, fontFamily: 'ui-monospace, monospace', fontSize: 11 }
 const ownerMeta: CSSProperties = { margin: 0, color: COLORS.faint, fontSize: 10.5, lineHeight: 1.5 }
 const footer: CSSProperties = { display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginTop: 4, paddingTop: 10, borderTop: `0.5px solid ${COLORS.border}` }
-const input: CSSProperties = { ...button, cursor: 'text', width: '100%', boxSizing: 'border-box' }
 const monoText: CSSProperties = { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'ui-monospace, monospace', fontSize: 11 }
 const alert: CSSProperties = { margin: 0, color: 'var(--dsw-alias-label-secondary)', fontSize: 12 }
 
@@ -406,9 +405,13 @@ function StartForm({ t, task, snapshot, versionId, actions }: StartFormProps) {
       <span>{t('task.workspace')}</span>
       {ready.length === 1
         ? <span style={{ ...monoText, color: 'var(--dsw-alias-label-primary)' }}>{selected?.rootPath ?? selected?.path}</span>
-        : <select aria-label={t('task.workspace')} value={selectedId ?? ''} onChange={event => setSelectedId(event.target.value as WorkspaceRecord['id'])} style={input}>
-            {ready.map(workspace => <option key={workspace.id} value={workspace.id}>{workspace.rootPath ?? workspace.path}</option>)}
-          </select>}
+        : <LoomSelect
+          block
+          ariaLabel={t('task.workspace')}
+          value={selectedId ?? ''}
+          options={ready.map(workspace => ({ value: workspace.id, label: workspace.rootPath ?? workspace.path }))}
+          onChange={value => setSelectedId(value as WorkspaceRecord['id'])}
+        />}
     </div>
     <p style={{ ...hint, margin: 0 }}>{selected?.preparation === undefined ? t('workspace.boundReady') : t('workspace.boundReady')}</p>
     {failure !== undefined && <InlineFailure t={t} failure={failure} />}

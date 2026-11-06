@@ -1,7 +1,7 @@
 /** Loom-local preferences and the shared setting-row controls. */
 import type { ReactNode } from 'react'
-import { IconChevronDownOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { LoomThemePreference } from './theme/selection.ts'
+import { LoomSelect, type LoomSelectOption } from './ui/Select.tsx'
 import classes from './LoomSettings.module.css'
 
 /** Browser-persisted workbench defaults. */
@@ -122,9 +122,12 @@ export function SettingRow({ label, description, control, divider = true }: { re
  * @param props - accessible label, current value, change callback and options.
  * @returns the select control.
  */
-export function SelectField({ label, value, onChange, children }: { readonly label: string; readonly value: string; readonly onChange: (value: string) => void; readonly children: ReactNode }): JSX.Element {
-  return <div className={classes.selectWrap}>
-    <select aria-label={label} value={value} onChange={event => onChange(event.target.value)} className={classes.select}>{children}</select>
-    <span aria-hidden className={classes.selectChevron}><IconChevronDownOutlineRegular size={11} /></span>
-  </div>
+export function SelectField({ label, value, options, onChange, disabled = false }: {
+  readonly label: string
+  readonly value: string
+  readonly options: readonly LoomSelectOption[]
+  readonly onChange: (value: string) => void
+  readonly disabled?: boolean | undefined
+}): JSX.Element {
+  return <LoomSelect ariaLabel={label} value={value} options={options} onChange={onChange} disabled={disabled} align="end" />
 }

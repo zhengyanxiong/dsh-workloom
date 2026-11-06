@@ -17,6 +17,7 @@ import { autoWorkspaceRepositoryPath } from '../domain/workspace.ts'
 import { VERSION_DESCRIPTION_MAX_CHARS } from '../shared/version-context.ts'
 import { COLORS, failureKey } from './shell.ts'
 import { LoomWizardSteps } from './LoomWizardSteps.tsx'
+import { LoomSelect } from './ui/Select.tsx'
 import type { LoomKey } from './locales.ts'
 
 type Translate = (key: LoomKey, params?: Readonly<Record<string, string>>) => string
@@ -566,10 +567,16 @@ export function ProjectForm({ t, create, update, project, agentPresets = [], pic
           <Button type="button" size="sm" variant="ghost" icon={<IconTrashOutlineRegular />} onClick={() => setModules(current => current.filter((_module, at) => at !== index))}>{t('module.remove')}</Button>
         </div>
         <label style={field}><span style={fieldLabel}>{t('module.source')}</span>
-          <select aria-label={t('module.source')} value={module.source} onChange={event => updateModule(index, { source: event.target.value })} style={input}>
-            <option value="">{t('module.source')}</option>
-            {sources.map((source, at) => <option key={at} value={ids[at]}>{source.path}</option>)}
-          </select>
+          <LoomSelect
+            block
+            ariaLabel={t('module.source')}
+            value={module.source}
+            options={[{ value: '', label: t('module.source') }, ...sources.flatMap((source, at) => {
+              const id = ids[at]
+              return id === undefined ? [] : [{ value: id, label: source.path }]
+            })]}
+            onChange={value => updateModule(index, { source: value })}
+          />
         </label>
         <label style={field}><span style={fieldLabel}>{t('module.path')}</span>
           <input aria-label={t('module.path')} placeholder={t('module.path')} value={module.path} onChange={event => updateModule(index, { path: event.target.value })} style={input} />
@@ -938,10 +945,13 @@ export function VersionForm({ t, project, listBranches, pickDirectory, boundWork
               <Button type="button" variant={workspaceSourceMode === 'copy' ? 'primary' : 'ghost'} style={{ flex: 1 }} disabled={(otherWorkspaces ?? []).length === 0} onClick={() => setWorkspaceSourceMode('copy')}>{t('version.workspaceFromVersion')}</Button>
             </div>
             {workspaceSourceMode === 'copy' && <label style={field}><span style={fieldLabel}>{t('version.workspaceSource')}</span>
-              <select aria-label={t('version.workspaceSource')} value={workspaceSourceId} onChange={event => applyWorkspaceSource(event.target.value)} style={{ ...input, height: 32 }}>
-                <option value="">{t('version.workspaceSourcePlaceholder')}</option>
-                {(otherWorkspaces ?? []).map(source => <option key={source.id} value={source.id}>{source.versionName} · {source.label ?? source.rootPath ?? source.path}</option>)}
-              </select>
+              <LoomSelect
+                block
+                ariaLabel={t('version.workspaceSource')}
+                value={workspaceSourceId}
+                options={[{ value: '', label: t('version.workspaceSourcePlaceholder') }, ...(otherWorkspaces ?? []).map(source => ({ value: source.id, label: `${source.versionName} · ${source.label ?? source.rootPath ?? source.path}` }))]}
+                onChange={value => applyWorkspaceSource(value)}
+              />
             </label>}
             {workspaceSourceMode === 'copy' && workspaceSourceId !== '' && <p style={hint}>{t('version.workspaceCopyNote')}</p>}
             <label style={field}><span style={fieldLabel}>{t('version.workspaceParentPath')}</span>
@@ -1169,16 +1179,22 @@ export function TaskForm({ t, version, project, workspaces, create, update, task
       {!editing && <label style={field}><span style={fieldLabel}>{t('task.workspace')}</span>
         {workspaces === undefined || workspaces.length === 0
           ? <p role="alert" style={alert}>{t('task.workspaceRequired')}</p>
-          : <select aria-label={t('task.workspace')} value={workspaceId} onChange={event => setWorkspaceId(event.target.value)} style={input}>
-              {workspaces.map(workspace => <option key={workspace.id} value={workspace.id}>{(workspace.label ?? workspace.rootPath ?? workspace.path)}</option>)}
-            </select>}
+          : <LoomSelect
+            block
+            ariaLabel={t('task.workspace')}
+            value={workspaceId}
+            options={workspaces.map(workspace => ({ value: workspace.id, label: workspace.label ?? workspace.rootPath ?? workspace.path }))}
+            onChange={value => setWorkspaceId(value)}
+          />}
       </label>}
       <label style={field}><span style={fieldLabel}>{t('task.priority')}</span>
-        <select aria-label={t('task.priority')} value={priority} onChange={event => setPriority(event.target.value as TaskPriority)} style={input}>
-          <option value="low">{t('task.priority.low')}</option>
-          <option value="normal">{t('task.priority.normal')}</option>
-          <option value="high">{t('task.priority.high')}</option>
-        </select>
+        <LoomSelect
+          block
+          ariaLabel={t('task.priority')}
+          value={priority}
+          options={[{ value: 'low', label: t('task.priority.low') }, { value: 'normal', label: t('task.priority.normal') }, { value: 'high', label: t('task.priority.high') }]}
+          onChange={value => setPriority(value as TaskPriority)}
+        />
       </label>
       <div style={field}>
         <span style={fieldLabel}>{t('task.modules')}</span>

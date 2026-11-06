@@ -35,6 +35,21 @@ function previewTheme(value: Exclude<LoomThemePreference, 'auto'>): LoomThemeAtt
   return resolveLoomTheme(value, false)
 }
 
+/** Mini-window preview laid out like the design prototype. */
+function ThemePreview({ theme }: { readonly theme: Exclude<LoomThemePreference, 'auto'> }): JSX.Element {
+  return <span aria-hidden className={classes.preview} data-theme={previewTheme(theme)}>
+    <span className={classes.previewBar}><span className={classes.previewDot} /><span className={classes.previewDot} /><span className={classes.previewDot} /><span className={classes.previewNav} /></span>
+    <span className={classes.previewBody}>
+      <span className={classes.previewRail} />
+      <span className={classes.previewMain}>
+        <span className={classes.previewLine} />
+        <span className={`${classes.previewLine} ${classes.previewLineShort}`} />
+        <span className={classes.previewChip} />
+      </span>
+    </span>
+  </span>
+}
+
 /**
  * Render the settings route: theme cards, interface density and local defaults.
  *
@@ -77,16 +92,6 @@ export function LoomSettingsPage({ t, preferences, pinned, onChange, onUnpin, on
         <section id="loom-settings-appearance" className={classes.section} aria-label={t('settings.appearance')}>
           <div className={classes.sectionHead}><h2 className={classes.sectionTitle}>{t('settings.appearance')}</h2><span className={classes.sectionHint}>{t('settings.appearanceHint')}</span></div>
           <div className={classes.themeGrid}>
-            <button
-              type="button"
-              aria-pressed={preferences.theme === 'auto'}
-              className={`${classes.themeCard} ${preferences.theme === 'auto' ? classes.themeActive : ''}`}
-              onClick={() => onChange({ ...preferences, theme: 'auto' })}
-            >
-              <span aria-hidden className={`${classes.swatch} ${classes.swatchAuto}`} />
-              <span className={classes.cardText}><span className={classes.cardName}>{t('theme.auto')}</span><span className={classes.cardHint}>{t('theme.autoHint')}</span></span>
-              {preferences.theme === 'auto' && <span aria-hidden className={classes.check}><IconCheckOutlineRegular size={13} /></span>}
-            </button>
             {THEME_CARDS.map(theme => {
               const selected = preferences.theme === theme.value
               return <button
@@ -96,14 +101,22 @@ export function LoomSettingsPage({ t, preferences, pinned, onChange, onUnpin, on
                 className={`${classes.themeCard} ${selected ? classes.themeActive : ''}`}
                 onClick={() => onChange({ ...preferences, theme: theme.value })}
               >
-                <span aria-hidden className={classes.swatch} data-theme={previewTheme(theme.value)}>
-                  <span className={classes.swatchSurface} />
-                  <span className={classes.swatchAccent} />
+                <ThemePreview theme={theme.value} />
+                <span className={classes.cardFoot}>
+                  <span className={classes.cardText}><span className={classes.cardName}>{t(theme.label)}</span><span className={classes.cardHint}>{t(theme.hint)}</span></span>
+                  {selected && <span aria-hidden className={classes.check}><IconCheckOutlineRegular size={11} /></span>}
                 </span>
-                <span className={classes.cardText}><span className={classes.cardName}>{t(theme.label)}</span><span className={classes.cardHint}>{t(theme.hint)}</span></span>
-                {selected && <span aria-hidden className={classes.check}><IconCheckOutlineRegular size={13} /></span>}
               </button>
             })}
+          </div>
+          <div className={classes.panel}>
+            <SettingRow divider={false} label={t('theme.auto')} description={t('theme.autoHint')} control={
+              <Switch
+                checked={preferences.theme === 'auto'}
+                onChange={next => onChange({ ...preferences, theme: next ? 'auto' : 'blue' })}
+                label={t('theme.auto')}
+              />
+            } />
           </div>
         </section>
         <section id="loom-settings-interface" className={classes.section} aria-label={t('settings.interfaceSection')}>
@@ -134,32 +147,44 @@ export function LoomSettingsPage({ t, preferences, pinned, onChange, onUnpin, on
           <div className={classes.sectionHead}><h2 className={classes.sectionTitle}>{t('settings.workspace')}</h2><span className={classes.sectionHint}>{t('settings.workspaceHint')}</span></div>
           <div className={classes.panel}>
             <SettingRow divider={false} label={t('settings.sessionLimit')} description={t('settings.sessionLimitHint')} control={
-              <SelectField label={t('settings.sessionLimit')} value={String(preferences.sessionLimit)} onChange={value => { onChange({ ...preferences, sessionLimit: Number(value) }) }}>
-                {SESSION_LIMITS.map(limit => <option key={limit} value={String(limit)}>{t('side.sessionLimit').replace('{limit}', String(limit))}</option>)}
-              </SelectField>
+              <SelectField
+                label={t('settings.sessionLimit')}
+                value={String(preferences.sessionLimit)}
+                options={SESSION_LIMITS.map(limit => ({ value: String(limit), label: t('side.sessionLimit').replace('{limit}', String(limit)) }))}
+                onChange={value => { onChange({ ...preferences, sessionLimit: Number(value) }) }}
+              />
             } />
             <SettingRow label={t('settings.defaultView')} control={
-              <SelectField label={t('settings.defaultView')} value={preferences.view} onChange={value => { onChange({ ...preferences, view: value === 'kanban' ? 'kanban' : 'workbench' }) }}>
-                <option value="workbench">{t('workbench')}</option>
-                <option value="kanban">{t('view.kanban')}</option>
-              </SelectField>
+              <SelectField
+                label={t('settings.defaultView')}
+                value={preferences.view}
+                options={[{ value: 'workbench', label: t('workbench') }, { value: 'kanban', label: t('view.kanban') }]}
+                onChange={value => { onChange({ ...preferences, view: value === 'kanban' ? 'kanban' : 'workbench' }) }}
+              />
             } />
             <SettingRow label={t('settings.kanbanMode')} control={
-              <SelectField label={t('settings.kanbanMode')} value={preferences.kanbanMode} onChange={value => { onChange({ ...preferences, kanbanMode: value === 'flat' ? 'flat' : 'grouped' }) }}>
-                <option value="grouped">{t('kb.grouped')}</option>
-                <option value="flat">{t('kb.flat')}</option>
-              </SelectField>
+              <SelectField
+                label={t('settings.kanbanMode')}
+                value={preferences.kanbanMode}
+                options={[{ value: 'grouped', label: t('kb.grouped') }, { value: 'flat', label: t('kb.flat') }]}
+                onChange={value => { onChange({ ...preferences, kanbanMode: value === 'flat' ? 'flat' : 'grouped' }) }}
+              />
             } />
             <SettingRow label={t('settings.boardView')} description={t('settings.boardViewHint')} control={
-              <SelectField label={t('settings.boardView')} value={preferences.boardView} onChange={value => { onChange({ ...preferences, boardView: value === 'list' ? 'list' : 'kanban' }) }}>
-                <option value="kanban">{t('view.kanban')}</option>
-                <option value="list">{t('view.list')}</option>
-              </SelectField>
+              <SelectField
+                label={t('settings.boardView')}
+                value={preferences.boardView}
+                options={[{ value: 'kanban', label: t('view.kanban') }, { value: 'list', label: t('view.list') }]}
+                onChange={value => { onChange({ ...preferences, boardView: value === 'list' ? 'list' : 'kanban' }) }}
+              />
             } />
             <SettingRow label={t('settings.wipLimit')} description={t('settings.wipLimitHint')} control={
-              <SelectField label={t('settings.wipLimit')} value={String(preferences.wipLimit)} onChange={value => { onChange({ ...preferences, wipLimit: Number(value) }) }}>
-                {WIP_LIMITS.map(limit => <option key={limit} value={String(limit)}>{String(limit)}</option>)}
-              </SelectField>
+              <SelectField
+                label={t('settings.wipLimit')}
+                value={String(preferences.wipLimit)}
+                options={WIP_LIMITS.map(limit => ({ value: String(limit), label: String(limit) }))}
+                onChange={value => { onChange({ ...preferences, wipLimit: Number(value) }) }}
+              />
             } />
             <SettingRow label={t('settings.contextOpen')} control={<Switch checked={preferences.contextOpen} onChange={next => onChange({ ...preferences, contextOpen: next })} label={t('settings.contextOpen')} />} />
           </div>

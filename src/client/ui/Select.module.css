@@ -57,3 +57,10 @@
 .optionLabel { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--text-small-size); }
 .optionDescription { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--color-muted); font-family: var(--font-mono); font-size: var(--text-nano-size); }
 .check { display: inline-flex; flex: none; color: var(--color-accent); }
+
+/* Sizes, variants and alignment used by the top bar, settings and forms. */
+.sm .trigger { height: 28px; padding: 0 var(--space-1) 0 var(--space-2); font-size: var(--text-label-size); }
+.ghost .trigger { border-color: transparent; background: transparent; color: var(--color-ink-3); padding: 0 var(--space-1); }
+.ghost .trigger:hover { background: var(--color-panel); border-color: var(--color-line); color: var(--color-ink); }
+.block { width: 100%; }
+.menuEnd { left: auto; right: 0; }

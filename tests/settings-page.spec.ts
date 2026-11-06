@@ -22,20 +22,23 @@ function render(preferences = DEFAULT_PREFERENCES): string {
   }))
 }
 
-it('renders the settings sections and the five theme choices', () => {
+it('renders the settings sections and four prototype theme previews', () => {
   const html = render()
   for (const label of [en['settings.appearance'], en['settings.interfaceSection'], en['settings.workspace'], en['settings.startup'], en['settings.pinned']]) {
     expect(html).toContain(label)
   }
-  for (const label of [en['theme.auto'], en['theme.paper'], en['theme.white'], en['theme.blue'], en['theme.dark']]) {
+  for (const label of [en['theme.paper'], en['theme.white'], en['theme.blue'], en['theme.dark']]) {
     expect(html).toContain(label)
   }
+  // The follow toggle keeps the fourth option available without a fifth card.
+  expect(html).toContain(en['theme.auto'])
+  for (const theme of ['light', 'white', 'blue', 'dark']) expect(html).toContain(`data-theme="${theme}"`)
   expect(html).toContain(en['settings.localOnly'])
 })
 
 it('marks the persisted theme and density as selected', () => {
   const html = render({ ...DEFAULT_PREFERENCES, theme: 'dark', density: 'compact', fontSize: 15, reducedMotion: true })
-  expect(html).toContain('aria-pressed="true"')
+  expect((html.match(/aria-pressed="true"/g) ?? []).length).toBe(1)
   expect(html).toContain(en['settings.densityCompact'])
   expect(html).toContain(en['settings.reducedMotion'])
 })

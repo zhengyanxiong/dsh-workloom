@@ -13,6 +13,7 @@ import {
 import type { CatalogSnapshot, ProjectRecord, VersionRecord } from 'dsh-workloom/types'
 import { LoomBrandMark } from '../LoomMark.tsx'
 import { LoomButton } from '../ui/Button.tsx'
+import { LoomSelect } from '../ui/Select.tsx'
 import type { LoomKey } from '../locales.ts'
 import { LOOM_ROUTES, type LoomRoute } from './router.ts'
 import classes from './LoomTopbar.module.css'
@@ -72,17 +73,27 @@ export function LoomTopbar(props: LoomTopbarProps): JSX.Element {
     <span aria-hidden className={classes.divider} />
     <label className={classes.context}>
       <span className={classes.contextLabel}>{t('top.project')}</span>
-      <select className={classes.contextSelect} aria-label={t('top.project')} value={project ?? ''} onChange={event => onSelectProject(event.target.value === '' ? undefined : event.target.value as ProjectRecord['id'])}>
-        <option value="">{t('top.allProjects')}</option>
-        {(snapshot?.projects ?? []).map(candidate => <option key={candidate.id} value={candidate.id}>{candidate.config.name}</option>)}
-      </select>
+      <LoomSelect
+        className={`${classes.contextSelect} loom-top-select`}
+        size="sm"
+        variant="ghost"
+        ariaLabel={t('top.project')}
+        value={project ?? ''}
+        options={[{ value: '', label: t('top.allProjects') }, ...(snapshot?.projects ?? []).map(candidate => ({ value: candidate.id, label: candidate.config.name }))]}
+        onChange={value => onSelectProject(value === '' ? undefined : value as ProjectRecord['id'])}
+      />
     </label>
     <label className={classes.context}>
       <span className={classes.contextLabel}>{t('top.version')}</span>
-      <select className={classes.contextSelect} aria-label={t('top.version')} value={version ?? ''} onChange={event => onSelectVersion(event.target.value === '' ? undefined : event.target.value as VersionRecord['id'])}>
-        <option value="">{t('top.allVersions')}</option>
-        {(snapshot?.versions ?? []).filter(candidate => project === undefined || candidate.projectId === project).map(candidate => <option key={candidate.id} value={candidate.id}>{candidate.name}</option>)}
-      </select>
+      <LoomSelect
+        className={`${classes.contextSelect} loom-top-select`}
+        size="sm"
+        variant="ghost"
+        ariaLabel={t('top.version')}
+        value={version ?? ''}
+        options={[{ value: '', label: t('top.allVersions') }, ...(snapshot?.versions ?? []).filter(candidate => project === undefined || candidate.projectId === project).map(candidate => ({ value: candidate.id, label: candidate.name }))]}
+        onChange={value => onSelectVersion(value === '' ? undefined : value as VersionRecord['id'])}
+      />
     </label>
     <span className={classes.nav} role="tablist" aria-label={t('nav.label')}>
       {LOOM_ROUTES.map(item => <button key={item} type="button" role="tab" aria-selected={route === item} className={`${classes.navItem} ${route === item ? classes.navItemActive : ''}`} onClick={() => onNavigate(item)}>{t(ROUTE_LABEL[item])}</button>)}
