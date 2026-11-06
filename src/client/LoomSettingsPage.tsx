@@ -1,5 +1,5 @@
 /** Settings route: appearance themes and the browser-local workbench defaults. */
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { IconCheckOutlineRegular, IconChevronLeftOutlineRegular, Switch } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ProjectRecord } from 'dsh-workloom/types'
 import { SESSION_LIMITS, SelectField, SettingRow, WIP_LIMITS, type LoomPreferences } from './LoomSettings.tsx'
@@ -58,6 +58,44 @@ function ThemePreview({ theme }: { readonly theme: Exclude<LoomThemePreference, 
  */
 export function LoomSettingsPage({ t, preferences, pinned, onChange, onUnpin, onBack }: LoomSettingsPageProps): JSX.Element {
   const [active, setActive] = useState<SectionId>('appearance')
+  const bodyRef = useRef<HTMLDivElement | null>(null)
+  const contentRef = useRef<HTMLDivElement | null>(null)
+  const spacerRef = useRef<HTMLDivElement | null>(null)
+  // Reserve scroll room after the last section so every nav target can align
+  // with the top of the scroll container instead of stopping at max scroll.
+  useEffect(() => {
+    const body = bodyRef.current
+    const content = contentRef.current
+    const spacer = spacerRef.current
+    if (body === null || content === null || spacer === null) return
+    const update = (): void => {
+      const last = spacer.previousElementSibling
+      if (!(last instanceof HTMLElement)) return
+      spacer.style.height = `${String(Math.max(0, body.clientHeight - last.offsetHeight - 24))}px`
+    }
+    update()
+    const observer = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(update)
+    observer?.observe(body)
+    observer?.observe(content)
+    return () => { observer?.disconnect() }
+  }, [])
+  // Keep the nav highlight in sync while the reader scrolls manually.
+  useEffect(() => {
+    const body = bodyRef.current
+    const content = contentRef.current
+    if (body === null || content === null) return
+    const sections = [...content.querySelectorAll('section[id]')]
+    const sync = (): void => {
+      const top = body.getBoundingClientRect().top + 32
+      let current = sections[0]
+      for (const section of sections) if (section.getBoundingClientRect().top <= top) current = section
+      const id = current?.id.replace('loom-settings-', '')
+      if (id !== undefined && id !== '') setActive(id as SectionId)
+    }
+    sync()
+    body.addEventListener('scroll', sync, { passive: true })
+    return () => { body.removeEventListener('scroll', sync) }
+  }, [])
   const sections: readonly { readonly id: SectionId; readonly label: LoomKey }[] = [
     { id: 'appearance', label: 'settings.appearance' },
     { id: 'interface', label: 'settings.interfaceSection' },
@@ -78,7 +116,7 @@ export function LoomSettingsPage({ t, preferences, pinned, onChange, onUnpin, on
       </div>
       <LoomButton variant="ghost" size="sm" icon={<IconChevronLeftOutlineRegular size={12} />} onClick={onBack}>{t('workbench.back')}</LoomButton>
     </header>
-    <div className={classes.body}>
+    <div ref={bodyRef} className={classes.body}>
       <nav className={classes.nav} aria-label={t('settings.navLabel')}>
         {sections.map(section => <button
           key={section.id}
@@ -88,7 +126,7 @@ export function LoomSettingsPage({ t, preferences, pinned, onChange, onUnpin, on
           onClick={() => jump(section.id)}
         >{t(section.label)}</button>)}
       </nav>
-      <div className={classes.content}>
+      <div ref={contentRef} className={classes.content}>
         <section id="loom-settings-appearance" className={classes.section} aria-label={t('settings.appearance')}>
           <div className={classes.sectionHead}><h2 className={classes.sectionTitle}>{t('settings.appearance')}</h2><span className={classes.sectionHint}>{t('settings.appearanceHint')}</span></div>
           <div className={classes.themeGrid}>
@@ -208,6 +246,7 @@ export function LoomSettingsPage({ t, preferences, pinned, onChange, onUnpin, on
               </div>)}
           </div>
         </section>
+        <div ref={spacerRef} aria-hidden className={classes.spacer} />
       </div>
     </div>
   </main>
