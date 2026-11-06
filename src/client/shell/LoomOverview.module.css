@@ -1,4 +1,5 @@
 .page {
+  container-type: inline-size;
   flex: 1;
   min-width: 0;
   overflow: auto;
@@ -44,12 +45,12 @@
 .sectionItem { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; padding: var(--space-2); border-left: 2px solid var(--color-line); }
 .sectionItemTitle { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--color-ink-2); font-size: var(--text-small-size); }
 .sectionItemMeta { color: var(--color-muted); font-family: var(--font-mono); font-size: var(--text-micro-size); }
-@media (max-width: 1040px) {
+@container (max-width: 1040px) {
   .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .columns { grid-template-columns: minmax(0, 1fr); }
   .projects { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
-@media (max-width: 560px) {
+@container (max-width: 560px) {
   .page { padding: var(--space-8) var(--space-5); }
   .head { align-items: flex-start; flex-direction: column; }
   .headMeta { width: 100%; justify-content: space-between; }

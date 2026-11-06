@@ -29,14 +29,14 @@
   background: var(--color-surface);
 }
 .sidebarBackdrop { position: absolute; inset: 0; top: 56px; z-index: 65; background: color-mix(in srgb, var(--color-ink) 35%, transparent); }
-@media (max-width: 1180px) {
+@container (max-width: 1180px) {
   .sidebar { width: 224px; }
 }
-@media (max-width: 940px) {
+@container (max-width: 940px) {
   .sidebar { display: none; }
   .sidebarOpen { display: block; position: absolute; top: 56px; bottom: 0; left: 0; z-index: 70; width: 240px; box-shadow: var(--shadow-popover); }
 }
-@media (max-width: 760px) {
+@container (max-width: 760px) {
   .aside { display: none; }
 }
 

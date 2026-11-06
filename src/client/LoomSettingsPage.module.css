@@ -1,5 +1,6 @@
 /* Settings route: section navigation, theme cards and preference panels. */
 .root {
+  container-type: inline-size;
   flex: 1;
   min-width: 0;
   min-height: 0;
@@ -13,6 +14,7 @@
   flex: none;
   width: 100%;
   max-width: 980px;
+  box-sizing: border-box;
   margin: 0 auto;
   padding: var(--space-12) var(--space-13) var(--space-4);
   display: flex;
@@ -55,6 +57,7 @@
   overflow: auto;
   width: 100%;
   max-width: 980px;
+  box-sizing: border-box;
   margin: 0 auto;
   padding: 0 var(--space-13) var(--space-13);
   display: grid;
@@ -259,8 +262,9 @@
   text-overflow: ellipsis;
 }
 
-@media (max-width: 900px) {
+@container (max-width: 900px) {
   .header {
+    flex-wrap: wrap;
     padding: var(--space-8) var(--space-6) var(--space-3);
   }
 
@@ -285,13 +289,13 @@
   }
 }
 
-@media (max-width: 768px) {
+@container (max-width: 620px) {
   .themeGrid {
     grid-template-columns: minmax(0, 1fr);
   }
 }
 
-@media (max-width: 560px) {
+@container (max-width: 480px) {
   .title {
     font-size: var(--text-h2-size);
     line-height: var(--text-h2-lh);

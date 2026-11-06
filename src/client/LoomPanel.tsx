@@ -234,7 +234,7 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
   const [view, setView] = useState<View>(preferences.view)
   const [route, setRoute] = useState<LoomRoute>(() => typeof window === 'undefined' ? 'task' : parseLoomHash(window.location.hash).route)
   const [darkTheme, setDarkTheme] = useState(() => typeof document === 'undefined' ? false : document.body.hasAttribute('data-ds-dark-theme'))
-  const [narrow, setNarrow] = useState(() => typeof window !== 'undefined' && window.innerWidth <= 940)
+  const [loomWidth, setLoomWidth] = useState(() => typeof window === 'undefined' ? 1440 : window.innerWidth)
   const [viewport, setViewport] = useState(() => ({ width: typeof window === 'undefined' ? 1440 : window.innerWidth, height: typeof window === 'undefined' ? 900 : window.innerHeight }))
   const navigate = useCallback((next: LoomRoute): void => {
     setRoute(next)
@@ -245,6 +245,23 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
       if (window.location.hash !== hash) window.location.hash = hash
     }
   }, [])
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+    const body = document.body
+    if (preferences.theme === 'auto') {
+      // Follow DSH again: restore the host theme captured before the override.
+      if (originalHostDark.current !== undefined) {
+        if (body.hasAttribute('data-ds-dark-theme') !== originalHostDark.current) body.toggleAttribute('data-ds-dark-theme', originalHostDark.current)
+        originalHostDark.current = undefined
+      }
+      return
+    }
+    // An explicit Loom theme must also retheme the DSH chrome and every portal
+    // surface (menus, dialogs, toasts) that renders outside the Loom tree.
+    if (originalHostDark.current === undefined) originalHostDark.current = body.hasAttribute('data-ds-dark-theme')
+    const wantDark = resolveLoomTheme(preferences.theme, false) === 'dark'
+    if (body.hasAttribute('data-ds-dark-theme') !== wantDark) body.toggleAttribute('data-ds-dark-theme', wantDark)
+  }, [preferences.theme])
   useEffect(() => {
     if (typeof document === 'undefined') return
     const body = document.body
@@ -288,6 +305,8 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
   const directoryResolve = useRef<((value: string | null) => void) | undefined>(undefined)
   const [draftAttempt, setDraftAttempt] = useState(0)
   const heldRef = useRef<{ id: SessionId; reference: SessionReference } | undefined>(undefined)
+  const rootRef = useRef<HTMLDivElement | null>(null)
+  const originalHostDark = useRef<boolean | undefined>(undefined)
   const [failure, setFailure] = useState<SessionId>()
   const [sessionRetry, setSessionRetry] = useState(0)
   const [search, setSearch] = useState('')
@@ -361,12 +380,22 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
     return () => window.removeEventListener('keydown', close)
   }, [create, edit, modalBusy])
   useEffect(() => {
-    const resize = (): void => {
-      setNarrow(window.innerWidth <= 940)
-      setViewport({ width: window.innerWidth, height: window.innerHeight })
+    if (typeof window === 'undefined') return
+    const element = rootRef.current
+    const measure = (): void => {
+      if (element === null) return
+      const width = element.getBoundingClientRect().width
+      if (width > 0) setLoomWidth(width)
     }
+    measure()
+    const observer = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(measure)
+    if (observer !== undefined && element !== null) observer.observe(element)
+    const resize = (): void => setViewport(current => ({ ...current, height: window.innerHeight }))
     window.addEventListener('resize', resize)
-    return () => window.removeEventListener('resize', resize)
+    return () => {
+      observer?.disconnect()
+      window.removeEventListener('resize', resize)
+    }
   }, [])
   useEffect(() => { setSidebarOpen(false) }, [project, version, task])
   useEffect(() => {
@@ -479,12 +508,13 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
   const detailAttemptId = detailTask?.attempts.at(-1)?.id
 
   const loadTaskChanges = useCallback((request: WorkspaceChangesRequest) => workspaceChanges(detailAttemptId === undefined ? request : { ...request, attemptId: detailAttemptId }), [detailAttemptId, workspaceChanges])
+  const narrow = loomWidth <= 940
   const anyPreviewOpen = preview !== undefined || review !== undefined
   const asideMin = anyPreviewOpen ? 300 : 320
-  const asideCssMax = viewport.width <= 940 ? (anyPreviewOpen ? 380 : 300)
-    : viewport.width <= 1180 ? (anyPreviewOpen ? 460 : 380)
+  const asideCssMax = loomWidth <= 940 ? (anyPreviewOpen ? 380 : 300)
+    : loomWidth <= 1180 ? (anyPreviewOpen ? 460 : 380)
       : anyPreviewOpen ? 720 : 460
-  const asideMax = Math.min(asideCssMax, Math.max(asideMin, viewport.width - (narrow ? 180 : 460)))
+  const asideMax = Math.min(asideCssMax, Math.max(asideMin, loomWidth - (narrow ? 180 : 460)))
   const asideWidth = Math.min(Math.max(anyPreviewOpen ? preferences.previewWidth : preferences.asideWidth, asideMin), asideMax)
   const setAsideWidth = (width: number): void => setPreferences(current => ({ ...current, [anyPreviewOpen ? 'previewWidth' : 'asideWidth']: width }))
   const bottomMax = Math.max(120, Math.min(320, viewport.height - 220))
@@ -867,10 +897,11 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
   const createVersionFor = (projectRecord: ProjectRecord): VersionRecord | undefined => snapshot?.versions.filter(candidate => candidate.projectId === projectRecord.id).at(-1)
   const createDisabledVersion = currentProject === undefined
   const createDisabledTask = currentVersion === undefined
-  return <div data-theme={resolveLoomTheme(preferences.theme, darkTheme)} data-density={preferences.density} data-loom-reduced-motion={preferences.reducedMotion ? 'true' : undefined} className={`${LOOM_ROOT_CLASS} loom-root ${shell.root}`}>
+  return <div ref={rootRef} data-theme={resolveLoomTheme(preferences.theme, darkTheme)} data-density={preferences.density} data-loom-reduced-motion={preferences.reducedMotion ? 'true' : undefined} className={`${LOOM_ROOT_CLASS} loom-root ${shell.root}`}>
     <LoomThemeStyles />
     <style>{`
       .loom-root {
+        container-type: inline-size;
         --loom-canvas: var(--color-bg);
         --loom-surface: var(--color-surface);
         --loom-surface-2: var(--color-panel);
@@ -917,10 +948,10 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
       .loom-top-action:focus-visible, .loom-top-new:focus-visible, .loom-view-switch button:focus-visible, .loom-menu-item:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary); outline-offset: 1px; }
       .loom-top-select:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary); outline-offset: 2px; border-radius: 3px; }
       @media (hover: none) { .loom-tree-row .loom-row-actions { opacity: 1; visibility: visible; pointer-events: auto; } }
-      @media (max-width: 1180px) { .loom-sidebar { width: 280px !important; } .loom-aside { max-width: 380px !important; } .loom-aside.loom-aside-preview { max-width: 460px !important; } .loom-top-label, .loom-top-divider, .loom-top-activity-label, .loom-top-action-label { display: none; } .loom-top-context { max-width: 140px; } .loom-top-select { max-width: 100px; } .loom-top-activity { padding: 0 7px; } .loom-top-new { width: 30px; padding: 0 !important; } .loom-view-switch button { padding: 0 9px; } .loom-aside.loom-aside-kanban, .loom-aside-handle.loom-aside-handle-kanban, .loom-aside-toggle-kb { display: none !important; } }
-      @media (max-width: 940px) { .loom-sidebar { display: none !important; } .loom-sidebar.loom-sidebar-open { display: block !important; position: absolute; top: 48px; bottom: 0; left: 0; z-index: 70; width: 240px !important; box-shadow: 12px 0 28px rgba(0,0,0,.35); } .loom-aside { max-width: 300px !important; } .loom-aside.loom-aside-preview { max-width: 380px !important; } .loom-aside.loom-aside-kanban, .loom-aside-handle.loom-aside-handle-kanban, .loom-aside-toggle-kb { display: none !important; } }
-      @media (max-width: 760px) { .loom-aside, .loom-aside-handle, .loom-aside-toggle { display: none !important; } .loom-brand-name { display: none; } .loom-top-context { max-width: 128px; } .loom-top-select { max-width: 76px; } }
-      @media (max-width: 560px) { .loom-topbar { flex-wrap: wrap !important; height: auto !important; min-height: 48px; padding: 6px 8px !important; column-gap: 4px !important; row-gap: 4px; } .loom-top-spacer { display: none !important; } .loom-top-context { flex: 1 1 140px; max-width: none; padding: 0 6px; order: 5; } .loom-top-select { flex: 1; max-width: none; width: 100%; } .loom-view-switch { margin-left: auto; } .loom-view-switch button { padding: 0 7px; } .loom-top-activity { display: none !important; } .loom-sidebar.loom-sidebar-open { top: 85px !important; } .loom-sidebar-backdrop { top: 85px !important; } .loom-wizard-steps li > span[aria-hidden='true'] { display: none !important; } .loom-wizard-steps button { flex-direction: column; align-items: center; gap: 5px; } .loom-wizard-steps button > span:last-child { justify-content: center; text-align: center; } .loom-wizard-steps button > span:last-child > span:first-child { overflow: visible; white-space: normal; font-size: 11px; line-height: 1.25; } }
+      @container (max-width: 1180px) { .loom-sidebar { width: 280px !important; } .loom-aside { max-width: 380px !important; } .loom-aside.loom-aside-preview { max-width: 460px !important; } .loom-top-label, .loom-top-divider, .loom-top-activity-label, .loom-top-action-label { display: none; } .loom-top-context { max-width: 140px; } .loom-top-select { max-width: 100px; } .loom-top-activity { padding: 0 7px; } .loom-top-new { width: 30px; padding: 0 !important; } .loom-view-switch button { padding: 0 9px; } .loom-aside.loom-aside-kanban, .loom-aside-handle.loom-aside-handle-kanban, .loom-aside-toggle-kb { display: none !important; } }
+      @container (max-width: 940px) { .loom-sidebar { display: none !important; } .loom-sidebar.loom-sidebar-open { display: block !important; position: absolute; top: 48px; bottom: 0; left: 0; z-index: 70; width: 240px !important; box-shadow: 12px 0 28px rgba(0,0,0,.35); } .loom-aside { max-width: 300px !important; } .loom-aside.loom-aside-preview { max-width: 380px !important; } .loom-aside.loom-aside-kanban, .loom-aside-handle.loom-aside-handle-kanban, .loom-aside-toggle-kb { display: none !important; } }
+      @container (max-width: 760px) { .loom-aside, .loom-aside-handle, .loom-aside-toggle { display: none !important; } .loom-brand-name { display: none; } .loom-top-context { max-width: 128px; } .loom-top-select { max-width: 76px; } }
+      @container (max-width: 560px) { .loom-topbar { flex-wrap: wrap !important; height: auto !important; min-height: 48px; padding: 6px 8px !important; column-gap: 4px !important; row-gap: 4px; } .loom-top-spacer { display: none !important; } .loom-top-context { flex: 1 1 140px; max-width: none; padding: 0 6px; order: 5; } .loom-top-select { flex: 1; max-width: none; width: 100%; } .loom-view-switch { margin-left: auto; } .loom-view-switch button { padding: 0 7px; } .loom-top-activity { display: none !important; } .loom-sidebar.loom-sidebar-open { top: 85px !important; } .loom-sidebar-backdrop { top: 85px !important; } .loom-wizard-steps li > span[aria-hidden='true'] { display: none !important; } .loom-wizard-steps button { flex-direction: column; align-items: center; gap: 5px; } .loom-wizard-steps button > span:last-child { justify-content: center; text-align: center; } .loom-wizard-steps button > span:last-child > span:first-child { overflow: visible; white-space: normal; font-size: 11px; line-height: 1.25; } }
     `}</style>
     <LoomTopbar
       t={t}

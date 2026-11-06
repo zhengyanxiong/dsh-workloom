@@ -40,12 +40,12 @@
 .menuTitle { font-size: var(--text-small-size); line-height: var(--text-small-lh); color: var(--color-ink); }
 .menuHint { font-size: var(--text-label-size); line-height: var(--text-label-lh); color: var(--color-muted); }
 .menuRule { height: 1px; margin: var(--space-1) var(--space-1); flex: none; background: var(--color-line); }
-@media (max-width: 1180px) {
+@container (max-width: 1180px) {
   .topbar { padding: 0 var(--space-6); gap: var(--space-1); }
   .contextLabel, .activity span:not(.dot), .brandName { display: none; }
   .contextSelect { max-width: 100px; }
 }
-@media (max-width: 860px) {
+@container (max-width: 860px) {
   .topbar { overflow-x: auto; }
   .nav { order: 10; }
 }
