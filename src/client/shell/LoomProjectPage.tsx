@@ -1,5 +1,5 @@
 /** Project route: one project's versions, workspaces, tasks and structure. */
-import { IconBranchOutlineRegular, IconFolderOpenRegular, IconPlusOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconBranchOutlineRegular, IconFolderOpenRegular, IconNewChatOutlineRegular, IconPlusOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { CatalogSnapshot, ProjectRecord, TaskRecord, VersionRecord } from 'dsh-workloom/types'
 import { ACTOR_LABEL, AUDIT_LABEL, STATUS_META } from '../shell.ts'
 import { LoomButton } from '../ui/Button.tsx'
@@ -23,6 +23,29 @@ export interface LoomProjectPageProps {
   readonly onNewTask: () => void
   readonly onNewVersion: () => void
   readonly onEditProject: () => void
+  readonly onEditVersion: () => void
+  readonly onSession: (sessionId: string) => void
+}
+
+/** One project-level counter shown in the top row. */
+interface ProjectStat {
+  readonly id: string
+  readonly label: LoomKey
+  readonly value: number
+}
+
+/** One current-version status bucket in the distribution strip. */
+interface StatusBucket {
+  readonly id: string
+  readonly label: LoomKey
+  readonly count: number
+  readonly color: string
+}
+
+/** Sort key for a task timestamp; missing or unparsable values sort first. */
+function updatedStamp(task: TaskRecord): number {
+  const parsed = task.updatedAt === undefined ? Number.NaN : Date.parse(task.updatedAt)
+  return Number.isNaN(parsed) ? 0 : parsed
 }
 
 /**
@@ -30,27 +53,34 @@ export interface LoomProjectPageProps {
  * @param props - catalog, selected project/version and navigation intents.
  * @returns the project page.
  */
-export function LoomProjectPage({ t, snapshot, project, version, onProject, onVersion, onTask, onBoard, onNewTask, onNewVersion, onEditProject }: LoomProjectPageProps): JSX.Element {
+export function LoomProjectPage({ t, snapshot, project, version, onProject, onVersion, onTask, onBoard, onNewTask, onNewVersion, onEditProject, onEditVersion, onSession }: LoomProjectPageProps): JSX.Element {
   const pageProject = project ?? snapshot.projects[0]
   if (pageProject === undefined) return <main className={classes.page}><div className={classes.inner}><p className={classes.empty}>{t('project.empty')}</p></div></main>
   const versions = snapshot.versions.filter(candidate => candidate.projectId === pageProject.id)
   const activeVersion = (version !== undefined && versions.some(candidate => candidate.id === version.id) ? version : versions.at(-1))
   const tasks = activeVersion === undefined ? [] : snapshot.tasks.filter(task => task.versionId === activeVersion.id)
   const workspaces = activeVersion === undefined ? [] : snapshot.workspaces.filter(workspace => workspace.versionId === activeVersion.id)
-  const sessions = tasks.reduce((total, task) => total + task.attempts.reduce((sum, attempt) => sum + attempt.sessionIds.length, 0), 0)
-  const running = tasks.filter(task => task.status === 'running').length
-  const review = tasks.filter(task => task.status === 'review').length
-  const completed = tasks.filter(task => task.status === 'completed').length
-  const pending = tasks.filter(task => task.status === 'pending').length
-  const totalStatus = Math.max(1, running + review + completed + pending + tasks.filter(task => task.status === 'failed').length)
-  const statusRows = [
-    { label: t('kb.running'), count: running, color: 'var(--color-accent)', soft: 'var(--color-accent-soft)' },
-    { label: t('kb.review'), count: review, color: 'var(--color-warning)', soft: 'var(--color-warning-soft)' },
-    { label: t('kb.completed'), count: completed, color: 'var(--color-success)', soft: 'var(--color-success-soft)' },
-    { label: t('kb.queued'), count: pending, color: 'var(--color-muted)', soft: 'var(--color-panel)' },
+  const projectTasks = snapshot.tasks.filter(task => versions.some(candidate => candidate.id === task.versionId))
+  const projectSessions = projectTasks.reduce((total, task) => total + task.attempts.reduce((sum, attempt) => sum + attempt.sessionIds.length, 0), 0)
+  const projectRunning = projectTasks.filter(task => task.status === 'running').length
+  const stats: readonly ProjectStat[] = [
+    { id: 'subProjects', label: 'project.subProjects', value: pageProject.config.subProjects?.length ?? 0 },
+    { id: 'versions', label: 'project.versions', value: versions.length },
+    { id: 'tasks', label: 'nav.tasks', value: projectTasks.length },
+    { id: 'running', label: 'kb.running', value: projectRunning },
+    { id: 'sessions', label: 'sessions', value: projectSessions },
   ]
+  const buckets: readonly StatusBucket[] = [
+    { id: 'running', label: STATUS_META.running.key, count: tasks.filter(task => task.status === 'running').length, color: STATUS_META.running.color },
+    { id: 'review', label: STATUS_META.review.key, count: tasks.filter(task => task.status === 'review').length, color: STATUS_META.review.color },
+    { id: 'completed', label: STATUS_META.completed.key, count: tasks.filter(task => task.status === 'completed').length, color: STATUS_META.completed.color },
+    { id: 'pending', label: STATUS_META.pending.key, count: tasks.filter(task => task.status === 'pending').length, color: STATUS_META.pending.color },
+    { id: 'failed', label: STATUS_META.failed.key, count: tasks.filter(task => task.status === 'failed').length, color: STATUS_META.failed.color },
+  ]
+  const visibleBuckets = buckets.filter(bucket => bucket.count > 0)
+  const distributionAria = `${t('project.taskDistribution')} · ${visibleBuckets.map(bucket => `${t(bucket.label)} ${String(bucket.count)}`).join(' · ')}`
   const recent = snapshot.audit.filter(entry => tasks.some(task => task.id === entry.taskId)).slice(-3).reverse()
-  const projectTaskIds = new Set(snapshot.tasks.filter(task => versions.some(candidate => candidate.id === task.versionId)).map(task => task.id))
+  const sessionRows = [...projectTasks].sort((left, right) => updatedStamp(right) - updatedStamp(left)).flatMap(task => task.attempts.flatMap(attempt => attempt.sessionIds.map(sessionId => ({ sessionId, task, versionName: versions.find(candidate => candidate.id === task.versionId)?.name ?? '—' })))).slice(0, 6)
   return <main className={classes.page}>
     <div className={classes.inner}>
       <header className={classes.head}>
@@ -69,11 +99,10 @@ export function LoomProjectPage({ t, snapshot, project, version, onProject, onVe
         </div>
       </header>
       <div className={classes.stats}>
-        <div className={classes.metricCard} data-loom-hover="stat"><div className={classes.metricTop}><span className={classes.metricDot} style={{ background: 'var(--color-accent)' }} /><span>{t('project.versions')}</span></div><span className={classes.metricValue}>{versions.length}</span><span className={classes.metricHint}>{t('project.versionHint')}</span><div className={classes.metricTrack}><div className={classes.metricFill} style={{ width: `${String(Math.min(100, versions.length * 24 + 8))}%` }} /></div></div>
-        <div className={classes.metricCard} data-loom-hover="stat"><div className={classes.metricTop}><span className={classes.metricDot} style={{ background: 'var(--color-ink-3)' }} /><span>{t('nav.tasks')}</span></div><span className={classes.metricValue}>{[...projectTaskIds].length}</span><span className={classes.metricHint}>{tasks.length} {t('project.currentVersion')}</span><div className={classes.metricTrack}><div className={classes.metricFill} style={{ width: `${String(Math.min(100, [...projectTaskIds].length * 14 + 8))}%` }} /></div></div>
-        <div className={classes.metricCard} data-loom-hover="stat"><div className={classes.metricTop}><span className={classes.metricDot} style={{ background: 'var(--color-accent)' }} /><span>{t('kb.running')}</span></div><span className={classes.metricValue}>{running}</span><span className={classes.metricHint}>{t('project.activeWork')}</span><div className={classes.metricTrack}><div className={classes.metricFill} style={{ width: `${String(Math.round((running / totalStatus) * 100))}%` }} /></div></div>
-        <div className={classes.metricCard} data-loom-hover="stat"><div className={classes.metricTop}><span className={classes.metricDot} style={{ background: 'var(--color-warning)' }} /><span>{t('kb.review')}</span></div><span className={classes.metricValue}>{review}</span><span className={classes.metricHint}>{t('project.awaitingAcceptance')}</span><div className={classes.metricTrack}><div className={classes.metricFill} style={{ width: `${String(Math.round((review / totalStatus) * 100))}%` }} /></div></div>
-        <div className={classes.metricCard} data-loom-hover="stat"><div className={classes.metricTop}><span className={classes.metricDot} style={{ background: 'var(--color-success)' }} /><span>{t('sessions')}</span></div><span className={classes.metricValue}>{sessions}</span><span className={classes.metricHint}>{t('project.attachedSessions')}</span><div className={classes.metricTrack}><div className={classes.metricFill} style={{ width: `${String(Math.min(100, sessions * 12 + 5))}%` }} /></div></div>
+        {stats.map(stat => <div key={stat.id} className={classes.stat} data-loom-hover="stat">
+          <span className={classes.statLabel}>{t(stat.label)}</span>
+          <span className={classes.statValue}>{String(stat.value)}</span>
+        </div>)}
       </div>
       <section>
         <div className={classes.sectionHead}><h2 className={classes.sectionTitle}>{t('project.versions')}</h2><span className={classes.sectionHint}>{t('project.versionHint')}</span><button type="button" className={classes.sectionLink} onClick={onBoard}>{t('view.kanban')} →</button></div>
@@ -83,26 +112,31 @@ export function LoomProjectPage({ t, snapshot, project, version, onProject, onVe
           <span className={classes.versionMeta}>{snapshot.tasks.filter(task => task.versionId === candidate.id).length} {t('nav.tasks')} · {snapshot.workspaces.filter(workspace => workspace.versionId === candidate.id).length} {t('project.workspaces')}</span>
         </button>)}{versions.length === 0 && <p className={classes.empty}>{t('project.noVersions')}</p>}</div>
       </section>
-      <section className={classes.card}>
-        <div className={classes.sectionHead}><h2 className={classes.sectionTitle}>{t('project.taskDistribution')}</h2><span className={classes.sectionHint}>{tasks.length} {t('nav.tasks')}</span></div>
-        <div className={classes.distributionGrid}>{statusRows.map(row => <div key={row.label} className={classes.distributionItem} data-loom-hover="stat" style={{ background: row.soft, borderColor: row.color }}>
-          <span className={classes.legendDot} style={{ background: row.color }} />
-          <span className={classes.distributionLabel}>{row.label}</span>
-          <strong className={classes.distributionValue}>{String(row.count)}</strong>
-          <div className={classes.distributionTrack}><span className={classes.distributionFill} style={{ width: `${String(Math.round((row.count / Math.max(1, tasks.length)) * 100))}%`, background: row.color }} /></div>
-        </div>)}</div>
-      </section>
       <div className={classes.grid}>
         <div className={classes.main}>
           <section className={classes.card}>
-            <div className={classes.versionHead}><h2 className={classes.versionTitle}>{activeVersion?.name ?? t('project.noVersion')}</h2><span className={classes.sectionHint}>{t('project.currentVersion')}</span><span style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}><LoomButton variant="ghost" size="sm" onClick={onEditProject}>{t('project.edit')}</LoomButton><LoomButton variant="ghost" size="sm" icon={<IconPlusOutlineRegular size={12} />} onClick={onNewTask} disabled={activeVersion === undefined}>{t('top.newTask')}</LoomButton></span></div>
+            <div className={classes.versionHead}><h2 className={classes.versionTitle}>{activeVersion?.name ?? t('project.noVersion')}</h2><span className={classes.sectionHint}>{t('project.currentVersion')}</span><span className={classes.versionActions}><LoomButton variant="ghost" size="sm" onClick={onEditVersion} disabled={activeVersion === undefined}>{t('version.edit')}</LoomButton><LoomButton variant="ghost" size="sm" icon={<IconPlusOutlineRegular size={12} />} onClick={onNewTask} disabled={activeVersion === undefined}>{t('top.newTask')}</LoomButton></span></div>
             <p className={classes.description}>{activeVersion?.description ?? t('project.noDescription')}</p>
             <div className={classes.workspaceList}>{workspaces.map(workspace => <div key={workspace.id} className={classes.workspace}><span className={classes.workspaceName}>{workspace.label ?? workspace.id.slice(0, 8)}</span><span className={classes.workspacePath}>{workspace.rootPath ?? workspace.path ?? '—'}</span><span className={`${classes.workspaceStatus} ${workspace.preparation?.status === 'failed' ? classes.workspaceStatusFailed : workspace.preparation?.status === 'ready' ? '' : classes.workspaceStatusPending}`}><span className={classes.statusDot} style={{ background: workspace.preparation?.status === 'failed' ? 'var(--color-danger)' : workspace.preparation?.status === 'ready' ? 'var(--color-success)' : 'var(--color-warning)' }} />{workspace.preparation?.status === 'failed' ? t('project.workspaceGap') : workspace.preparation?.status === 'ready' ? t('project.ready') : t('project.workspacePending')}</span></div>)}{workspaces.length === 0 && <p className={classes.hint}>{t('project.noWorkspaces')}</p>}</div>
           </section>
           <section className={classes.card}>
             <div className={classes.sectionHead}><h2 className={classes.sectionTitle}>{t('nav.tasks')}</h2><span className={classes.sectionHint}>{tasks.length}</span><button type="button" className={classes.sectionLink} onClick={onBoard}>{t('view.kanban')} →</button></div>
+            {tasks.length > 0 && <div className={classes.statusStrip} role="img" aria-label={distributionAria}>
+              <div className={classes.statusBar} aria-hidden>{visibleBuckets.map(bucket => <span key={bucket.id} className={classes.statusSegment} style={{ width: `${String((bucket.count / Math.max(1, tasks.length)) * 100)}%`, background: bucket.color }} />)}</div>
+              <div className={classes.statusLegend}>{visibleBuckets.map(bucket => <span key={bucket.id} className={classes.statusLegendItem}><span className={classes.statusLegendDot} style={{ background: bucket.color }} /><span>{t(bucket.label)}</span><span className={classes.statusLegendCount}>{String(bucket.count)}</span></span>)}</div>
+            </div>}
             <table className={classes.table}><thead><tr><th className={classes.colTask}>{t('nav.tasks')}</th><th className={classes.colWorkspace}>{t('project.workspaces')}</th><th className={classes.colStatus}>{t('ctx.status')}</th><th className={classes.colUpdate}>{t('project.updated')}</th></tr></thead><tbody>{tasks.slice(0, 8).map(task => <tr key={task.id} className={classes.tableRow} onClick={() => onTask(task)}><td className={classes.taskTitle}>{task.title}</td><td>{workspaces.find(workspace => workspace.id === task.attempts.at(-1)?.workspaceId)?.label ?? '—'}</td><td><span className={classes.statusTag}><span className={classes.statusDot} style={{ background: STATUS_META[task.status].color }} />{t(STATUS_META[task.status].key)}</span></td><td style={{ textAlign: 'right' }}><time data-loom-time dateTime={absoluteTime(task.updatedAt)}>{relativeTime(task.updatedAt)}</time></td></tr>)}</tbody></table>
             {tasks.length === 0 && <p className={classes.hint}>{t('task.empty')}</p>}
+          </section>
+          <section className={classes.card}>
+            <div className={classes.sectionHead}><h2 className={classes.sectionTitle}>{t('sessions')}</h2><span className={classes.sectionHint}>{sessionRows.length}</span></div>
+            {sessionRows.length === 0
+              ? <p className={classes.hint}>{t('noSessions')}</p>
+              : <div className={classes.sessionList}>{sessionRows.map(row => <button key={row.sessionId} type="button" className={classes.sessionRow} data-loom-hover="row" onClick={() => onSession(row.sessionId)}>
+                <span className={classes.sessionIcon}><IconNewChatOutlineRegular size={13} /></span>
+                <span className={classes.sessionMain}><span className={classes.sessionTitle}>{row.task.title}</span><span className={classes.sessionMeta}>{row.versionName}</span></span>
+                <span className={classes.sessionTime}>{relativeTime(row.task.updatedAt)}</span>
+              </button>)}</div>}
           </section>
         </div>
         <aside className={classes.side}>
