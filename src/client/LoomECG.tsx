@@ -13,8 +13,11 @@ const SEED_FPS = 60
 const WRITE_FULL_SCALE = 200
 const READ_FULL_SCALE = 8000
 /** Concrete colors used only when a theme token resolves to nothing. */
+// design-allow: 主题 token 缺失时的 SVG 兜底色
 const FALLBACK_GREEN = '#22c55e'
+// design-allow: 主题 token 缺失时的 SVG 兜底色
 const FALLBACK_IDLE = '#b8bec7'
+// design-allow: 主题 token 缺失时的 SVG 兜底色
 const FALLBACK_GRID = '#e8f5ef'
 
 const style: CSSProperties = { display: 'block', width: '100%', height: HEIGHT }

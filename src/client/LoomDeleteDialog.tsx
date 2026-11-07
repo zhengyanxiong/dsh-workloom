@@ -17,11 +17,11 @@ export const DELETE_COPY: Readonly<Record<DeleteKind, { readonly label: LoomKey;
 
 const dangerAction = { color: COLORS.error, borderColor: COLORS.error } as const
 const body = { display: 'flex', alignItems: 'flex-start', gap: 10 } as const
-const subjectLine = { margin: 0, color: COLORS.text, fontSize: 14, lineHeight: 1.5, fontWeight: 500, overflowWrap: 'anywhere' } as const
-const warning = { margin: '8px 0 0', color: COLORS.dim, fontSize: 12, lineHeight: 1.65 } as const
+const subjectLine = { margin: 0, color: COLORS.text, fontSize: 'var(--text-body-size)', lineHeight: 1.5, fontWeight: 500, overflowWrap: 'anywhere' } as const
+const warning = { margin: '8px 0 0', color: COLORS.dim, fontSize: 'var(--text-compact-size)', lineHeight: 1.65 } as const
 const alertBox = { marginTop: 12, padding: '9px 10px', border: `0.5px solid ${COLORS.error}`, borderRadius: 'var(--dsw-radius-sm)', background: 'var(--dsw-alias-interactive-bg-hover-danger)' } as const
-const failureText = { margin: 0, color: COLORS.error, fontSize: 12, lineHeight: 1.6 } as const
-const failureDetail = { display: 'block', marginTop: 6, color: COLORS.dim, fontSize: 11, lineHeight: 1.5, fontFamily: 'ui-monospace, monospace', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' } as const
+const failureText = { margin: 0, color: COLORS.error, fontSize: 'var(--text-compact-size)', lineHeight: 1.6 } as const
+const failureDetail = { display: 'block', marginTop: 6, color: COLORS.dim, fontSize: 'var(--text-small-size)', lineHeight: 1.5, fontFamily: 'ui-monospace, monospace', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' } as const
 
 /** Inputs for the deletion confirmation modal. */
 export interface LoomDeleteDialogProps {

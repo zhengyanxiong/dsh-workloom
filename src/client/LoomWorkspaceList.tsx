@@ -28,20 +28,20 @@ type StatusState =
 
 const section: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 8, minWidth: 0 }
 const heading: CSSProperties = { display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }
-const headingTitle: CSSProperties = { margin: 0, fontSize: 12, fontWeight: 500, color: COLORS.text }
-const hint: CSSProperties = { margin: 0, color: COLORS.faint, fontSize: 11, lineHeight: 1.5 }
-const empty: CSSProperties = { margin: 0, padding: '12px 14px', border: `0.5px dashed ${COLORS.border}`, borderRadius: 8, color: COLORS.faint, fontSize: 11.5, lineHeight: 1.5 }
+const headingTitle: CSSProperties = { margin: 0, fontSize: 'var(--text-compact-size)', fontWeight: 500, color: COLORS.text }
+const hint: CSSProperties = { margin: 0, color: COLORS.faint, fontSize: 'var(--text-small-size)', lineHeight: 1.5 }
+const empty: CSSProperties = { margin: 0, padding: '12px 14px', border: `0.5px dashed ${COLORS.border}`, borderRadius: 8, color: COLORS.faint, fontSize: 'var(--text-small-size)', lineHeight: 1.5 }
 const card: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 8, minWidth: 0, padding: '11px 13px', border: `0.5px solid ${COLORS.border}`, borderRadius: 8, background: COLORS.panel2 }
 const cardHead: CSSProperties = { display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap', minWidth: 0 }
-const cardTitle: CSSProperties = { margin: 0, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'ui-monospace, monospace', fontSize: 12, fontWeight: 500, color: COLORS.text }
+const cardTitle: CSSProperties = { margin: 0, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'ui-monospace, monospace', fontSize: 'var(--text-compact-size)', fontWeight: 500, color: COLORS.text }
 const grid: CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '8px 14px', minWidth: 0 }
 const field: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }
-const fieldLabel: CSSProperties = { ...metaLine, fontFamily: 'ui-monospace, monospace', fontSize: 8.5, letterSpacing: '.08em', textTransform: 'uppercase' }
-const fieldValue: CSSProperties = { minWidth: 0, overflowWrap: 'anywhere', color: COLORS.text, fontSize: 11, lineHeight: 1.5 }
-const mono: CSSProperties = { fontFamily: 'ui-monospace, monospace', fontSize: 10.5 }
+const fieldLabel: CSSProperties = { ...metaLine, fontFamily: 'ui-monospace, monospace', fontSize: 'var(--text-nano-size)', letterSpacing: '.08em', textTransform: 'uppercase' }
+const fieldValue: CSSProperties = { minWidth: 0, overflowWrap: 'anywhere', color: COLORS.text, fontSize: 'var(--text-small-size)', lineHeight: 1.5 }
+const mono: CSSProperties = { fontFamily: 'ui-monospace, monospace', fontSize: 'var(--text-label-size)' }
 const mutedValue: CSSProperties = { ...fieldValue, color: COLORS.faint }
-const notice: CSSProperties = { margin: 0, color: COLORS.warn, fontSize: 10.5, lineHeight: 1.5 }
-const risk: CSSProperties = { margin: 0, color: COLORS.faint, fontSize: 10.5, lineHeight: 1.5, paddingTop: 6, borderTop: `0.5px solid ${COLORS.border}` }
+const notice: CSSProperties = { margin: 0, color: COLORS.warn, fontSize: 'var(--text-label-size)', lineHeight: 1.5 }
+const risk: CSSProperties = { margin: 0, color: COLORS.faint, fontSize: 'var(--text-label-size)', lineHeight: 1.5, paddingTop: 6, borderTop: `0.5px solid ${COLORS.border}` }
 
 const MODE_KEY: Readonly<Record<'managed' | 'direct' | 'linked', LoomKey>> = {
   managed: 'workspace.managed',

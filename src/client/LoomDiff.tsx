@@ -110,8 +110,8 @@ interface LoomDiffProps {
   readonly onChangesCount?: (count: number) => void
 }
 
-const row: CSSProperties = { display: 'flex', alignItems: 'center', gap: 4, width: '100%', minWidth: 0, border: 'none', borderRadius: 4, padding: '3px 6px', background: 'transparent', color: 'inherit', cursor: 'pointer', font: 'inherit', fontSize: 11.5, textAlign: 'left' }
-const count: CSSProperties = { color: 'var(--dsw-alias-label-tertiary)', fontSize: 10.5, marginLeft: 'auto', whiteSpace: 'nowrap' }
+const row: CSSProperties = { display: 'flex', alignItems: 'center', gap: 4, width: '100%', minWidth: 0, border: 'none', borderRadius: 4, padding: '3px 6px', background: 'transparent', color: 'inherit', cursor: 'pointer', font: 'inherit', fontSize: 'var(--text-small-size)', textAlign: 'left' }
+const count: CSSProperties = { color: 'var(--dsw-alias-label-tertiary)', fontSize: 'var(--text-label-size)', marginLeft: 'auto', whiteSpace: 'nowrap' }
 
 interface TreeBranchProps {
   readonly t: Translate
@@ -178,12 +178,12 @@ export function LoomDiff({ t, workspaceId, attemptId, loadChanges, wrap, onToggl
       : { kind: 'text', path: file.path, display: file.path, before: file.before, after: file.after, coarse: false, hunks: file.hunks }
   const added = files.reduce((total, entry) => total + entry.file.added, 0)
   const deleted = files.reduce((total, entry) => total + entry.file.deleted, 0)
-  return <div style={{ display: 'grid', gridTemplateColumns: 'minmax(240px, 340px) 1fr', gap: 12, padding: 8, minHeight: 0, height: '100%', boxSizing: 'border-box', fontSize: 11.5, lineHeight: 1.5 }}>
+  return <div style={{ display: 'grid', gridTemplateColumns: 'minmax(240px, 340px) 1fr', gap: 12, padding: 8, minHeight: 0, height: '100%', boxSizing: 'border-box', fontSize: 'var(--text-small-size)', lineHeight: 1.5 }}>
     <div aria-label={t('diff.files')} style={{ display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden', borderRight: '0.5px solid var(--dsw-alias-border-l4)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, rowGap: 4, flexWrap: 'wrap', padding: '7px 8px 6px', color: 'var(--dsw-alias-label-secondary)', fontSize: 11 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, rowGap: 4, flexWrap: 'wrap', padding: '7px 8px 6px', color: 'var(--dsw-alias-label-secondary)', fontSize: 'var(--text-small-size)' }}>
         <span style={{ flex: 'none', whiteSpace: 'nowrap' }}>{t('diff.files')} {String(files.length)}</span>
         <span style={{ marginLeft: 'auto', flex: 'none' }}><LoomFileCounts file={{ display: '', added, deleted }} t={t} /></span>
-        {onOpenInRight !== undefined && <button type="button" title={t('diff.openInRight')} aria-label={t('diff.openInRight')} onClick={() => onOpenInRight(selected.file.path)} style={{ flex: 'none', display: 'inline-flex', alignItems: 'center', gap: 4, border: '0.5px solid var(--dsw-alias-border-l4)', borderRadius: 5, background: 'transparent', color: 'var(--dsw-alias-label-secondary)', cursor: 'pointer', font: 'inherit', fontSize: 10.5, lineHeight: '18px', padding: '0 5px', whiteSpace: 'nowrap' }}><span aria-hidden style={{ display: 'inline-flex', transform: 'scaleX(-1)' }}><IconPanelLeftOutlineRegular size={11} /></span>{t('diff.openInRight')}</button>}
+        {onOpenInRight !== undefined && <button type="button" title={t('diff.openInRight')} aria-label={t('diff.openInRight')} onClick={() => onOpenInRight(selected.file.path)} style={{ flex: 'none', display: 'inline-flex', alignItems: 'center', gap: 4, border: '0.5px solid var(--dsw-alias-border-l4)', borderRadius: 5, background: 'transparent', color: 'var(--dsw-alias-label-secondary)', cursor: 'pointer', font: 'inherit', fontSize: 'var(--text-label-size)', lineHeight: '18px', padding: '0 5px', whiteSpace: 'nowrap' }}><span aria-hidden style={{ display: 'inline-flex', transform: 'scaleX(-1)' }}><IconPanelLeftOutlineRegular size={11} /></span>{t('diff.openInRight')}</button>}
         <LoomWrapToggle t={t} wrap={wrap} onToggle={onToggleWrap} />
       </div>
       <div role="group" aria-label={t('diff.files')} style={{ minHeight: 0, overflow: 'auto', padding: '0 4px 6px' }}>

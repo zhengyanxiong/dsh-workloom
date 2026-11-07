@@ -29,20 +29,20 @@ export interface LoomTemporaryDialogProps {
 }
 
 const stack: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0 }
-const intro: CSSProperties = { margin: 0, color: COLORS.dim, fontSize: 12, lineHeight: 1.65 }
+const intro: CSSProperties = { margin: 0, color: COLORS.dim, fontSize: 'var(--text-compact-size)', lineHeight: 1.65 }
 const section: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 8, minWidth: 0, padding: '11px 12px', border: `0.5px solid ${COLORS.border}`, borderRadius: 8, background: COLORS.panel2 }
-const sectionTitle: CSSProperties = { margin: 0, fontSize: 12, fontWeight: 500, color: COLORS.text }
-const hint: CSSProperties = { margin: 0, color: COLORS.faint, fontSize: 11, lineHeight: 1.55 }
-const warning: CSSProperties = { margin: 0, display: 'flex', alignItems: 'flex-start', gap: 6, color: COLORS.dim, fontSize: 11, lineHeight: 1.55 }
+const sectionTitle: CSSProperties = { margin: 0, fontSize: 'var(--text-compact-size)', fontWeight: 500, color: COLORS.text }
+const hint: CSSProperties = { margin: 0, color: COLORS.faint, fontSize: 'var(--text-small-size)', lineHeight: 1.55 }
+const warning: CSSProperties = { margin: 0, display: 'flex', alignItems: 'flex-start', gap: 6, color: COLORS.dim, fontSize: 'var(--text-small-size)', lineHeight: 1.55 }
 const list: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 5, margin: 0, padding: 0, listStyle: 'none' }
 const workspaceRow: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 4, width: '100%', minWidth: 0, padding: '8px 9px', textAlign: 'left', color: 'inherit', background: COLORS.panel, border: `1px solid ${COLORS.border}`, borderRadius: 7, cursor: 'pointer', font: 'inherit' }
 const workspaceRowActive: CSSProperties = { borderColor: COLORS.accent, background: COLORS.selected }
 const rowHead: CSSProperties = { display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap', minWidth: 0 }
-const mono: CSSProperties = { minWidth: 0, overflowWrap: 'anywhere', fontFamily: 'ui-monospace, monospace', fontSize: 10.5, color: COLORS.dim }
-const rowMeta: CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', minWidth: 0, color: COLORS.faint, fontSize: 10.5, lineHeight: 1.5 }
-const blocked: CSSProperties = { margin: 0, color: COLORS.warn, fontSize: 10.5, lineHeight: 1.5, overflowWrap: 'anywhere' }
-const alert: CSSProperties = { margin: 0, color: COLORS.error, fontSize: 11.5, lineHeight: 1.6 }
-const success: CSSProperties = { margin: 0, color: COLORS.green, fontSize: 11.5, lineHeight: 1.6 }
+const mono: CSSProperties = { minWidth: 0, overflowWrap: 'anywhere', fontFamily: 'ui-monospace, monospace', fontSize: 'var(--text-label-size)', color: COLORS.dim }
+const rowMeta: CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', minWidth: 0, color: COLORS.faint, fontSize: 'var(--text-label-size)', lineHeight: 1.5 }
+const blocked: CSSProperties = { margin: 0, color: COLORS.warn, fontSize: 'var(--text-label-size)', lineHeight: 1.5, overflowWrap: 'anywhere' }
+const alert: CSSProperties = { margin: 0, color: COLORS.error, fontSize: 'var(--text-small-size)', lineHeight: 1.6 }
+const success: CSSProperties = { margin: 0, color: COLORS.green, fontSize: 'var(--text-small-size)', lineHeight: 1.6 }
 const actionRow: CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }
 
 function projectName(snapshot: CatalogSnapshot | undefined, workspace: WorkspaceRecord): string | undefined {

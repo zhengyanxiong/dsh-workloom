@@ -30,7 +30,7 @@ export function TreeRow(props: { depth: number; active?: boolean; expanded?: boo
   </button>
 }
 
-export const versionChip: CSSProperties = { display: 'inline-flex', alignItems: 'center', height: 18, padding: '0 6px', borderRadius: 4, background: 'color-mix(in srgb, var(--loom-accent) 11%, transparent)', color: COLORS.accent, fontSize: 10.5, fontWeight: 500 }
+export const versionChip: CSSProperties = { display: 'inline-flex', alignItems: 'center', height: 18, padding: '0 6px', borderRadius: 4, background: 'color-mix(in srgb, var(--loom-accent) 11%, transparent)', color: COLORS.accent, fontSize: 'var(--text-label-size)', fontWeight: 500 }
 
 export function SidebarSessionRow({ t, row, projectName, taskTitle, temporary, active, onSelect }: {
   t: Translate
@@ -91,8 +91,8 @@ export function ProjectTaskRow({ task, active, t, onClick }: { task: TaskRecord;
     style={{ display: 'flex', alignItems: 'flex-start', gap: 7, width: '100%', padding: '5px 10px 5px 40px', textAlign: 'left', border: 'none', borderLeft: `2px solid ${active ? COLORS.accent : 'transparent'}`, background: active ? COLORS.selected : 'transparent', color: 'inherit', cursor: 'pointer', font: 'inherit' }}>
     <span aria-hidden style={{ flex: 'none', width: 6, height: 6, marginTop: 6, borderRadius: 999, background: status.color }} />
     <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
-      <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12, fontWeight: active ? 500 : 400, color: active ? COLORS.text : COLORS.dim }}>{task.title}</span>
-      <span style={{ display: 'flex', alignItems: 'center', gap: 5, minWidth: 0, fontSize: 10.5, color: COLORS.faint }}>
+      <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 'var(--text-compact-size)', fontWeight: active ? 500 : 400, color: active ? COLORS.text : COLORS.dim }}>{task.title}</span>
+      <span style={{ display: 'flex', alignItems: 'center', gap: 5, minWidth: 0, fontSize: 'var(--text-label-size)', color: COLORS.faint }}>
         <span>{t(status.key)}</span>
         {priority !== 'normal' && <><span aria-hidden>·</span><span style={{ color: priorityMeta.color }}>{t(priorityMeta.key)}</span></>}
         <time data-loom-time style={{ marginLeft: 'auto' }} dateTime={absoluteTime(task.updatedAt)} title={absoluteTime(task.updatedAt)}>{relativeTime(task.updatedAt)}</time>

@@ -15,10 +15,10 @@ const RATE_WINDOW_MS = 6000
 /** Write rate (tokens/s) above which the Session reads as generating. */
 const GENERATING_WRITE_RATE = 5
 
-const card: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 5, border: '0.5px solid #a7d9b8', background: 'linear-gradient(180deg, rgba(21,128,61,.06), transparent)', borderRadius: 7, padding: '8px 9px 7px' }
-const top: CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, fontSize: 10.5, color: COLORS.text }
+const card: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 5, border: '0.5px solid var(--color-success-line)', background: 'linear-gradient(180deg, color-mix(in srgb, var(--color-success) 6%, transparent), transparent)', borderRadius: 7, padding: '8px 9px 7px' }
+const top: CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, fontSize: 'var(--text-label-size)', color: COLORS.text }
 const name: CSSProperties = { minWidth: 0, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
-const state: CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, color: COLORS.faint, fontSize: 9.5, lineHeight: 1.4 }
+const state: CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, color: COLORS.faint, fontSize: 'var(--text-micro-size)', lineHeight: 1.4 }
 const dot = (active: boolean): CSSProperties => ({ width: 6, height: 6, borderRadius: '50%', flex: 'none', background: active ? COLORS.green : COLORS.faint, transition: 'background 250ms' })
 
 /**

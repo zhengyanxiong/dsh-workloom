@@ -45,11 +45,15 @@ export function LoomBrandMark({ size = 22 }: LoomBrandMarkProps) {
     <path d={LEFT_STRAND} stroke={`url(#${left})`} strokeWidth="3.8" strokeLinecap="round" strokeLinejoin="round" />
     <defs>
       <linearGradient id={left} x1="8" y1="9" x2="20" y2="18" gradientUnits="userSpaceOnUse">
+        {/* design-allow: 品牌标识固定渐变，不随主题变化 */}
         <stop stopColor="#A78BFA" />
+        {/* design-allow: 品牌标识固定渐变，不随主题变化 */}
         <stop offset="1" stopColor="#6D5EF8" />
       </linearGradient>
       <linearGradient id={right} x1="16" y1="15" x2="28" y2="27" gradientUnits="userSpaceOnUse">
+        {/* design-allow: 品牌标识固定渐变，不随主题变化 */}
         <stop stopColor="#4F8CFF" />
+        {/* design-allow: 品牌标识固定渐变，不随主题变化 */}
         <stop offset="1" stopColor="#2DD4BF" />
       </linearGradient>
     </defs>

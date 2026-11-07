@@ -9,20 +9,20 @@ type Translate = (key: LoomKey) => string
 
 const dangerAction = { color: COLORS.error, borderColor: COLORS.error } as const
 const body = { display: 'flex', alignItems: 'flex-start', gap: 10 } as const
-const warning = { margin: 0, color: COLORS.dim, fontSize: 12, lineHeight: 1.65 } as const
-const alert = { margin: '12px 0 0', color: COLORS.error, fontSize: 12, lineHeight: 1.6 } as const
+const warning = { margin: 0, color: COLORS.dim, fontSize: 'var(--text-compact-size)', lineHeight: 1.65 } as const
+const alert = { margin: '12px 0 0', color: COLORS.error, fontSize: 'var(--text-compact-size)', lineHeight: 1.6 } as const
 const section: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0, marginTop: 12, padding: '10px 11px', border: `0.5px solid ${COLORS.border}`, borderRadius: 8, background: COLORS.panel2 }
-const sectionTitle: CSSProperties = { margin: 0, ...metaLine, fontFamily: 'ui-monospace, monospace', fontSize: 8.5, letterSpacing: '.08em', textTransform: 'uppercase' }
-const handoffNote: CSSProperties = { margin: 0, color: COLORS.warn, fontSize: 11, lineHeight: 1.55 }
+const sectionTitle: CSSProperties = { margin: 0, ...metaLine, fontFamily: 'ui-monospace, monospace', fontSize: 'var(--text-nano-size)', letterSpacing: '.08em', textTransform: 'uppercase' }
+const handoffNote: CSSProperties = { margin: 0, color: COLORS.warn, fontSize: 'var(--text-small-size)', lineHeight: 1.55 }
 const grid: CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '6px 12px', minWidth: 0 }
 const field: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }
-const fieldLabel: CSSProperties = { ...metaLine, fontFamily: 'ui-monospace, monospace', fontSize: 8.5, letterSpacing: '.08em', textTransform: 'uppercase' }
-const fieldValue: CSSProperties = { minWidth: 0, overflowWrap: 'anywhere', color: COLORS.text, fontSize: 11, lineHeight: 1.5 }
-const mono: CSSProperties = { ...fieldValue, fontFamily: 'ui-monospace, monospace', fontSize: 10.5 }
+const fieldLabel: CSSProperties = { ...metaLine, fontFamily: 'ui-monospace, monospace', fontSize: 'var(--text-nano-size)', letterSpacing: '.08em', textTransform: 'uppercase' }
+const fieldValue: CSSProperties = { minWidth: 0, overflowWrap: 'anywhere', color: COLORS.text, fontSize: 'var(--text-small-size)', lineHeight: 1.5 }
+const mono: CSSProperties = { ...fieldValue, fontFamily: 'ui-monospace, monospace', fontSize: 'var(--text-label-size)' }
 const list: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 2, margin: 0, padding: 0, listStyle: 'none' }
-const listItem: CSSProperties = { display: 'flex', alignItems: 'flex-start', gap: 6, minWidth: 0, color: COLORS.dim, fontSize: 11, lineHeight: 1.5 }
-const summaryText: CSSProperties = { margin: 0, color: COLORS.dim, fontSize: 11.5, lineHeight: 1.6, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }
-const muted: CSSProperties = { margin: 0, color: COLORS.faint, fontSize: 11, lineHeight: 1.55 }
+const listItem: CSSProperties = { display: 'flex', alignItems: 'flex-start', gap: 6, minWidth: 0, color: COLORS.dim, fontSize: 'var(--text-small-size)', lineHeight: 1.5 }
+const summaryText: CSSProperties = { margin: 0, color: COLORS.dim, fontSize: 'var(--text-small-size)', lineHeight: 1.6, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }
+const muted: CSSProperties = { margin: 0, color: COLORS.faint, fontSize: 'var(--text-small-size)', lineHeight: 1.55 }
 
 /** Inputs for the execution takeover confirmation modal. */
 export interface LoomTakeoverDialogProps {

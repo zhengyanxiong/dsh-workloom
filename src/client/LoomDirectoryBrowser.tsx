@@ -10,7 +10,7 @@ type Translate = (key: LoomKey) => string
 
 const input: CSSProperties = {
   flex: 1, minWidth: 120, height: 32, boxSizing: 'border-box', padding: '0 9px', border: `0.5px solid ${COLORS.borderStrong}`,
-  borderRadius: 'var(--dsw-radius-sm)', background: COLORS.panel, color: COLORS.text, font: 'inherit', fontSize: 12.5,
+  borderRadius: 'var(--dsw-radius-sm)', background: COLORS.panel, color: COLORS.text, font: 'inherit', fontSize: 'var(--text-compact-size)',
 }
 const list: CSSProperties = {
   display: 'flex', flexDirection: 'column', minHeight: 220, maxHeight: 360, overflowY: 'auto',
@@ -19,11 +19,11 @@ const list: CSSProperties = {
 const row: CSSProperties = {
   display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 10px', border: 0,
   borderBottom: `0.5px solid ${COLORS.border}`, borderRadius: 0, background: 'transparent', color: COLORS.text,
-  font: 'inherit', fontSize: 12.5, textAlign: 'left', cursor: 'pointer',
+  font: 'inherit', fontSize: 'var(--text-compact-size)', textAlign: 'left', cursor: 'pointer',
 }
-const pathLine: CSSProperties = { margin: 0, color: COLORS.dim, fontSize: 11.5, overflowWrap: 'anywhere', fontFamily: 'ui-monospace, monospace' }
-const alert: CSSProperties = { margin: 0, color: COLORS.error, fontSize: 12, lineHeight: 1.6 }
-const note: CSSProperties = { margin: 0, padding: '16px 10px', color: COLORS.dim, fontSize: 12, textAlign: 'center' }
+const pathLine: CSSProperties = { margin: 0, color: COLORS.dim, fontSize: 'var(--text-small-size)', overflowWrap: 'anywhere', fontFamily: 'ui-monospace, monospace' }
+const alert: CSSProperties = { margin: 0, color: COLORS.error, fontSize: 'var(--text-compact-size)', lineHeight: 1.6 }
+const note: CSSProperties = { margin: 0, padding: '16px 10px', color: COLORS.dim, fontSize: 'var(--text-compact-size)', textAlign: 'center' }
 
 /** Inputs for the in-app directory browser. */
 export interface LoomDirectoryBrowserProps {
@@ -105,7 +105,7 @@ export function LoomDirectoryBrowser({ t, startPath, loadListing, onCancel, onPi
         {!loading && visible.length === 0 && listing !== undefined && <p style={note}>{t('directory.empty')}</p>}
       </div>
       {listing?.truncated === true && <p style={pathLine}>{t('directory.truncated')}</p>}
-      {hiddenCount > 0 && <label style={{ display: 'flex', alignItems: 'center', gap: 6, color: COLORS.dim, fontSize: 12 }}>
+      {hiddenCount > 0 && <label style={{ display: 'flex', alignItems: 'center', gap: 6, color: COLORS.dim, fontSize: 'var(--text-compact-size)' }}>
         <input type="checkbox" checked={showHidden} onChange={event => setShowHidden(event.target.checked)} />{t('directory.showHidden')}
       </label>}
       {failure !== undefined && <div role="alert">

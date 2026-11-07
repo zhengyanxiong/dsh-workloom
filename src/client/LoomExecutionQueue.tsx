@@ -12,32 +12,32 @@ type Translate = (key: LoomKey, params?: Readonly<Record<string, string>>) => st
 
 const section: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 8, minWidth: 0 }
 const heading: CSSProperties = { display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }
-const headingTitle: CSSProperties = { margin: 0, fontSize: 12, fontWeight: 500, color: COLORS.text }
-const hint: CSSProperties = { margin: 0, color: COLORS.faint, fontSize: 10.5, lineHeight: 1.5 }
-const legend: CSSProperties = { display: 'flex', gap: 12, flexWrap: 'wrap', color: COLORS.faint, fontSize: 10 }
-const groupLabel: CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, marginTop: 4, color: COLORS.faint, fontSize: 9.5, letterSpacing: '.07em', textTransform: 'uppercase' }
+const headingTitle: CSSProperties = { margin: 0, fontSize: 'var(--text-compact-size)', fontWeight: 500, color: COLORS.text }
+const hint: CSSProperties = { margin: 0, color: COLORS.faint, fontSize: 'var(--text-label-size)', lineHeight: 1.5 }
+const legend: CSSProperties = { display: 'flex', gap: 12, flexWrap: 'wrap', color: COLORS.faint, fontSize: 'var(--text-label-size)' }
+const groupLabel: CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, marginTop: 4, color: COLORS.faint, fontSize: 'var(--text-micro-size)', letterSpacing: '.07em', textTransform: 'uppercase' }
 const rule: CSSProperties = { height: 1, flex: 1, background: COLORS.border }
 const row: CSSProperties = { display: 'grid', gridTemplateColumns: '20px 8px minmax(0,1fr) auto', alignItems: 'center', gap: 8, minWidth: 0, padding: '7px 9px', border: `0.5px solid ${COLORS.border}`, borderRadius: 8, background: COLORS.panel }
 const ownerRow: CSSProperties = { ...row, background: 'color-mix(in srgb, var(--dsw-alias-state-success-primary) 8%, transparent)', borderColor: 'color-mix(in srgb, var(--dsw-alias-state-success-primary) 35%, transparent)' }
 const idleRow: CSSProperties = { ...row, background: COLORS.panel2 }
-const draggingRow: CSSProperties = { ...row, borderColor: COLORS.borderStrong, background: COLORS.selected, boxShadow: '0 8px 20px rgba(37,99,235,.14)' }
-const handle: CSSProperties = { color: COLORS.faint, cursor: 'grab', userSelect: 'none', fontFamily: 'ui-monospace, monospace', fontSize: 13, textAlign: 'center', letterSpacing: -2 }
+const draggingRow: CSSProperties = { ...row, borderColor: COLORS.borderStrong, background: COLORS.selected, boxShadow: '0 8px 20px color-mix(in srgb, var(--color-accent) 14%, transparent)' }
+const handle: CSSProperties = { color: COLORS.faint, cursor: 'grab', userSelect: 'none', fontFamily: 'ui-monospace, monospace', fontSize: 'var(--text-h3-size)', textAlign: 'center', letterSpacing: -2 }
 const handleOff: CSSProperties = { ...handle, visibility: 'hidden' }
 const dot = (state: string): CSSProperties => ({ width: 7, height: 7, borderRadius: 999, background: state === 'owner' ? COLORS.green : state === 'waiting' ? COLORS.warn : COLORS.faint })
 const main: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }
 const titleLine: CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, flexWrap: 'wrap' }
-const title: CSSProperties = { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12, color: COLORS.text }
-const sid: CSSProperties = { fontFamily: 'ui-monospace, monospace', fontSize: 9.5, color: COLORS.faint }
-const meta: CSSProperties = { display: 'flex', gap: 7, flexWrap: 'wrap', color: COLORS.faint, fontSize: 10 }
+const title: CSSProperties = { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 'var(--text-compact-size)', color: COLORS.text }
+const sid: CSSProperties = { fontFamily: 'ui-monospace, monospace', fontSize: 'var(--text-micro-size)', color: COLORS.faint }
+const meta: CSSProperties = { display: 'flex', gap: 7, flexWrap: 'wrap', color: COLORS.faint, fontSize: 'var(--text-label-size)' }
 const tag = (tone: 'owner' | 'waiting' | 'idle'): CSSProperties => ({
   border: `0.5px solid ${tone === 'owner' ? COLORS.green : tone === 'waiting' ? COLORS.warn : COLORS.border}`,
   color: tone === 'owner' ? COLORS.green : tone === 'waiting' ? COLORS.warn : COLORS.faint,
-  background: 'transparent', borderRadius: 4, padding: '0 4px', fontSize: 9,
+  background: 'transparent', borderRadius: 4, padding: '0 4px', fontSize: 'var(--text-nano-size)',
 })
 const actionRow: CSSProperties = { display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4, flexWrap: 'wrap' }
-const error: CSSProperties = { margin: 0, color: COLORS.error, fontSize: 10.5, lineHeight: 1.5 }
+const error: CSSProperties = { margin: 0, color: COLORS.error, fontSize: 'var(--text-label-size)', lineHeight: 1.5 }
 const dropLine: CSSProperties = { height: 2, background: COLORS.accent, borderRadius: 2, margin: '-5px 3px 3px' }
-const empty: CSSProperties = { margin: 0, padding: '9px 11px', border: `0.5px dashed ${COLORS.border}`, borderRadius: 8, color: COLORS.faint, fontSize: 11 }
+const empty: CSSProperties = { margin: 0, padding: '9px 11px', border: `0.5px dashed ${COLORS.border}`, borderRadius: 8, color: COLORS.faint, fontSize: 'var(--text-small-size)' }
 
 /** Props for the execution-session queue. */
 export interface LoomExecutionQueueProps {

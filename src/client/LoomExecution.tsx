@@ -20,18 +20,18 @@ import type { LoadWorkspaceChanges } from './LoomDiff.tsx'
 type Translate = (key: LoomKey) => string
 
 const box: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12, padding: 12, borderRadius: 8, background: 'var(--dsw-alias-bg-layer-1)' }
-const facts: CSSProperties = { display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: '5px 18px', minWidth: 0, color: COLORS.faint, fontSize: 11 }
+const facts: CSSProperties = { display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: '5px 18px', minWidth: 0, color: COLORS.faint, fontSize: 'var(--text-small-size)' }
 const fact: CSSProperties = { display: 'inline-flex', alignItems: 'baseline', gap: 5, minWidth: 0 }
-const factValue: CSSProperties = { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: COLORS.text, fontFamily: 'ui-monospace, monospace', fontSize: 11 }
+const factValue: CSSProperties = { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: COLORS.text, fontFamily: 'ui-monospace, monospace', fontSize: 'var(--text-small-size)' }
 const actionBar: CSSProperties = { display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginTop: 4 }
 const ownerBox: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4, padding: '10px 12px', border: `0.5px solid ${COLORS.border}`, borderRadius: 8, background: COLORS.panel2 }
 const ownerLine: CSSProperties = { display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', gap: 6, minWidth: 0 }
-const ownerLabel: CSSProperties = { color: COLORS.faint, fontSize: 11 }
-const ownerValue: CSSProperties = { minWidth: 0, overflowWrap: 'anywhere', color: COLORS.text, fontFamily: 'ui-monospace, monospace', fontSize: 11 }
-const ownerMeta: CSSProperties = { margin: 0, color: COLORS.faint, fontSize: 10.5, lineHeight: 1.5 }
+const ownerLabel: CSSProperties = { color: COLORS.faint, fontSize: 'var(--text-small-size)' }
+const ownerValue: CSSProperties = { minWidth: 0, overflowWrap: 'anywhere', color: COLORS.text, fontFamily: 'ui-monospace, monospace', fontSize: 'var(--text-small-size)' }
+const ownerMeta: CSSProperties = { margin: 0, color: COLORS.faint, fontSize: 'var(--text-label-size)', lineHeight: 1.5 }
 const footer: CSSProperties = { display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginTop: 4, paddingTop: 10, borderTop: `0.5px solid ${COLORS.border}` }
-const monoText: CSSProperties = { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'ui-monospace, monospace', fontSize: 11 }
-const alert: CSSProperties = { margin: 0, color: 'var(--dsw-alias-label-secondary)', fontSize: 12 }
+const monoText: CSSProperties = { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'ui-monospace, monospace', fontSize: 'var(--text-small-size)' }
+const alert: CSSProperties = { margin: 0, color: 'var(--dsw-alias-label-secondary)', fontSize: 'var(--text-compact-size)' }
 
 /** One named operation failure, kept inline so the user sees which command failed and why. */
 interface OperationFailure {
@@ -118,7 +118,7 @@ async function readWorkspace(actions: ExecutionActions, workspaceId: WorkspaceRe
 function InlineFailure({ t, failure, style }: { t: Translate; failure: OperationFailure; style?: CSSProperties }): ReactNode {
   return <p role="alert" style={{ ...alert, ...style, color: COLORS.error }}>
     {t('notice.operationFailed')} · {failure.operation} · {t(failure.report.message)}
-    {failure.report.detail === undefined ? '' : <span style={{ display: 'block', opacity: 0.75, marginTop: 3, fontFamily: 'ui-monospace, monospace', fontSize: 10.5, overflowWrap: 'anywhere' }}>{failure.report.detail}</span>}
+    {failure.report.detail === undefined ? '' : <span style={{ display: 'block', opacity: 0.75, marginTop: 3, fontFamily: 'ui-monospace, monospace', fontSize: 'var(--text-label-size)', overflowWrap: 'anywhere' }}>{failure.report.detail}</span>}
   </p>
 }
 
@@ -316,7 +316,7 @@ export function ExecutionPanel({ t, task, snapshot, selectedSession, actions, lo
     </div>}
     {workspace !== undefined && workspace.cleaned !== true && <div style={footer}>
       <Button size="sm" variant="outline" disabled={busy} onClick={() => { setCleanOpen(true); setCleanFailure(undefined); setDiscardAllowed(false) }}>{t('workspace.cleanup')}</Button>
-      {busy && busyLabel !== undefined && <span role="status" style={{ ...alert, fontFamily: 'ui-monospace, monospace', fontSize: 10.5 }}>{busyLabel}…</span>}
+      {busy && busyLabel !== undefined && <span role="status" style={{ ...alert, fontFamily: 'ui-monospace, monospace', fontSize: 'var(--text-label-size)' }}>{busyLabel}…</span>}
     </div>}
     {cleanOpen && workspace !== undefined && <LoomCleanupDialog
       t={t}
@@ -421,6 +421,6 @@ function StartForm({ t, task, snapshot, versionId, actions }: StartFormProps) {
   </form>
 }
 
-const formHeading: CSSProperties = { fontSize: 12, fontWeight: 500, color: 'var(--dsw-alias-label-primary)' }
-const field: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 5, fontSize: 12, color: 'var(--dsw-alias-label-secondary)' }
-const hint: CSSProperties = { color: 'var(--dsw-alias-label-caption)', fontSize: 10.5, lineHeight: 1.5 }
+const formHeading: CSSProperties = { fontSize: 'var(--text-compact-size)', fontWeight: 500, color: 'var(--dsw-alias-label-primary)' }
+const field: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 5, fontSize: 'var(--text-compact-size)', color: 'var(--dsw-alias-label-secondary)' }
+const hint: CSSProperties = { color: 'var(--dsw-alias-label-caption)', fontSize: 'var(--text-label-size)', lineHeight: 1.5 }

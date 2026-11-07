@@ -75,8 +75,8 @@ const row: CSSProperties = { display: 'flex', alignItems: 'center', gap: 0, minW
 const opener: CSSProperties = { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 22, height: 20, border: `0.5px solid ${COLORS.border}`, background: COLORS.panel, padding: 0, color: COLORS.dim, cursor: 'pointer', borderTopLeftRadius: 5, borderBottomLeftRadius: 5 }
 const chevron: CSSProperties = { ...opener, width: 15, marginLeft: -0.5, borderTopLeftRadius: 0, borderBottomLeftRadius: 0, borderLeft: 'none', borderTopRightRadius: 5, borderBottomRightRadius: 5 }
 const appIcon: CSSProperties = { width: 13, height: 13, objectFit: 'contain', display: 'block', borderRadius: 2 }
-const badge: CSSProperties = { display: 'grid', placeItems: 'center', width: 13, height: 13, borderRadius: 3, background: COLORS.panel2, color: COLORS.dim, fontSize: 7, fontWeight: 600, lineHeight: 1 }
-const failure: CSSProperties = { margin: 0, color: COLORS.warn, fontSize: 9, lineHeight: 1.3, maxWidth: 140 }
+const badge: CSSProperties = { display: 'grid', placeItems: 'center', width: 13, height: 13, borderRadius: 3, background: COLORS.panel2, color: COLORS.dim, fontSize: 'var(--text-nano-size)', fontWeight: 600, lineHeight: 1 }
+const failure: CSSProperties = { margin: 0, color: COLORS.warn, fontSize: 'var(--text-nano-size)', lineHeight: 1.3, maxWidth: 140 }
 
 function appFamily(value: string): string {
   const name = value.toLowerCase().replace(/[^a-z0-9]/gu, '')

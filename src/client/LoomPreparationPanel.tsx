@@ -19,17 +19,17 @@ export interface LoomPreparationPanelProps {
 
 const box: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 8, minWidth: 0, padding: '11px 12px', border: `0.5px solid ${COLORS.border}`, borderRadius: 8, background: COLORS.panel2 }
 const head: CSSProperties = { display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', minWidth: 0 }
-const title: CSSProperties = { margin: 0, fontSize: 11.5, fontWeight: 500, color: COLORS.text }
-const progress: CSSProperties = { marginLeft: 'auto', color: COLORS.faint, fontSize: 10.5, fontFamily: 'ui-monospace, monospace' }
-const hint: CSSProperties = { margin: 0, color: COLORS.faint, fontSize: 10.5, lineHeight: 1.55 }
+const title: CSSProperties = { margin: 0, fontSize: 'var(--text-small-size)', fontWeight: 500, color: COLORS.text }
+const progress: CSSProperties = { marginLeft: 'auto', color: COLORS.faint, fontSize: 'var(--text-label-size)', fontFamily: 'ui-monospace, monospace' }
+const hint: CSSProperties = { margin: 0, color: COLORS.faint, fontSize: 'var(--text-label-size)', lineHeight: 1.55 }
 const list: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 5, margin: 0, padding: 0, listStyle: 'none' }
 const row: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0, padding: '7px 9px', borderRadius: 6, background: COLORS.panel, border: `0.5px solid ${COLORS.border}` }
 const rowHead: CSSProperties = { display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap', minWidth: 0 }
-const repo: CSSProperties = { minWidth: 0, overflowWrap: 'anywhere', fontFamily: 'ui-monospace, monospace', fontSize: 11 }
-const pathText: CSSProperties = { margin: 0, minWidth: 0, overflowWrap: 'anywhere', color: COLORS.dim, fontFamily: 'ui-monospace, monospace', fontSize: 10.5, lineHeight: 1.5 }
-const diagnostic: CSSProperties = { margin: 0, minWidth: 0, overflowWrap: 'anywhere', color: COLORS.error, fontFamily: 'ui-monospace, monospace', fontSize: 10.5, lineHeight: 1.5 }
-const rollback: CSSProperties = { margin: 0, minWidth: 0, overflowWrap: 'anywhere', color: COLORS.warn, fontFamily: 'ui-monospace, monospace', fontSize: 10.5, lineHeight: 1.5 }
-const failedNotice: CSSProperties = { margin: 0, color: COLORS.warn, fontSize: 11.5, lineHeight: 1.6 }
+const repo: CSSProperties = { minWidth: 0, overflowWrap: 'anywhere', fontFamily: 'ui-monospace, monospace', fontSize: 'var(--text-small-size)' }
+const pathText: CSSProperties = { margin: 0, minWidth: 0, overflowWrap: 'anywhere', color: COLORS.dim, fontFamily: 'ui-monospace, monospace', fontSize: 'var(--text-label-size)', lineHeight: 1.5 }
+const diagnostic: CSSProperties = { margin: 0, minWidth: 0, overflowWrap: 'anywhere', color: COLORS.error, fontFamily: 'ui-monospace, monospace', fontSize: 'var(--text-label-size)', lineHeight: 1.5 }
+const rollback: CSSProperties = { margin: 0, minWidth: 0, overflowWrap: 'anywhere', color: COLORS.warn, fontFamily: 'ui-monospace, monospace', fontSize: 'var(--text-label-size)', lineHeight: 1.5 }
+const failedNotice: CSSProperties = { margin: 0, color: COLORS.warn, fontSize: 'var(--text-small-size)', lineHeight: 1.6 }
 
 const STATUS_KEY = {
   pending: 'prepare.repoStatus.waiting',

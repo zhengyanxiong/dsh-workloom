@@ -28,17 +28,17 @@ export interface LoomVersionGraphProps {
 
 const section: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 }
 const heading: CSSProperties = { display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', margin: 0 }
-const title: CSSProperties = { margin: 0, color: COLORS.text, fontSize: 11, fontWeight: 500 }
-const hint: CSSProperties = { margin: 0, color: COLORS.faint, fontSize: 9.5, lineHeight: 1.4 }
+const title: CSSProperties = { margin: 0, color: COLORS.text, fontSize: 'var(--text-small-size)', fontWeight: 500 }
+const hint: CSSProperties = { margin: 0, color: COLORS.faint, fontSize: 'var(--text-micro-size)', lineHeight: 1.4 }
 const list: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 0, minWidth: 0 }
 const taskRow: CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, width: '100%', minWidth: 0, padding: '4px 0 2px', border: 'none', background: 'transparent', color: 'inherit', textAlign: 'left', cursor: 'pointer', font: 'inherit' }
-const taskTitle: CSSProperties = { minWidth: 0, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: COLORS.dim, fontSize: 10.5 }
+const taskTitle: CSSProperties = { minWidth: 0, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: COLORS.dim, fontSize: 'var(--text-label-size)' }
 const workspaceRow: CSSProperties = { display: 'flex', alignItems: 'flex-start', gap: 5, minWidth: 0, marginLeft: 18, padding: '1px 0 2px', borderLeft: `1px solid ${COLORS.border}`, paddingLeft: 8 }
-const workspaceText: CSSProperties = { minWidth: 0, flex: 1, overflowWrap: 'anywhere', color: COLORS.faint, fontFamily: 'ui-monospace, monospace', fontSize: 9.5, lineHeight: 1.4 }
+const workspaceText: CSSProperties = { minWidth: 0, flex: 1, overflowWrap: 'anywhere', color: COLORS.faint, fontFamily: 'ui-monospace, monospace', fontSize: 'var(--text-micro-size)', lineHeight: 1.4 }
 const ownerRow: CSSProperties = { display: 'flex', alignItems: 'center', gap: 5, minWidth: 0, marginLeft: 30, padding: '1px 0 3px', borderLeft: `1px solid ${COLORS.border}`, paddingLeft: 8 }
-const ownerText: CSSProperties = { minWidth: 0, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: COLORS.dim, fontSize: 9.5 }
-const meta: CSSProperties = { flex: 'none', color: COLORS.faint, fontFamily: 'ui-monospace, monospace', fontSize: 9 }
-const empty: CSSProperties = { margin: 0, color: COLORS.faint, fontSize: 10.5, lineHeight: 1.5 }
+const ownerText: CSSProperties = { minWidth: 0, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: COLORS.dim, fontSize: 'var(--text-micro-size)' }
+const meta: CSSProperties = { flex: 'none', color: COLORS.faint, fontFamily: 'ui-monospace, monospace', fontSize: 'var(--text-nano-size)' }
+const empty: CSSProperties = { margin: 0, color: COLORS.faint, fontSize: 'var(--text-label-size)', lineHeight: 1.5 }
 
 function workspaceLabel(workspace: WorkspaceRecord | undefined): string {
   if (workspace === undefined) return ''
@@ -75,7 +75,7 @@ export function LoomVersionGraph({ t, snapshot, version, sessionLabel, runningSe
             {workspace === undefined
               ? <div style={workspaceRow}><span style={workspaceText}>{t('graph.noWorkspace')}</span></div>
               : <>
-                  <div style={workspaceRow}><span aria-hidden style={{ flex: 'none', color: COLORS.faint, fontSize: 9 }}>└</span><span style={workspaceText} title={workspaceLabel(workspace)}>{workspaceLabel(workspace)}</span></div>
+                  <div style={workspaceRow}><span aria-hidden style={{ flex: 'none', color: COLORS.faint, fontSize: 'var(--text-nano-size)' }}>└</span><span style={workspaceText} title={workspaceLabel(workspace)}>{workspaceLabel(workspace)}</span></div>
                   <div style={ownerRow}>
                     <StateDot state={owner !== null && owner !== undefined && runningSessionIds?.has(owner.sessionId) === true ? 'ongoing' : 'idle'} size={12} />
                     <span style={ownerText} title={owner?.sessionId}>{owner === null || owner === undefined ? t('graph.free') : `${t('graph.owner')} · ${sessionLabel?.(owner.sessionId) ?? owner.sessionId.slice(0, 12)}`}</span>

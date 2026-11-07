@@ -36,7 +36,7 @@ export function hunkRows(hunks: WorkspaceFileChangeRecord['hunks']): readonly Di
   return rows
 }
 
-const body: CSSProperties = { minHeight: 0, height: '100%', overflow: 'auto', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace', fontSize: 11.5, lineHeight: 1.55, background: 'var(--dsw-alias-bg-layer-1)' }
+const body: CSSProperties = { minHeight: 0, height: '100%', overflow: 'auto', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace', fontSize: 'var(--text-small-size)', lineHeight: 1.55, background: 'var(--dsw-alias-bg-layer-1)' }
 const rowStyle: CSSProperties = { display: 'grid', gridTemplateColumns: '42px 42px 1fr', minWidth: 0 }
 const numberStyle: CSSProperties = { padding: '0 6px', textAlign: 'right', color: 'var(--dsw-alias-label-tertiary)', userSelect: 'none', borderRight: '0.5px solid var(--dsw-alias-border-l4)', whiteSpace: 'nowrap' }
 const codeStyle: CSSProperties = { padding: '0 8px', whiteSpace: 'pre', tabSize: 2 }
@@ -61,7 +61,7 @@ export function LoomHunks({ state, wrap, t }: { readonly state: LoomFileDiffInpu
           <span style={numberStyle} />
           <span style={{ ...codeStyle, padding: '2px 8px' }}>{`@@ -${String(hunk.oldStart)},${String(hunk.oldLines)} +${String(hunk.newStart)},${String(hunk.newLines)} @@`}</span>
         </div>
-        {rows.map((row, rowIndex) => <div key={rowIndex} role="row" style={{ ...rowStyle, background: row.kind === 'add' ? 'rgba(46,160,67,.12)' : row.kind === 'del' ? 'rgba(248,81,73,.12)' : 'transparent' }}>
+        {rows.map((row, rowIndex) => <div key={rowIndex} role="row" style={{ ...rowStyle, background: row.kind === 'add' ? 'color-mix(in srgb, var(--color-success) 12%, transparent)' : row.kind === 'del' ? 'color-mix(in srgb, var(--color-danger) 12%, transparent)' : 'transparent' }}>
           <span style={numberStyle}>{row.oldLine === undefined ? '' : String(row.oldLine)}</span>
           <span style={numberStyle}>{row.newLine === undefined ? '' : String(row.newLine)}</span>
           <span style={{ ...codeStyle, ...(wrap ? { whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' } : {}) }}>{row.text}</span>

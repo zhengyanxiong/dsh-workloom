@@ -13,11 +13,11 @@ const card: CSSProperties = {
   display: 'flex', alignItems: 'flex-start', gap: 8, minWidth: 180, maxWidth: 460,
   padding: '9px 13px', borderRadius: 8,
   background: 'var(--dsw-alias-bg-layer-1)', color: 'var(--dsw-alias-label-primary)',
-  border: '0.5px solid var(--dsw-alias-border-l1)', boxShadow: '0 6px 18px rgba(15, 17, 21, .10)',
-  fontSize: 13, lineHeight: 1.55, animation: 'loom-notice-in 160ms ease-out',
+  border: '0.5px solid var(--dsw-alias-border-l1)', boxShadow: '0 6px 18px color-mix(in srgb, var(--color-ink) 10%, transparent)',
+  fontSize: 'var(--text-h3-size)', lineHeight: 1.55, animation: 'loom-notice-in 160ms ease-out',
 }
 const titleStyle: CSSProperties = { minWidth: 0, overflowWrap: 'anywhere' }
-const detailStyle: CSSProperties = { display: 'block', marginTop: 2, color: 'var(--dsw-alias-label-secondary)', fontSize: 12, lineHeight: 1.5 }
+const detailStyle: CSSProperties = { display: 'block', marginTop: 2, color: 'var(--dsw-alias-label-secondary)', fontSize: 'var(--text-compact-size)', lineHeight: 1.5 }
 const motion = '@keyframes loom-notice-in{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}@media (max-width:560px){.loom-notice-stack{top:92px !important}}'
 
 /** Render the latest operation outcomes at the top centre of the window. */

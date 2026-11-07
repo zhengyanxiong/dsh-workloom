@@ -26,15 +26,15 @@ type State =
 
 const wrap: CSSProperties = { display: 'flex', flexDirection: 'column', minHeight: 0, flex: 1 }
 const tabs: CSSProperties = { display: 'flex', gap: 4, padding: '6px 10px', borderBottom: `0.5px solid ${COLORS.border}`, overflowX: 'auto', flex: 'none' }
-const tab = (active: boolean): CSSProperties => ({ border: 'none', borderBottom: `1.5px solid ${active ? COLORS.accent : 'transparent'}`, background: 'transparent', color: active ? COLORS.text : COLORS.dim, padding: '3px 7px', cursor: 'pointer', font: 'inherit', fontSize: 11, whiteSpace: 'nowrap' })
+const tab = (active: boolean): CSSProperties => ({ border: 'none', borderBottom: `1.5px solid ${active ? COLORS.accent : 'transparent'}`, background: 'transparent', color: active ? COLORS.text : COLORS.dim, padding: '3px 7px', cursor: 'pointer', font: 'inherit', fontSize: 'var(--text-small-size)', whiteSpace: 'nowrap' })
 const viewport: CSSProperties = { minHeight: 0, flex: 1, overflow: 'auto', padding: 8 }
-const table: CSSProperties = { borderCollapse: 'separate', borderSpacing: 0, fontFamily: 'var(--sans)', fontSize: 11, lineHeight: 1.45, minWidth: '100%' }
+const table: CSSProperties = { borderCollapse: 'separate', borderSpacing: 0, fontFamily: 'var(--sans)', fontSize: 'var(--text-small-size)', lineHeight: 1.45, minWidth: '100%' }
 const th: CSSProperties = { position: 'sticky', top: 0, zIndex: 1, textAlign: 'left', padding: '4px 7px', background: COLORS.panel2, borderBottom: `0.5px solid ${COLORS.borderStrong}`, color: COLORS.text, fontWeight: 500, whiteSpace: 'nowrap', maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis' }
 const thFirst: CSSProperties = { ...th, zIndex: 2, left: 0, background: COLORS.panel2, color: COLORS.faint, textAlign: 'right', minWidth: 34 }
 const td: CSSProperties = { padding: '4px 7px', borderBottom: `0.5px solid ${COLORS.border}`, color: COLORS.dim, whiteSpace: 'nowrap', maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis' }
 const tdFirst: CSSProperties = { ...td, position: 'sticky', left: 0, background: COLORS.panel, color: COLORS.faint, textAlign: 'right', minWidth: 34 }
-const empty: CSSProperties = { display: 'flex', flex: 1, alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 10, padding: 18, color: COLORS.faint, fontSize: 12, textAlign: 'center' }
-const hint: CSSProperties = { margin: '4px 2px 0', color: COLORS.faint, fontSize: 10.5, lineHeight: 1.5 }
+const empty: CSSProperties = { display: 'flex', flex: 1, alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 10, padding: 18, color: COLORS.faint, fontSize: 'var(--text-compact-size)', textAlign: 'center' }
+const hint: CSSProperties = { margin: '4px 2px 0', color: COLORS.faint, fontSize: 'var(--text-label-size)', lineHeight: 1.5 }
 
 /**
  * Load and render one workbook without inventing data: the table is built from

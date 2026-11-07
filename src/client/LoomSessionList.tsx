@@ -19,13 +19,13 @@ export interface LoomSessionListProps {
 
 const section: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 8, minWidth: 0 }
 const heading: CSSProperties = { display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', margin: 0 }
-const headingTitle: CSSProperties = { margin: 0, fontSize: 12, fontWeight: 500, color: COLORS.text }
-const hint: CSSProperties = { margin: 0, color: COLORS.faint, fontSize: 11, lineHeight: 1.5 }
-const empty: CSSProperties = { margin: 0, padding: '10px 12px', border: `0.5px dashed ${COLORS.border}`, borderRadius: 8, color: COLORS.faint, fontSize: 11.5, lineHeight: 1.5 }
+const headingTitle: CSSProperties = { margin: 0, fontSize: 'var(--text-compact-size)', fontWeight: 500, color: COLORS.text }
+const hint: CSSProperties = { margin: 0, color: COLORS.faint, fontSize: 'var(--text-small-size)', lineHeight: 1.5 }
+const empty: CSSProperties = { margin: 0, padding: '10px 12px', border: `0.5px dashed ${COLORS.border}`, borderRadius: 8, color: COLORS.faint, fontSize: 'var(--text-small-size)', lineHeight: 1.5 }
 const roundCard: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0, padding: '10px 12px', border: `0.5px solid ${COLORS.border}`, borderRadius: 8, background: COLORS.panel2 }
 const roundHead: CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', minWidth: 0 }
-const roundTitle: CSSProperties = { ...metaLine, fontFamily: 'ui-monospace, monospace', fontSize: 9.5, letterSpacing: '.08em', textTransform: 'uppercase', color: COLORS.faint }
-const roundCommit: CSSProperties = { fontFamily: 'ui-monospace, monospace', fontSize: 10.5, color: COLORS.dim }
+const roundTitle: CSSProperties = { ...metaLine, fontFamily: 'ui-monospace, monospace', fontSize: 'var(--text-micro-size)', letterSpacing: '.08em', textTransform: 'uppercase', color: COLORS.faint }
+const roundCommit: CSSProperties = { fontFamily: 'ui-monospace, monospace', fontSize: 'var(--text-label-size)', color: COLORS.dim }
 const sessionList: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 2, margin: 0, padding: 0, listStyle: 'none' }
 const sessionButton = (active: boolean, available: boolean): CSSProperties => ({
   display: 'flex', alignItems: 'center', gap: 8, width: '100%', minWidth: 0, padding: '6px 8px',
@@ -33,11 +33,11 @@ const sessionButton = (active: boolean, available: boolean): CSSProperties => ({
   background: active ? COLORS.selected : 'transparent', color: 'inherit', opacity: available ? 1 : .72,
 })
 const sessionBody: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minWidth: 0 }
-const sessionTitle = (active: boolean): CSSProperties => ({ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12, fontWeight: active ? 500 : 400, color: active ? COLORS.text : COLORS.dim })
-const sessionMeta: CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', minWidth: 0, fontSize: 10.5, color: COLORS.faint }
+const sessionTitle = (active: boolean): CSSProperties => ({ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 'var(--text-compact-size)', fontWeight: active ? 500 : 400, color: active ? COLORS.text : COLORS.dim })
+const sessionMeta: CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', minWidth: 0, fontSize: 'var(--text-label-size)', color: COLORS.faint }
 const sessionId: CSSProperties = { fontFamily: 'ui-monospace, monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
 const sessionTime: CSSProperties = { whiteSpace: 'nowrap' }
-const reason: CSSProperties = { color: COLORS.warn, fontSize: 10.5, lineHeight: 1.4, minWidth: 0 }
+const reason: CSSProperties = { color: COLORS.warn, fontSize: 'var(--text-label-size)', lineHeight: 1.4, minWidth: 0 }
 const sessionRow: CSSProperties = { display: 'flex', alignItems: 'stretch', gap: 2, minWidth: 0 }
 const retry: CSSProperties = { flex: 'none', alignSelf: 'center', padding: '0 4px' }
 

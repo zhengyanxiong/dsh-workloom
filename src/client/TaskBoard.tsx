@@ -30,9 +30,9 @@ const card: CSSProperties = { textAlign: 'left', width: '100%', padding: 8, curs
 export function TaskBoard({ tasks, filter, t, onSelect }: TaskBoardProps) {
   return createElement('div', { style: { display: 'flex', gap: 12, alignItems: 'flex-start' } },
     projectBoard(tasks, filter).map(({ status, tasks: rows }: BoardColumn) => createElement('section', { key: status, style: column },
-      createElement('h3', { style: { margin: 0, fontSize: 13 } }, `${t(STATUS_KEY[status])} (${String(rows.length)})`),
+      createElement('h3', { style: { margin: 0, fontSize: 'var(--text-h3-size)' } }, `${t(STATUS_KEY[status])} (${String(rows.length)})`),
       rows.map(task => createElement('button', { key: task.id, type: 'button', style: card, onClick: () => { onSelect(task) } },
         createElement('span', { style: { display: 'block', fontWeight: 500 } }, task.title),
-        createElement('span', { style: { fontSize: 12, opacity: 0.7 } }, `${String(task.attempts.length)}`))),
+        createElement('span', { style: { fontSize: 'var(--text-compact-size)', opacity: 0.7 } }, `${String(task.attempts.length)}`))),
     )))
 }

@@ -63,10 +63,10 @@ export function LoomFileRow({ display, added, deleted, binary, oversized, t, sel
     display: 'flex', alignItems: 'center', gap: 6, width: '100%', minWidth: 0, padding: `5px 6px 5px ${String(6 + depth * 14)}px`,
     border: 'none', borderLeft: `2px solid ${selected ? 'var(--dsw-alias-label-accent, #2f81f7)' : 'transparent'}`, borderRadius: 4,
     background: selected ? 'var(--dsw-alias-bg-layer-3)' : 'transparent', color: selected ? 'var(--dsw-alias-label-primary)' : 'var(--dsw-alias-label-secondary)',
-    cursor: 'pointer', font: 'inherit', fontSize: 11.5, textAlign: 'left',
+    cursor: 'pointer', font: 'inherit', fontSize: 'var(--text-small-size)', textAlign: 'left',
   }}>
     <span style={{ display: 'flex', flex: 'none' }}><IconDeliverDocRegular size={13} /></span>
     <span style={{ minWidth: 0, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{display}</span>
-    <span style={{ flex: 'none', fontSize: 10.5 }}><LoomFileCounts file={{ display, added, deleted, ...binary === true ? { binary: true } : {}, ...oversized === true ? { oversized: true } : {} }} t={t} /></span>
+    <span style={{ flex: 'none', fontSize: 'var(--text-label-size)' }}><LoomFileCounts file={{ display, added, deleted, ...binary === true ? { binary: true } : {}, ...oversized === true ? { oversized: true } : {} }} t={t} /></span>
   </button>
 }

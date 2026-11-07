@@ -25,42 +25,42 @@ type Translate = (key: LoomKey, params?: Readonly<Record<string, string>>) => st
 const formStyle: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 16, marginTop: 12 }
 const stack: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 10 }
 const card: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 10, padding: 12, border: `0.5px solid ${COLORS.border}`, borderRadius: 'var(--dsw-radius-md)', background: COLORS.panel2 }
-const mono: CSSProperties = { fontFamily: 'ui-monospace, monospace', fontSize: 10.5 }
+const mono: CSSProperties = { fontFamily: 'ui-monospace, monospace', fontSize: 'var(--text-label-size)' }
 const input: CSSProperties = {
   width: '100%', height: 36, boxSizing: 'border-box', padding: '0 10px', border: `0.5px solid ${COLORS.borderStrong}`,
-  borderRadius: 'var(--dsw-radius-sm)', background: COLORS.panel, color: COLORS.text, font: 'inherit', fontSize: 13, lineHeight: '20px',
+  borderRadius: 'var(--dsw-radius-sm)', background: COLORS.panel, color: COLORS.text, font: 'inherit', fontSize: 'var(--text-h3-size)', lineHeight: '20px',
 }
 const textarea: CSSProperties = { ...input, height: 'auto', minHeight: 88, padding: '8px 10px', resize: 'vertical' }
 const field: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 5 }
-const fieldLabel: CSSProperties = { color: COLORS.dim, fontSize: 12, fontWeight: 500 }
-const hint: CSSProperties = { margin: 0, color: COLORS.dim, fontSize: 11.5, lineHeight: 1.55 }
-const alert: CSSProperties = { margin: 0, color: COLORS.dim, fontSize: 12 }
-const failureCode: CSSProperties = { display: 'block', marginTop: 4, color: COLORS.error, fontFamily: 'ui-monospace, monospace', fontSize: 11, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }
+const fieldLabel: CSSProperties = { color: COLORS.dim, fontSize: 'var(--text-compact-size)', fontWeight: 500 }
+const hint: CSSProperties = { margin: 0, color: COLORS.dim, fontSize: 'var(--text-small-size)', lineHeight: 1.55 }
+const alert: CSSProperties = { margin: 0, color: COLORS.dim, fontSize: 'var(--text-compact-size)' }
+const failureCode: CSSProperties = { display: 'block', marginTop: 4, color: COLORS.error, fontFamily: 'ui-monospace, monospace', fontSize: 'var(--text-small-size)', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }
 const footer: CSSProperties = { position: 'sticky', bottom: 0, zIndex: 2, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 4, paddingTop: 12, paddingBottom: 18, borderTop: `0.5px solid ${COLORS.border}`, background: COLORS.panel }
 const footerSpacer: CSSProperties = { flex: 1, minWidth: 8 }
 const previewRow: CSSProperties = { display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', padding: '7px 8px', borderRadius: 'var(--dsw-radius-sm)', background: COLORS.panel, border: `0.5px solid ${COLORS.border}` }
 const workspaceList: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 8 }
 const workspaceCard: CSSProperties = { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10, padding: '11px 12px', borderRadius: 'var(--dsw-radius-md)', background: COLORS.panel2, border: `0.5px solid ${COLORS.border}` }
 const workspaceCopy: CSSProperties = { minWidth: 0, flex: '1 1 240px', display: 'flex', flexDirection: 'column', gap: 4 }
-const workspaceTitle: CSSProperties = { color: COLORS.text, fontSize: 12.5, lineHeight: 1.35, overflowWrap: 'anywhere' }
-const workspacePath: CSSProperties = { color: COLORS.faint, fontFamily: 'ui-monospace, monospace', fontSize: 10.5, lineHeight: 1.45, overflowWrap: 'anywhere' }
-const workspaceMeta: CSSProperties = { color: COLORS.faint, fontSize: 10.5, lineHeight: 1.45 }
+const workspaceTitle: CSSProperties = { color: COLORS.text, fontSize: 'var(--text-compact-size)', lineHeight: 1.35, overflowWrap: 'anywhere' }
+const workspacePath: CSSProperties = { color: COLORS.faint, fontFamily: 'ui-monospace, monospace', fontSize: 'var(--text-label-size)', lineHeight: 1.45, overflowWrap: 'anywhere' }
+const workspaceMeta: CSSProperties = { color: COLORS.faint, fontSize: 'var(--text-label-size)', lineHeight: 1.45 }
 const workspaceActions: CSSProperties = { display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }
-const workspaceConfirm: CSSProperties = { flexBasis: '100%', display: 'flex', flexDirection: 'column', gap: 8, marginTop: 2, paddingTop: 9, borderTop: `0.5px solid ${COLORS.border}`, color: COLORS.text, fontSize: 11.5 }
+const workspaceConfirm: CSSProperties = { flexBasis: '100%', display: 'flex', flexDirection: 'column', gap: 8, marginTop: 2, paddingTop: 9, borderTop: `0.5px solid ${COLORS.border}`, color: COLORS.text, fontSize: 'var(--text-small-size)' }
 const workspaceConfirmText: CSSProperties = { margin: 0, color: COLORS.dim, lineHeight: 1.6 }
 const workspaceConfirmActions: CSSProperties = { display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }
 
 const sectionHeading: CSSProperties = { display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, marginBottom: 14 }
-const sectionHeadingTitle: CSSProperties = { margin: 0, fontSize: 13, fontWeight: 500, letterSpacing: '-.005em' }
+const sectionHeadingTitle: CSSProperties = { margin: 0, fontSize: 'var(--text-h3-size)', fontWeight: 500, letterSpacing: '-.005em' }
 const branchCard: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 10, padding: '13px 14px', border: `0.5px solid ${COLORS.border}`, borderRadius: 10, background: COLORS.panel }
 const branchTop: CSSProperties = { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, minWidth: 0 }
 const branchPath: CSSProperties = { minWidth: 0, flex: 1 }
-const branchPathText: CSSProperties = { fontFamily: 'ui-monospace, monospace', fontSize: 11, lineHeight: 1.5, color: COLORS.dim, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
-const branchPathNote: CSSProperties = { marginTop: 2, fontSize: 10, color: COLORS.faint }
-const branchTag: CSSProperties = { display: 'inline-flex', alignItems: 'center', flex: 'none', maxWidth: '46%', padding: '2px 7px', borderRadius: 4, background: 'color-mix(in srgb, var(--loom-accent) 11%, transparent)', color: COLORS.accent, fontFamily: 'ui-monospace, monospace', fontSize: 10.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
+const branchPathText: CSSProperties = { fontFamily: 'ui-monospace, monospace', fontSize: 'var(--text-small-size)', lineHeight: 1.5, color: COLORS.dim, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
+const branchPathNote: CSSProperties = { marginTop: 2, fontSize: 'var(--text-label-size)', color: COLORS.faint }
+const branchTag: CSSProperties = { display: 'inline-flex', alignItems: 'center', flex: 'none', maxWidth: '46%', padding: '2px 7px', borderRadius: 4, background: 'color-mix(in srgb, var(--loom-accent) 11%, transparent)', color: COLORS.accent, fontFamily: 'ui-monospace, monospace', fontSize: 'var(--text-label-size)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
 const branchTagEmpty: CSSProperties = { ...branchTag, background: 'color-mix(in srgb, var(--dsw-alias-label-error) 8%, transparent)', color: COLORS.error, border: `0.5px solid color-mix(in srgb, var(--dsw-alias-label-error) 35%, transparent)` }
-const branchError: CSSProperties = { display: 'flex', alignItems: 'flex-start', gap: 5, margin: 0, color: COLORS.error, fontSize: 11, lineHeight: 1.5 }
-const helperStrip: CSSProperties = { display: 'flex', alignItems: 'flex-start', gap: 9, padding: '10px 12px', marginTop: 2, borderRadius: 8, background: COLORS.panel2, border: `0.5px solid ${COLORS.border}`, color: COLORS.dim, fontSize: 11, lineHeight: 1.55 }
+const branchError: CSSProperties = { display: 'flex', alignItems: 'flex-start', gap: 5, margin: 0, color: COLORS.error, fontSize: 'var(--text-small-size)', lineHeight: 1.5 }
+const helperStrip: CSSProperties = { display: 'flex', alignItems: 'flex-start', gap: 9, padding: '10px 12px', marginTop: 2, borderRadius: 8, background: COLORS.panel2, border: `0.5px solid ${COLORS.border}`, color: COLORS.dim, fontSize: 'var(--text-small-size)', lineHeight: 1.55 }
 
 function FailureNotice({ failure, t }: { failure: string; t: Translate }) {
   const key = failureKey(failure)
@@ -290,8 +290,8 @@ export function taskRequest(version: VersionRecord, title: string, metadata?: Ta
 
 function PresetOptionLabel({ name, description }: { readonly name: string; readonly description: string }) {
   return <span style={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: 280 }}>
-    <span style={{ fontSize: 13, lineHeight: '20px', color: COLORS.text }}>{name}</span>
-    <span style={{ fontSize: 12, lineHeight: '16px', color: COLORS.faint, whiteSpace: 'normal' }}>{description}</span>
+    <span style={{ fontSize: 'var(--text-h3-size)', lineHeight: '20px', color: COLORS.text }}>{name}</span>
+    <span style={{ fontSize: 'var(--text-compact-size)', lineHeight: '16px', color: COLORS.faint, whiteSpace: 'normal' }}>{description}</span>
   </span>
 }
 
@@ -596,21 +596,21 @@ export function ProjectForm({ t, create, update, project, agentPresets = [], pic
         <div style={field}><span style={fieldLabel}>{t('project.agentPreset')}</span><span>{presetLabel}</span></div>
         <div style={field}><span style={fieldLabel}>{t('source.title')}</span>
           {request.sources.map(source => <div key={source.id} style={previewRow}>
-            <span style={{ color: COLORS.dim, fontFamily: 'ui-monospace, monospace', fontSize: 11 }}>{source.id}</span>
+            <span style={{ color: COLORS.dim, fontFamily: 'ui-monospace, monospace', fontSize: 'var(--text-small-size)' }}>{source.id}</span>
             <span style={{ color: COLORS.text, overflowWrap: 'anywhere' }}>{source.repo}</span>
             <span style={{ color: COLORS.faint }}>→ {source.path}</span>
           </div>)}
         </div>
         {request.subProjects !== undefined && <div style={field}><span style={fieldLabel}>{t('project.subProjects')}</span>
           {request.subProjects.map(sub => <div key={sub.id} style={previewRow}>
-            <span style={{ color: COLORS.dim, fontFamily: 'ui-monospace, monospace', fontSize: 11 }}>{sub.id}</span>
+            <span style={{ color: COLORS.dim, fontFamily: 'ui-monospace, monospace', fontSize: 'var(--text-small-size)' }}>{sub.id}</span>
             <span style={{ color: COLORS.text }}>{sub.name}</span>
             <span style={{ color: COLORS.faint }}>{sub.sources.length} repos</span>
           </div>)}
         </div>}
         <div style={field}><span style={fieldLabel}>{t('module.title')}</span>
           {request.modules.length === 0 ? <span style={hint}>{t('module.optional')}</span> : request.modules.map(module => <div key={module.id} style={previewRow}>
-            <span style={{ color: COLORS.dim, fontFamily: 'ui-monospace, monospace', fontSize: 11 }}>{module.id}</span>
+            <span style={{ color: COLORS.dim, fontFamily: 'ui-monospace, monospace', fontSize: 'var(--text-small-size)' }}>{module.id}</span>
             <span style={{ color: COLORS.text, overflowWrap: 'anywhere' }}>{module.sourceId} / {module.path}</span>
           </div>)}
         </div>
@@ -868,13 +868,13 @@ export function VersionForm({ t, project, listBranches, pickDirectory, boundWork
       <label style={field}>
         <span style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
           <span style={fieldLabel}>{t('version.description')}</span>
-          <span aria-hidden style={{ marginLeft: 'auto', color: descriptionTooLong ? COLORS.error : COLORS.faint, fontSize: 10.5, fontFamily: 'ui-monospace, monospace' }}>{String(description.length)} / {String(VERSION_DESCRIPTION_MAX_CHARS)}</span>
+          <span aria-hidden style={{ marginLeft: 'auto', color: descriptionTooLong ? COLORS.error : COLORS.faint, fontSize: 'var(--text-label-size)', fontFamily: 'ui-monospace, monospace' }}>{String(description.length)} / {String(VERSION_DESCRIPTION_MAX_CHARS)}</span>
         </span>
         <textarea aria-label={t('version.description')} aria-invalid={descriptionTooLong} placeholder={t('version.description')} value={description} rows={4}
           onChange={event => setDescription(event.target.value)} style={descriptionTooLong ? { ...textarea, borderColor: COLORS.error } : textarea} />
       </label>
       {descriptionTooLong
-        ? <p role="alert" style={{ margin: 0, color: COLORS.error, fontSize: 11.5, lineHeight: 1.5 }}>{t('version.descriptionTooLong', { max: String(VERSION_DESCRIPTION_MAX_CHARS) })}</p>
+        ? <p role="alert" style={{ margin: 0, color: COLORS.error, fontSize: 'var(--text-small-size)', lineHeight: 1.5 }}>{t('version.descriptionTooLong', { max: String(VERSION_DESCRIPTION_MAX_CHARS) })}</p>
         : <p style={hint}>{t('version.descriptionHint')}</p>}
       {editing && <p style={hint}>{t('version.refHint')}</p>}
     </section>}
@@ -906,7 +906,7 @@ export function VersionForm({ t, project, listBranches, pickDirectory, boundWork
                 </div>}
                 {pendingWorkspaceDelete === item.id && <div role="alert" style={workspaceConfirm}>
                   <p style={workspaceConfirmText}>{t('version.workspaceDeleteConfirm')}</p>
-                  {item.mode !== 'managed' && <label style={{ display: 'flex', alignItems: 'center', gap: 7, color: COLORS.error, fontSize: 11, lineHeight: 1.5 }}>
+                  {item.mode !== 'managed' && <label style={{ display: 'flex', alignItems: 'center', gap: 7, color: COLORS.error, fontSize: 'var(--text-small-size)', lineHeight: 1.5 }}>
                     <input type="checkbox" checked={pendingWorkspaceDeleteFiles} onChange={event => setPendingWorkspaceDeleteFiles(event.target.checked)} />
                     {t('version.workspaceDeleteFiles')}
                   </label>}
@@ -986,7 +986,7 @@ export function VersionForm({ t, project, listBranches, pickDirectory, boundWork
         const subId = String(sub.id)
         const selected = project.config.subProjects === undefined || selectedSubProjects.includes(subId)
         return <div key={subId} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {project.config.subProjects !== undefined && <label style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '2px 0', color: COLORS.text, fontSize: 12 }}>
+          {project.config.subProjects !== undefined && <label style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '2px 0', color: COLORS.text, fontSize: 'var(--text-compact-size)' }}>
             <input type="checkbox" checked={selected} onChange={event => setSelectedSubProjects(current => event.target.checked ? [...current, subId] : current.filter(id => id !== subId))} />
             <span style={{ fontWeight: 500 }}>{sub.name}</span>
             <span style={hint}>{String(sub.sources.length)} repos</span>
@@ -1199,10 +1199,10 @@ export function TaskForm({ t, version, project, workspaces, create, update, task
       <div style={field}>
         <span style={fieldLabel}>{t('task.modules')}</span>
         {project.config.modules.length === 0 && <p style={hint}>{t('task.noModules')}</p>}
-        {project.config.modules.map(module => <label key={module.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 'var(--dsw-radius-sm)', border: `0.5px solid ${COLORS.border}`, background: COLORS.panel2, color: COLORS.dim, fontSize: 12 }}>
+        {project.config.modules.map(module => <label key={module.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 'var(--dsw-radius-sm)', border: `0.5px solid ${COLORS.border}`, background: COLORS.panel2, color: COLORS.dim, fontSize: 'var(--text-compact-size)' }}>
           <input type="checkbox" checked={moduleIds.includes(module.id)} onChange={event => setModuleIds(current => event.target.checked ? [...current, module.id] : current.filter(id => id !== module.id))} />
           <span style={{ color: COLORS.text }}>{module.path}</span>
-          <span style={{ marginLeft: 'auto', color: COLORS.faint, fontFamily: 'ui-monospace, monospace', fontSize: 11 }}>{module.id}</span>
+          <span style={{ marginLeft: 'auto', color: COLORS.faint, fontFamily: 'ui-monospace, monospace', fontSize: 'var(--text-small-size)' }}>{module.id}</span>
         </label>)}
       </div>
     </section>}
@@ -1298,13 +1298,13 @@ export function ImportProjectForm({ t, create, onCreated, open: controlledOpen, 
       <p style={fieldLabel}>{t('project.importHint')}</p>
       <div style={field}><span style={fieldLabel}>{t('project.name')}</span><span>{result.config.name}</span></div>
       <div style={field}><span style={fieldLabel}>{t('project.importSources')}</span>
-        {result.config.sources.map(source => <div key={source.id} style={{ display: 'flex', gap: 6, flexWrap: 'wrap', fontSize: 12 }}>
+        {result.config.sources.map(source => <div key={source.id} style={{ display: 'flex', gap: 6, flexWrap: 'wrap', fontSize: 'var(--text-compact-size)' }}>
           <span style={{ color: COLORS.cyan }}>{source.id}</span><span>{source.repo}</span><span style={{ color: COLORS.dim }}>→ {source.path}</span>
         </div>)}
       </div>
       <div style={field}><span style={fieldLabel}>{t('project.importModules')}</span>
         {result.config.modules.length === 0 && <span style={alert}>{t('module.optional')}</span>}
-        {result.config.modules.map(module => <div key={module.id} style={{ display: 'flex', gap: 6, flexWrap: 'wrap', fontSize: 12 }}>
+        {result.config.modules.map(module => <div key={module.id} style={{ display: 'flex', gap: 6, flexWrap: 'wrap', fontSize: 'var(--text-compact-size)' }}>
           <span style={{ color: COLORS.cyan }}>{module.id}</span><span>{module.sourceId} / {module.path}</span>
         </div>)}
       </div>
@@ -1349,8 +1349,8 @@ export function LockButton({ t, version, generate, onCreated, existing = false, 
     <Button size={size ?? (existing ? 'sm' : 'md')} variant={existing ? 'outline' : 'primary'} className={existing ? undefined : 'loom-primary'} disabled={busy || disabled} onClick={() => { void run() }}>
       {busy ? t('lock.resolving') : existing ? t('lock.regenerate') : t('lock.new')}
     </Button>
-    {existing && hint && <p style={{ margin: 0, color: COLORS.faint, fontSize: 10.5, lineHeight: 1.5 }}>{t('lock.regenerateHint')}</p>}
-    {disabled && <p style={{ margin: 0, color: COLORS.faint, fontSize: 10.5, lineHeight: 1.5 }}>{t('lock.disabledRunning')}</p>}
+    {existing && hint && <p style={{ margin: 0, color: COLORS.faint, fontSize: 'var(--text-label-size)', lineHeight: 1.5 }}>{t('lock.regenerateHint')}</p>}
+    {disabled && <p style={{ margin: 0, color: COLORS.faint, fontSize: 'var(--text-label-size)', lineHeight: 1.5 }}>{t('lock.disabledRunning')}</p>}
     {failure !== undefined && <FailureNotice failure={failure} t={t} />}
   </div>
 }

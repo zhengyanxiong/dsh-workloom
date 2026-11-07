@@ -65,7 +65,7 @@ function findFile(repositories: readonly WorkspaceRepositoryChangesRecord[], pat
   return undefined
 }
 
-const zoomButton: CSSProperties = { color: 'inherit', background: 'transparent', border: '0.5px solid var(--dsw-alias-border-l4)', borderRadius: 5, padding: '1px 6px', cursor: 'pointer', font: 'inherit', fontSize: 11, lineHeight: '18px' }
+const zoomButton: CSSProperties = { color: 'inherit', background: 'transparent', border: '0.5px solid var(--dsw-alias-border-l4)', borderRadius: 5, padding: '1px 6px', cursor: 'pointer', font: 'inherit', fontSize: 'var(--text-small-size)', lineHeight: '18px' }
 
 type FileText = { readonly kind: 'loading' } | { readonly kind: 'error' } | { readonly kind: 'ready'; readonly text: string; readonly truncated: boolean }
 
@@ -152,20 +152,20 @@ const fileToolbar: CSSProperties = {
 }
 const fileHead: CSSProperties = { display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }
 const fileIdentity: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0, flex: 1 }
-const fileName: CSSProperties = { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12, color: 'var(--dsw-alias-label-primary)' }
-const filePathLabel: CSSProperties = { fontSize: 10, minWidth: 0 }
-const fileTypeBadge: CSSProperties = { flex: 'none', color: 'var(--dsw-alias-label-tertiary)', fontSize: 9.5, fontFamily: 'ui-monospace, monospace' }
+const fileName: CSSProperties = { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 'var(--text-compact-size)', color: 'var(--dsw-alias-label-primary)' }
+const filePathLabel: CSSProperties = { fontSize: 'var(--text-label-size)', minWidth: 0 }
+const fileTypeBadge: CSSProperties = { flex: 'none', color: 'var(--dsw-alias-label-tertiary)', fontSize: 'var(--text-micro-size)', fontFamily: 'ui-monospace, monospace' }
 const fileAction: CSSProperties = {
   display: 'inline-flex', alignItems: 'center', gap: 4, border: '0.5px solid var(--dsw-alias-border-l3)',
   borderRadius: 5, background: 'transparent', color: 'var(--dsw-alias-label-secondary)', cursor: 'pointer',
-  font: 'inherit', fontSize: 10, lineHeight: '18px', padding: '0 6px',
+  font: 'inherit', fontSize: 'var(--text-label-size)', lineHeight: '18px', padding: '0 6px',
 }
 const iconAction: CSSProperties = { ...fileAction, padding: '0 5px' }
 const openControl: CSSProperties = { display: 'inline-flex', alignItems: 'center', flex: 'none' }
 const openMain: CSSProperties = { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 21, padding: 0, border: '0.5px solid var(--dsw-alias-border-l3)', borderTopLeftRadius: 5, borderBottomLeftRadius: 5, background: 'transparent', color: 'var(--dsw-alias-label-secondary)', cursor: 'pointer' }
 const openChevron: CSSProperties = { ...openMain, width: 15, marginLeft: -0.5, borderLeft: 'none', borderTopLeftRadius: 0, borderBottomLeftRadius: 0, borderTopRightRadius: 5, borderBottomRightRadius: 5 }
 const appIcon: CSSProperties = { width: 13, height: 13, objectFit: 'contain', display: 'block', borderRadius: 2 }
-const appBadge: CSSProperties = { display: 'grid', placeItems: 'center', width: 13, height: 13, borderRadius: 3, background: 'var(--dsw-alias-bg-layer-3)', color: 'var(--dsw-alias-label-secondary)', fontSize: 7, fontWeight: 500, lineHeight: 1 }
+const appBadge: CSSProperties = { display: 'grid', placeItems: 'center', width: 13, height: 13, borderRadius: 3, background: 'var(--dsw-alias-bg-layer-3)', color: 'var(--dsw-alias-label-secondary)', fontSize: 'var(--text-nano-size)', fontWeight: 500, lineHeight: 1 }
 
 function fileNameOf(path: string): string {
   return path.replaceAll('\\', '/').split('/').at(-1) ?? path
@@ -315,8 +315,8 @@ export function LoomFilePreview({
     labels: { ...lightboxLabels, open: t('diff.imagePreview'), loading: t('diff.fileLoading'), failed: t('state.error') },
   }), [markdownImages, lightboxLabels, t])
   const tabs = <div role="tablist" aria-label={t('diff.preview')} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 10px', borderBottom: '0.5px solid var(--dsw-alias-border-l4)', flex: 'none' }}>
-    <button type="button" role="tab" aria-selected={mode === 'diff'} onClick={() => setMode('diff')} style={{ border: 'none', borderRadius: 5, padding: '3px 8px', background: mode === 'diff' ? 'var(--dsw-alias-bg-layer-3)' : 'transparent', color: mode === 'diff' ? 'var(--dsw-alias-label-primary)' : 'var(--dsw-alias-label-secondary)', cursor: 'pointer', font: 'inherit', fontSize: 11.5 }}>{t('diff.tabDiff')}</button>
-    <button type="button" role="tab" aria-selected={mode === 'file'} onClick={() => setMode('file')} style={{ border: 'none', borderRadius: 5, padding: '3px 8px', background: mode === 'file' ? 'var(--dsw-alias-bg-layer-3)' : 'transparent', color: mode === 'file' ? 'var(--dsw-alias-label-primary)' : 'var(--dsw-alias-label-secondary)', cursor: 'pointer', font: 'inherit', fontSize: 11.5 }}>{t('diff.tabFile')}</button>
+    <button type="button" role="tab" aria-selected={mode === 'diff'} onClick={() => setMode('diff')} style={{ border: 'none', borderRadius: 5, padding: '3px 8px', background: mode === 'diff' ? 'var(--dsw-alias-bg-layer-3)' : 'transparent', color: mode === 'diff' ? 'var(--dsw-alias-label-primary)' : 'var(--dsw-alias-label-secondary)', cursor: 'pointer', font: 'inherit', fontSize: 'var(--text-small-size)' }}>{t('diff.tabDiff')}</button>
+    <button type="button" role="tab" aria-selected={mode === 'file'} onClick={() => setMode('file')} style={{ border: 'none', borderRadius: 5, padding: '3px 8px', background: mode === 'file' ? 'var(--dsw-alias-bg-layer-3)' : 'transparent', color: mode === 'file' ? 'var(--dsw-alias-label-primary)' : 'var(--dsw-alias-label-secondary)', cursor: 'pointer', font: 'inherit', fontSize: 'var(--text-small-size)' }}>{t('diff.tabFile')}</button>
     <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 4 }}>{onToggleFullscreen !== undefined && <button type="button" aria-label={fullscreen === true ? t('diff.exitFullscreen') : t('diff.fullscreen')} title={fullscreen === true ? t('diff.exitFullscreen') : t('diff.fullscreen')} style={iconAction} onClick={onToggleFullscreen}><IconFullscreenOutlineRegular size={13} /></button>}{onClose !== undefined && <button type="button" aria-label={t('form.close')} title={t('form.close')} style={iconAction} onClick={onClose}><IconCloseOutlineRegular size={13} /></button>}</span>
   </div>
   const toolbar = <div style={fileToolbar}>
@@ -344,12 +344,12 @@ export function LoomFilePreview({
             </div>
       : kind === 'spreadsheet'
         ? sessionId === undefined || readBytes === undefined
-          ? <div role="status" style={{ display: 'flex', flex: 1, minHeight: 0, flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 18, color: 'var(--dsw-alias-label-secondary)', fontSize: 12 }}><FileTypeIcon path={filePath} size={28} /><p style={{ margin: 0, fontSize: 12 }}>{t('diff.noSession')}</p></div>
+          ? <div role="status" style={{ display: 'flex', flex: 1, minHeight: 0, flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 18, color: 'var(--dsw-alias-label-secondary)', fontSize: 'var(--text-compact-size)' }}><FileTypeIcon path={filePath} size={28} /><p style={{ margin: 0, fontSize: 'var(--text-compact-size)' }}>{t('diff.noSession')}</p></div>
           : <LoomSpreadsheetPreview t={t} sessionId={sessionId} filePath={filePath} readBytes={readBytes} onOpenPath={openPath !== undefined && absoluteFile ? () => { void openPath(fileReadPath) } : undefined} />
       : kind === 'binary'
         ? <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, padding: 16, color: 'var(--dsw-alias-label-secondary)' }}>
             <FileTypeIcon path={filePath} size={30} />
-            <p style={{ margin: 0, fontSize: 12 }}>{t('diff.binaryNoPreview')}</p>
+            <p style={{ margin: 0, fontSize: 'var(--text-compact-size)' }}>{t('diff.binaryNoPreview')}</p>
             {absoluteFile && <FileOpenControl t={t} path={fileReadPath} applications={applicationsState} openPath={openPath} openWith={openWith} />}
           </div>
         : fileText.kind === 'loading'
@@ -360,7 +360,7 @@ export function LoomFilePreview({
               ? <p role="status" style={{ margin: 0, padding: 12 }}>{t('diff.fileEmpty')}</p>
               : kind === 'markdown'
                 ? <div style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: '12px 14px' }}>
-                    {fileText.truncated && <p role="status" style={{ margin: '0 0 8px', color: 'var(--dsw-alias-label-secondary)', fontSize: 11 }}>{t('diff.fileTruncated')}</p>}
+                    {fileText.truncated && <p role="status" style={{ margin: '0 0 8px', color: 'var(--dsw-alias-label-secondary)', fontSize: 'var(--text-small-size)' }}>{t('diff.fileTruncated')}</p>}
                     <MarkdownDelegateProvider fileImages={markdownFileImages}>
                       <MarkdownText text={fileText.text} labels={markdownLabels} pathImages={markdownPathImages} />
                     </MarkdownDelegateProvider>
@@ -372,7 +372,7 @@ export function LoomFilePreview({
                       <button type="button" aria-label={t('diff.zoomIn')} title={t('diff.zoomIn')} style={zoomButton} onClick={() => setZoom(current => Math.min(2, Number((current + 0.15).toFixed(2))))}>+</button>
                     </div>
                     <div style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: '6px 10px', ...({ '--dsl-code-block-content-font': `${String(Math.round(12 * zoom))}px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace` } as CSSProperties) }}>
-                      {fileText.truncated && <p role="status" style={{ margin: '0 0 6px', color: 'var(--dsw-alias-label-secondary)', fontSize: 11 }}>{t('diff.fileTruncated')}</p>}
+                      {fileText.truncated && <p role="status" style={{ margin: '0 0 6px', color: 'var(--dsw-alias-label-secondary)', fontSize: 'var(--text-small-size)' }}>{t('diff.fileTruncated')}</p>}
                       <CodeBlock code={fileText.text} lang={languageForPath(filePath)} lineNumbers copyLabel={t('diff.copy')} copiedLabel={t('diff.copied')} toolbarLabels={{ codeLabel: t('diff.codeLabel'), wrapLabel: t('diff.wrap'), unwrapLabel: t('diff.unwrap') }} />
                     </div>
                   </div>
@@ -390,8 +390,8 @@ export function LoomFilePreview({
       : { kind: 'text', path: file.path, display: file.path, before: file.before, after: file.after, coarse: false, hunks: file.hunks }
   return <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0, flex: 1 }}>{tabs}{toolbar}
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', borderBottom: '0.5px solid var(--dsw-alias-border-l4)', flex: 'none' }}>
-      <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'ui-monospace, monospace', fontSize: 11.5 }} title={file.path}>{file.path}</span>
-      <span style={{ marginLeft: 'auto', color: 'var(--dsw-alias-label-tertiary)', fontSize: 11, whiteSpace: 'nowrap' }}>+{String(file.added)} −{String(file.deleted)}</span>
+      <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'ui-monospace, monospace', fontSize: 'var(--text-small-size)' }} title={file.path}>{file.path}</span>
+      <span style={{ marginLeft: 'auto', color: 'var(--dsw-alias-label-tertiary)', fontSize: 'var(--text-small-size)', whiteSpace: 'nowrap' }}>+{String(file.added)} −{String(file.deleted)}</span>
       <LoomWrapToggle t={t} wrap={wrap} onToggle={onToggleWrap} />
     </div>
     <div data-loom-diff-viewport style={diffViewport}>

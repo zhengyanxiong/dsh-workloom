@@ -33,33 +33,33 @@ type DecisionTarget = TransitionTaskRequest['target']
 
 const card: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0, padding: '16px 18px', background: COLORS.panel, border: `0.5px solid ${COLORS.border}`, borderRadius: 10 }
 const embeddedCard: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0 }
-const heading: CSSProperties = { display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap', margin: 0, color: COLORS.text, fontSize: 12.5, fontWeight: 500, lineHeight: 1.4 }
+const heading: CSSProperties = { display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap', margin: 0, color: COLORS.text, fontSize: 'var(--text-compact-size)', fontWeight: 500, lineHeight: 1.4 }
 const headingSpacer: CSSProperties = { marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }
-const notice: CSSProperties = { margin: 0, padding: '8px 10px', borderRadius: 7, color: COLORS.dim, background: COLORS.panel2, border: `0.5px solid ${COLORS.border}`, fontSize: 11.5, lineHeight: 1.6 }
+const notice: CSSProperties = { margin: 0, padding: '8px 10px', borderRadius: 7, color: COLORS.dim, background: COLORS.panel2, border: `0.5px solid ${COLORS.border}`, fontSize: 'var(--text-small-size)', lineHeight: 1.6 }
 const suggestionNotice: CSSProperties = { ...notice, borderColor: COLORS.warn, color: COLORS.text }
-const summary: CSSProperties = { margin: 0, color: COLORS.dim, fontSize: 12, lineHeight: 1.65, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }
+const summary: CSSProperties = { margin: 0, color: COLORS.dim, fontSize: 'var(--text-compact-size)', lineHeight: 1.65, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }
 const metaGrid: CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '8px 14px', minWidth: 0 }
 const field: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }
-const fieldLabel: CSSProperties = { ...metaLine, fontFamily: 'ui-monospace, monospace', fontSize: 8.5, letterSpacing: '.08em', textTransform: 'uppercase' }
-const fieldValue: CSSProperties = { minWidth: 0, overflowWrap: 'anywhere', color: COLORS.text, fontSize: 11, lineHeight: 1.5 }
-const monoValue: CSSProperties = { ...fieldValue, fontFamily: 'ui-monospace, monospace', fontSize: 10.5 }
+const fieldLabel: CSSProperties = { ...metaLine, fontFamily: 'ui-monospace, monospace', fontSize: 'var(--text-nano-size)', letterSpacing: '.08em', textTransform: 'uppercase' }
+const fieldValue: CSSProperties = { minWidth: 0, overflowWrap: 'anywhere', color: COLORS.text, fontSize: 'var(--text-small-size)', lineHeight: 1.5 }
+const monoValue: CSSProperties = { ...fieldValue, fontFamily: 'ui-monospace, monospace', fontSize: 'var(--text-label-size)' }
 const list: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 3, margin: 0, padding: 0, listStyle: 'none' }
-const listItem: CSSProperties = { display: 'flex', alignItems: 'flex-start', gap: 6, minWidth: 0, color: COLORS.dim, fontSize: 11.5, lineHeight: 1.55 }
-const listMark: CSSProperties = { flex: 'none', color: COLORS.faint, fontFamily: 'ui-monospace, monospace', fontSize: 10, lineHeight: '17px' }
-const muted: CSSProperties = { margin: 0, color: COLORS.faint, fontSize: 11.5, lineHeight: 1.6 }
+const listItem: CSSProperties = { display: 'flex', alignItems: 'flex-start', gap: 6, minWidth: 0, color: COLORS.dim, fontSize: 'var(--text-small-size)', lineHeight: 1.55 }
+const listMark: CSSProperties = { flex: 'none', color: COLORS.faint, fontFamily: 'ui-monospace, monospace', fontSize: 'var(--text-label-size)', lineHeight: '17px' }
+const muted: CSSProperties = { margin: 0, color: COLORS.faint, fontSize: 'var(--text-small-size)', lineHeight: 1.6 }
 const tests: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 6, margin: 0, padding: 0, listStyle: 'none' }
 const testRow: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0, padding: '7px 9px', borderRadius: 6, background: COLORS.panel2, border: `0.5px solid ${COLORS.border}` }
 const testHead: CSSProperties = { display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap', minWidth: 0 }
-const testName: CSSProperties = { minWidth: 0, overflowWrap: 'anywhere', color: COLORS.text, fontSize: 11.5, fontWeight: 500 }
-const testDetail: CSSProperties = { margin: 0, color: COLORS.faint, fontSize: 10.5, lineHeight: 1.5, fontFamily: 'ui-monospace, monospace', overflowWrap: 'anywhere' }
+const testName: CSSProperties = { minWidth: 0, overflowWrap: 'anywhere', color: COLORS.text, fontSize: 'var(--text-small-size)', fontWeight: 500 }
+const testDetail: CSSProperties = { margin: 0, color: COLORS.faint, fontSize: 'var(--text-label-size)', lineHeight: 1.5, fontFamily: 'ui-monospace, monospace', overflowWrap: 'anywhere' }
 const diffBox: CSSProperties = { display: 'flex', flexDirection: 'column', minHeight: 0, height: 360, marginTop: 2, border: `0.5px solid ${COLORS.border}`, borderRadius: 8, overflow: 'hidden', background: COLORS.panel2 }
 const decision: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 8, paddingTop: 10, borderTop: `0.5px solid ${COLORS.border}` }
-const textarea: CSSProperties = { width: '100%', minHeight: 62, resize: 'vertical', boxSizing: 'border-box', background: COLORS.panel2, color: COLORS.text, border: `0.5px solid ${COLORS.border}`, borderRadius: 6, padding: '7px 9px', font: 'inherit', fontSize: 12, lineHeight: 1.5 }
+const textarea: CSSProperties = { width: '100%', minHeight: 62, resize: 'vertical', boxSizing: 'border-box', background: COLORS.panel2, color: COLORS.text, border: `0.5px solid ${COLORS.border}`, borderRadius: 6, padding: '7px 9px', font: 'inherit', fontSize: 'var(--text-compact-size)', lineHeight: 1.5 }
 const actionRow: CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }
 const danger: CSSProperties = { color: COLORS.error, borderColor: COLORS.error }
-const success: CSSProperties = { margin: 0, color: COLORS.green, fontSize: 11.5, lineHeight: 1.6 }
-const alert: CSSProperties = { margin: 0, color: COLORS.error, fontSize: 11.5, lineHeight: 1.6 }
-const pill: CSSProperties = { display: 'inline-flex', alignItems: 'center', height: 19, padding: '0 7px', borderRadius: 5, border: `0.5px solid ${COLORS.border}`, color: COLORS.dim, fontSize: 10, whiteSpace: 'nowrap' }
+const success: CSSProperties = { margin: 0, color: COLORS.green, fontSize: 'var(--text-small-size)', lineHeight: 1.6 }
+const alert: CSSProperties = { margin: 0, color: COLORS.error, fontSize: 'var(--text-small-size)', lineHeight: 1.6 }
+const pill: CSSProperties = { display: 'inline-flex', alignItems: 'center', height: 19, padding: '0 7px', borderRadius: 5, border: `0.5px solid ${COLORS.border}`, color: COLORS.dim, fontSize: 'var(--text-label-size)', whiteSpace: 'nowrap' }
 
 const OUTCOME_STATE_KEY: Readonly<Record<TaskOutcome['state'], LoomKey>> = {
   suggested: 'outcome.state.suggested',
@@ -193,7 +193,7 @@ export function LoomOutcomePanel({ t, task, snapshot, actions, loadChanges, wrap
         : <>
           <div style={actionRow}>
             <Button size="sm" variant="outline" icon={<IconBranchOutlineRegular />} onClick={() => setShowDiff(value => !value)}>{showDiff ? t('outcome.diffHide') : t('outcome.diffOpen')}</Button>
-            <span style={{ ...muted, fontFamily: 'ui-monospace, monospace', fontSize: 10.5, minWidth: 0, overflowWrap: 'anywhere' }}>{workspace.path}</span>
+            <span style={{ ...muted, fontFamily: 'ui-monospace, monospace', fontSize: 'var(--text-label-size)', minWidth: 0, overflowWrap: 'anywhere' }}>{workspace.path}</span>
           </div>
           {showDiff && <div style={diffBox}><LoomDiff t={t} workspaceId={workspace.id} {...attempt === undefined ? {} : { attemptId: attempt.id }} loadChanges={loadChanges} wrap={wrap} onToggleWrap={onToggleWrap} /></div>}
         </>}
@@ -208,7 +208,7 @@ export function LoomOutcomePanel({ t, task, snapshot, actions, loadChanges, wrap
         : <>
           <p style={muted}>{t('outcome.decisionHint')}</p>
           <label style={field}>
-            <span style={{ ...muted, fontSize: 11.5 }}>{t('outcome.confirmationBasis')}</span>
+            <span style={{ ...muted, fontSize: 'var(--text-small-size)' }}>{t('outcome.confirmationBasis')}</span>
             <textarea aria-label={t('outcome.confirmationBasis')} placeholder={t('outcome.basisPlaceholder')} value={basis} onChange={(event) => { setBasis(event.target.value); setBasisMissing(false) }} style={textarea} />
           </label>
           {basisMissing && <p role="alert" style={alert}><IconWarningTriangleOutlineRegular size={12} /> {t('outcome.basisRequired')}</p>}

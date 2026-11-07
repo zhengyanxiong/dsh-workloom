@@ -56,44 +56,44 @@ export interface LoomContextPanelProps {
 
 const panel: CSSProperties = { display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'auto', background: COLORS.panel, borderLeft: `0.5px solid ${COLORS.border}` }
 const header: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 5, padding: '12px 14px 11px', borderBottom: `0.5px solid ${COLORS.border}` }
-const eyebrow: CSSProperties = { margin: 0, color: COLORS.faint, fontSize: 9.5, fontWeight: 500, letterSpacing: '.08em', textTransform: 'uppercase' }
+const eyebrow: CSSProperties = { margin: 0, color: COLORS.faint, fontSize: 'var(--text-micro-size)', fontWeight: 500, letterSpacing: '.08em', textTransform: 'uppercase' }
 const titleRow: CSSProperties = { display: 'flex', alignItems: 'flex-start', gap: 8, minWidth: 0 }
-const title: CSSProperties = { margin: 0, color: COLORS.text, fontSize: 16, fontWeight: 500, lineHeight: 1.3, overflowWrap: 'anywhere', flex: 1, minWidth: 0 }
-const subtitle: CSSProperties = { margin: 0, color: COLORS.faint, fontSize: 10.5, lineHeight: 1.4, overflowWrap: 'anywhere' }
+const title: CSSProperties = { margin: 0, color: COLORS.text, fontSize: 'var(--text-h2-size)', fontWeight: 500, lineHeight: 1.3, overflowWrap: 'anywhere', flex: 1, minWidth: 0 }
+const subtitle: CSSProperties = { margin: 0, color: COLORS.faint, fontSize: 'var(--text-label-size)', lineHeight: 1.4, overflowWrap: 'anywhere' }
 const actions: CSSProperties = { display: 'flex', alignItems: 'center', gap: 2, flex: 'none' }
 const section: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 6, padding: '11px 14px', borderBottom: `0.5px solid ${COLORS.border}` }
 const iconOnly: CSSProperties = { color: COLORS.faint }
-const muted: CSSProperties = { margin: 0, color: COLORS.dim, fontSize: 10.5, lineHeight: 1.5 }
-const hint: CSSProperties = { margin: 0, color: COLORS.faint, fontSize: 9.5, lineHeight: 1.5 }
-const mono: CSSProperties = { fontFamily: 'ui-monospace, monospace', fontSize: 10.5, color: COLORS.text, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
+const muted: CSSProperties = { margin: 0, color: COLORS.dim, fontSize: 'var(--text-label-size)', lineHeight: 1.5 }
+const hint: CSSProperties = { margin: 0, color: COLORS.faint, fontSize: 'var(--text-micro-size)', lineHeight: 1.5 }
+const mono: CSSProperties = { fontFamily: 'ui-monospace, monospace', fontSize: 'var(--text-label-size)', color: COLORS.text, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
 const gitRepo: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 3, padding: '7px 8px', border: `0.5px solid ${COLORS.border}`, borderRadius: 6, background: COLORS.panel }
 const repoHead: CSSProperties = { display: 'flex', alignItems: 'baseline', gap: 8, minWidth: 0 }
-const repoName: CSSProperties = { color: COLORS.text, fontSize: 10.5, fontFamily: 'ui-monospace, monospace', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }
-const repoPath: CSSProperties = { color: COLORS.faint, fontSize: 9.5, fontFamily: 'ui-monospace, monospace', flex: 'none', maxWidth: '45%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
+const repoName: CSSProperties = { color: COLORS.text, fontSize: 'var(--text-label-size)', fontFamily: 'ui-monospace, monospace', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }
+const repoPath: CSSProperties = { color: COLORS.faint, fontSize: 'var(--text-micro-size)', fontFamily: 'ui-monospace, monospace', flex: 'none', maxWidth: '45%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
 const graphRow: CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, paddingLeft: 2 }
 const dot: CSSProperties = { width: 5, height: 5, borderRadius: '50%', flex: 'none' }
-const graphLabel: CSSProperties = { color: COLORS.dim, fontSize: 9.5, flex: 'none' }
+const graphLabel: CSSProperties = { color: COLORS.dim, fontSize: 'var(--text-micro-size)', flex: 'none' }
 const sourceRow: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 2, padding: '5px 7px', borderRadius: 5, background: COLORS.panel, border: `0.5px solid ${COLORS.border}` }
-const sourceTitle: CSSProperties = { color: COLORS.text, fontSize: 10.5, fontFamily: 'ui-monospace, monospace', overflowWrap: 'anywhere' }
+const sourceTitle: CSSProperties = { color: COLORS.text, fontSize: 'var(--text-label-size)', fontFamily: 'ui-monospace, monospace', overflowWrap: 'anywhere' }
 const moduleRow: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 1, padding: '5px 7px', borderRadius: 5, background: COLORS.panel, border: `0.5px solid ${COLORS.border}` }
-const sourceMeta: CSSProperties = { color: COLORS.faint, fontSize: 9.5, lineHeight: 1.45, overflowWrap: 'anywhere' }
+const sourceMeta: CSSProperties = { color: COLORS.faint, fontSize: 'var(--text-micro-size)', lineHeight: 1.45, overflowWrap: 'anywhere' }
 const ctxBlock: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 }
-const ctxLabel: CSSProperties = { color: COLORS.faint, fontSize: 9.5, lineHeight: 1.45 }
-const ctxDescription: CSSProperties = { margin: 0, color: COLORS.text, fontSize: 10.5, lineHeight: 1.55, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }
-const ctxTaskRow: CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, fontSize: 10.5 }
+const ctxLabel: CSSProperties = { color: COLORS.faint, fontSize: 'var(--text-micro-size)', lineHeight: 1.45 }
+const ctxDescription: CSSProperties = { margin: 0, color: COLORS.text, fontSize: 'var(--text-label-size)', lineHeight: 1.55, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }
+const ctxTaskRow: CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, fontSize: 'var(--text-label-size)' }
 const ctxTaskTitle: CSSProperties = { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: COLORS.dim }
-const ctxTaskStatus: CSSProperties = { marginLeft: 'auto', flex: 'none', color: COLORS.faint, fontSize: 9.5 }
-const ctxText: CSSProperties = { margin: '4px 0 0', maxHeight: 200, overflow: 'auto', padding: '7px 8px', borderRadius: 5, border: `0.5px solid ${COLORS.border}`, background: COLORS.panel2, color: COLORS.dim, fontFamily: 'ui-monospace, monospace', fontSize: 9.5, lineHeight: 1.5, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }
+const ctxTaskStatus: CSSProperties = { marginLeft: 'auto', flex: 'none', color: COLORS.faint, fontSize: 'var(--text-micro-size)' }
+const ctxText: CSSProperties = { margin: '4px 0 0', maxHeight: 200, overflow: 'auto', padding: '7px 8px', borderRadius: 5, border: `0.5px solid ${COLORS.border}`, background: COLORS.panel2, color: COLORS.dim, fontFamily: 'ui-monospace, monospace', fontSize: 'var(--text-micro-size)', lineHeight: 1.5, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }
 
 function SectionHeading({ title: heading, action }: { title: string; action?: ReactNode }) {
   return <div style={{ display: 'flex', alignItems: 'center', gap: 8, minHeight: 20 }}>
-    <h4 style={{ ...sectionTitle, marginBottom: 0, fontSize: 9.5, letterSpacing: '.06em', textTransform: 'uppercase' }}>{heading}</h4>
+    <h4 style={{ ...sectionTitle, marginBottom: 0, fontSize: 'var(--text-micro-size)', letterSpacing: '.06em', textTransform: 'uppercase' }}>{heading}</h4>
     {action !== undefined && <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 2 }}>{action}</span>}
   </div>
 }
 
 function Row({ k, v, mono: useMono = true, wrap = true }: { k: string; v: string; mono?: boolean; wrap?: boolean }) {
-  return <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10, minWidth: 0, fontSize: 11 }}>
+  return <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10, minWidth: 0, fontSize: 'var(--text-small-size)' }}>
     <span style={{ color: COLORS.dim, flex: 'none' }}>{k}</span>
     <span title={wrap ? undefined : v} style={{ color: COLORS.text, fontFamily: useMono ? 'ui-monospace, monospace' : 'inherit', fontSize: useMono ? 10.5 : 11, textAlign: 'right', minWidth: 0, ...(wrap ? { overflowWrap: 'anywhere' } : { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }) }}>{v}</span>
   </div>
@@ -311,8 +311,8 @@ export function LoomContextPanel({ t, snapshot, project, version, task, versionC
         {project.config.modules.length === 0 ? <p style={muted}>{t('task.noModules')}</p> : project.config.modules.map(module => {
           const source = projectSource(module.sourceId)
           return <div key={module.id} style={moduleRow}>
-            <span style={{ color: COLORS.text, fontSize: 10.5, overflowWrap: 'anywhere' }}>{module.path}</span>
-            <span style={{ color: COLORS.faint, fontSize: 9.5, overflowWrap: 'anywhere' }}>{source?.path ?? module.sourceId}</span>
+            <span style={{ color: COLORS.text, fontSize: 'var(--text-label-size)', overflowWrap: 'anywhere' }}>{module.path}</span>
+            <span style={{ color: COLORS.faint, fontSize: 'var(--text-micro-size)', overflowWrap: 'anywhere' }}>{source?.path ?? module.sourceId}</span>
           </div>
         })}
       </section>

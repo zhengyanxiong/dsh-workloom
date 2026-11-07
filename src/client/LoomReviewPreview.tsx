@@ -149,7 +149,7 @@ export function LoomReviewPreview({ t, sessionId, seq, initialIndex = 0, onOpenF
   const selectedFile = file
   return <div style={{ display: 'grid', gridTemplateColumns: 'minmax(150px, 210px) minmax(0, 1fr)', flex: 1, minHeight: 0 }}>
     <div role="group" aria-label={t('review.fileList')} style={{ display: 'flex', flexDirection: 'column', minHeight: 0, minWidth: 0, borderRight: '0.5px solid var(--dsw-alias-border-l4)' }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, padding: '7px 8px 6px', color: 'var(--dsw-alias-label-secondary)', fontSize: 11, flex: 'none' }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, padding: '7px 8px 6px', color: 'var(--dsw-alias-label-secondary)', fontSize: 'var(--text-small-size)', flex: 'none' }}>
         <span>{t('review.fileList')} {summaryState.kind === 'ready' ? String(summaryState.summary.files.length) : ''}</span>
         {summaryState.kind === 'ready' && <span style={{ marginLeft: 'auto' }}><LoomFileCounts file={{ display: '', added: summaryState.summary.added, deleted: summaryState.summary.deleted }} t={t} /></span>}
       </div>
@@ -164,16 +164,16 @@ export function LoomReviewPreview({ t, sessionId, seq, initialIndex = 0, onOpenF
     </div>
     <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0 }}>
       {selectedFile !== undefined && <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 9px', borderBottom: '0.5px solid var(--dsw-alias-border-l4)', flex: 'none', minWidth: 0 }}>
-        <strong style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 11.5 }}>{selectedFile.display}</strong>
+        <strong style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 'var(--text-small-size)' }}>{selectedFile.display}</strong>
         <span style={{ flex: 'none', display: 'flex', gap: 4 }}><LoomFileCounts file={selectedFile} t={t} /></span>
         <span style={{ flex: 1 }} />
         <LoomWrapToggle t={t} wrap={wrap} onToggle={onToggleWrap} />
-        {onOpenFile !== undefined && <button type="button" style={{ flex: 'none', border: '0.5px solid var(--dsw-alias-border-l2)', background: 'transparent', color: 'var(--dsw-alias-label-secondary)', borderRadius: 5, padding: '3px 8px', cursor: 'pointer', font: 'inherit', fontSize: 11 }} onClick={() => onOpenFile(selectedFile.path)}>{t('review.openFile')}</button>}
+        {onOpenFile !== undefined && <button type="button" style={{ flex: 'none', border: '0.5px solid var(--dsw-alias-border-l2)', background: 'transparent', color: 'var(--dsw-alias-label-secondary)', borderRadius: 5, padding: '3px 8px', cursor: 'pointer', font: 'inherit', fontSize: 'var(--text-small-size)' }} onClick={() => onOpenFile(selectedFile.path)}>{t('review.openFile')}</button>}
       </div>}
       <div data-loom-diff-viewport style={diffViewport}>
         {summaryState.kind === 'loading' && <p role="status" style={{ margin: 0, padding: 12 }}>{t('review.loading')}</p>}
         {summaryState.kind === 'missing' && <p role="status" style={{ margin: 0, padding: 12 }}>{t('review.missing')}</p>}
-        {summaryState.kind === 'error' && <p role="alert" style={{ margin: 0, padding: 12 }}>{t('state.error')} <button type="button" onClick={() => setSummaryAttempt(current => current + 1)} style={{ marginLeft: 6, border: '0.5px solid var(--dsw-alias-border-l2)', background: 'transparent', color: 'var(--dsw-alias-label-secondary)', borderRadius: 5, padding: '2px 7px', cursor: 'pointer', font: 'inherit', fontSize: 11 }}>{t('form.retry')}</button></p>}
+        {summaryState.kind === 'error' && <p role="alert" style={{ margin: 0, padding: 12 }}>{t('state.error')} <button type="button" onClick={() => setSummaryAttempt(current => current + 1)} style={{ marginLeft: 6, border: '0.5px solid var(--dsw-alias-border-l2)', background: 'transparent', color: 'var(--dsw-alias-label-secondary)', borderRadius: 5, padding: '2px 7px', cursor: 'pointer', font: 'inherit', fontSize: 'var(--text-small-size)' }}>{t('form.retry')}</button></p>}
         {summaryState.kind === 'ready' && summaryState.summary.files.length === 0 && <p role="status" style={{ margin: 0, padding: 12 }}>{t('diff.empty')}</p>}
         {summaryState.kind === 'ready' && selectedFile !== undefined && (diff.kind === 'loading'
           ? <p role="status" style={{ margin: 0, padding: 12 }}>{t('diff.loading')}</p>

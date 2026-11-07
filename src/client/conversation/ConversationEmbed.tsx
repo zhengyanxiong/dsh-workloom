@@ -50,7 +50,7 @@ const tabStyle: CSSProperties = {
   border: 'none',
   background: 'transparent',
   font: 'inherit',
-  fontSize: 13,
+  fontSize: 'var(--text-h3-size)',
   lineHeight: '16px',
   fontWeight: 500,
   color: COLORS.faint,

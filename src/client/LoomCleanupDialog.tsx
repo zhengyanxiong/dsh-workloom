@@ -8,21 +8,21 @@ import type { LoomKey } from './locales.ts'
 
 type Translate = (key: LoomKey, params?: Readonly<Record<string, string>>) => string
 
-const backdrop: CSSProperties = { position: 'fixed', inset: 0, zIndex: 95, background: 'rgba(0,0,0,.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }
-const panel: CSSProperties = { width: 880, maxWidth: 'calc(100vw - 32px)', maxHeight: 'calc(100vh - 48px)', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxSizing: 'border-box', background: 'var(--dsw-alias-bg-layer-1)', border: '0.5px solid var(--dsw-alias-border-l4)', borderRadius: 12, padding: 18, boxShadow: '0 24px 64px rgba(0,0,0,.5)' }
+const backdrop: CSSProperties = { position: 'fixed', inset: 0, zIndex: 95, background: 'color-mix(in srgb, var(--color-ink) 50%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }
+const panel: CSSProperties = { width: 880, maxWidth: 'calc(100vw - 32px)', maxHeight: 'calc(100vh - 48px)', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxSizing: 'border-box', background: 'var(--dsw-alias-bg-layer-1)', border: '0.5px solid var(--dsw-alias-border-l4)', borderRadius: 12, padding: 18, boxShadow: '0 24px 64px color-mix(in srgb, var(--color-ink) 50%, transparent)' }
 const button: CSSProperties = { color: 'inherit', background: 'transparent', border: '0.5px solid var(--dsw-alias-border-l4)', borderRadius: 6, padding: '6px 10px', cursor: 'pointer', font: 'inherit' }
-const alert: CSSProperties = { margin: 0, color: 'var(--dsw-alias-label-secondary)', fontSize: 12, lineHeight: 1.6 }
+const alert: CSSProperties = { margin: 0, color: 'var(--dsw-alias-label-secondary)', fontSize: 'var(--text-compact-size)', lineHeight: 1.6 }
 const diffBox: CSSProperties = { marginTop: 12, display: 'flex', flexDirection: 'column', minHeight: 0, border: '0.5px solid var(--dsw-alias-border-l4)', borderRadius: 8, overflow: 'hidden', background: 'var(--dsw-alias-bg-layer-2)' }
 const section: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0, marginTop: 10, padding: '10px 11px', border: `0.5px solid ${COLORS.border}`, borderRadius: 8, background: COLORS.panel2 }
-const sectionTitle: CSSProperties = { margin: 0, ...metaLine, fontFamily: 'ui-monospace, monospace', fontSize: 8.5, letterSpacing: '.08em', textTransform: 'uppercase' }
+const sectionTitle: CSSProperties = { margin: 0, ...metaLine, fontFamily: 'ui-monospace, monospace', fontSize: 'var(--text-nano-size)', letterSpacing: '.08em', textTransform: 'uppercase' }
 const list: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 4, margin: 0, padding: 0, listStyle: 'none' }
 const row: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0, padding: '6px 8px', borderRadius: 6, background: COLORS.panel, border: `0.5px solid ${COLORS.border}` }
 const rowHead: CSSProperties = { display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap', minWidth: 0 }
-const mono: CSSProperties = { minWidth: 0, overflowWrap: 'anywhere', fontFamily: 'ui-monospace, monospace', fontSize: 10.5, color: COLORS.dim }
-const diagnostic: CSSProperties = { margin: 0, color: COLORS.error, fontFamily: 'ui-monospace, monospace', fontSize: 10.5, lineHeight: 1.5, overflowWrap: 'anywhere' }
-const residual: CSSProperties = { margin: 0, color: COLORS.warn, fontFamily: 'ui-monospace, monospace', fontSize: 10.5, lineHeight: 1.5, overflowWrap: 'anywhere' }
-const partialNote: CSSProperties = { margin: 0, color: COLORS.warn, fontSize: 11.5, lineHeight: 1.6 }
-const muted: CSSProperties = { margin: 0, color: COLORS.faint, fontSize: 11, lineHeight: 1.55 }
+const mono: CSSProperties = { minWidth: 0, overflowWrap: 'anywhere', fontFamily: 'ui-monospace, monospace', fontSize: 'var(--text-label-size)', color: COLORS.dim }
+const diagnostic: CSSProperties = { margin: 0, color: COLORS.error, fontFamily: 'ui-monospace, monospace', fontSize: 'var(--text-label-size)', lineHeight: 1.5, overflowWrap: 'anywhere' }
+const residual: CSSProperties = { margin: 0, color: COLORS.warn, fontFamily: 'ui-monospace, monospace', fontSize: 'var(--text-label-size)', lineHeight: 1.5, overflowWrap: 'anywhere' }
+const partialNote: CSSProperties = { margin: 0, color: COLORS.warn, fontSize: 'var(--text-small-size)', lineHeight: 1.6 }
+const muted: CSSProperties = { margin: 0, color: COLORS.faint, fontSize: 'var(--text-small-size)', lineHeight: 1.55 }
 
 /** Remote failure the dialog explains; the code drives localized copy, the message keeps Host detail. */
 export interface LoomCleanupFailure {
@@ -73,8 +73,8 @@ export function LoomCleanupDialog({ t, workspace, busy, failure, discardAllowed,
     <div role="dialog" aria-modal="true" aria-label={t('workspace.cleanup')} style={maximized ? { ...panel, width: 'calc(100vw - 24px)', height: 'calc(100vh - 24px)', maxHeight: 'none' } : panel} onClick={(event) => { event.stopPropagation() }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 10, flexShrink: 0 }}>
         <div style={{ minWidth: 0 }}>
-          <strong style={{ fontSize: 15 }}>{t('workspace.cleanup')}</strong>
-          <p style={{ ...alert, marginTop: 4, overflowWrap: 'anywhere', fontFamily: 'ui-monospace, monospace', fontSize: 11 }}>{workspace.rootPath ?? workspace.path}</p>
+          <strong style={{ fontSize: 'var(--text-h2-size)' }}>{t('workspace.cleanup')}</strong>
+          <p style={{ ...alert, marginTop: 4, overflowWrap: 'anywhere', fontFamily: 'ui-monospace, monospace', fontSize: 'var(--text-small-size)' }}>{workspace.rootPath ?? workspace.path}</p>
         </div>
         <button type="button" aria-pressed={maximized} style={{ ...button, marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 5 }} onClick={() => setMaximized(value => !value)}>
           <IconFullscreenOutlineRegular size={13} />{maximized ? t('workspace.cleanupRestore') : t('workspace.cleanupMaximize')}

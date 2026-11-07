@@ -92,7 +92,7 @@ export function LoomResizeHandle({ label, orientation, value, min, max, invert, 
     aria-valuenow={Math.round(value)}
     tabIndex={0}
     title={label}
-    style={{ ...BASE, ...(vertical ? { width: 7, cursor: 'col-resize' } : { height: 7, cursor: 'row-resize' }), background: active ? 'rgba(47,129,247,.16)' : 'transparent' }}
+    style={{ ...BASE, ...(vertical ? { width: 7, cursor: 'col-resize' } : { height: 7, cursor: 'row-resize' }), background: active ? 'color-mix(in srgb, var(--color-accent) 16%, transparent)' : 'transparent' }}
     onPointerEnter={() => setHover(true)}
     onPointerLeave={() => setHover(false)}
     onPointerDown={(event: ReactPointerEvent<HTMLDivElement>) => {
@@ -115,6 +115,6 @@ export function LoomResizeHandle({ label, orientation, value, min, max, invert, 
       onChange(nextSize(value, delta, invert, min, max))
     }}
   >
-    <span aria-hidden style={{ position: 'absolute', ...(vertical ? { top: 0, bottom: 0, left: 3, width: 1 } : { left: 0, right: 0, top: 3, height: 1 }), background: active ? 'var(--dsw-alias-label-accent, #2f81f7)' : 'var(--dsw-alias-border-l2)' }} />
+    <span aria-hidden style={{ position: 'absolute', ...(vertical ? { top: 0, bottom: 0, left: 3, width: 1 } : { left: 0, right: 0, top: 3, height: 1 }), background: active ? 'var(--color-accent)' : 'var(--color-line)' }} />
   </div>
 }

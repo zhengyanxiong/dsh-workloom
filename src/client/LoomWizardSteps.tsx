@@ -28,7 +28,7 @@ export interface LoomWizardStepsProps<Key extends string> {
 const rail: CSSProperties = { display: 'flex', alignItems: 'center', listStyle: 'none', padding: '15px 0 17px', margin: '14px 0 18px', borderBottom: `0.5px solid ${COLORS.border}`, background: 'transparent' }
 const item: CSSProperties = { display: 'flex', alignItems: 'center', minWidth: 0 }
 const button: CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 8, minWidth: 0, padding: 0, border: 'none', background: 'transparent', font: 'inherit', color: 'inherit' }
-const circle: CSSProperties = { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 22, height: 22, boxSizing: 'border-box', borderRadius: 999, border: '1px solid', fontSize: 11, fontWeight: 500, flex: 'none' }
+const circle: CSSProperties = { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 22, height: 22, boxSizing: 'border-box', borderRadius: 999, border: '1px solid', fontSize: 'var(--text-small-size)', fontWeight: 500, flex: 'none' }
 
 /**
  * Render the completed/current/upcoming step rail used by the project, version and task modals.
@@ -54,8 +54,8 @@ export function LoomWizardSteps<Key extends string>({ t, steps, current, ariaLab
             ...(active ? { boxShadow: '0 0 0 4px color-mix(in srgb, var(--loom-accent) 13%, transparent)' } : {}),
           }}>{complete ? <IconCheckOutlineRegular size={12} /> : String(index + 1)}</span>
           <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 4, maxWidth: '100%', minWidth: 0 }}>
-            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: active ? COLORS.text : complete ? COLORS.dim : COLORS.faint, fontSize: 12, fontWeight: active ? 500 : 400 }}>{t(step.label)}</span>
-            {step.optional === true && <span style={{ color: COLORS.faint, fontSize: 9.5, flex: 'none' }}>{t('wizard.optional')}</span>}
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: active ? COLORS.text : complete ? COLORS.dim : COLORS.faint, fontSize: 'var(--text-compact-size)', fontWeight: active ? 500 : 400 }}>{t(step.label)}</span>
+            {step.optional === true && <span style={{ color: COLORS.faint, fontSize: 'var(--text-micro-size)', flex: 'none' }}>{t('wizard.optional')}</span>}
           </span>
         </button>
         {index < steps.length - 1 && <span aria-hidden style={{ flex: 1, height: 1, minWidth: 20, margin: '0 12px', background: complete ? COLORS.accent : COLORS.border }} />}
