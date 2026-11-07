@@ -6,6 +6,7 @@ import { brandString } from '@deepseek-ai/dsh-brand'
 import { ProjectForm } from '../../../src/client/features/project/ProjectForm.tsx'
 import { projectRequest, sourcePathsOverlap } from '../../../src/client/features/forms/drafts.ts'
 import { TaskForm } from '../../../src/client/features/task/TaskForm.tsx'
+import { BranchPicker } from '../../../src/client/features/forms/fields.tsx'
 import { VersionForm } from '../../../src/client/features/version/VersionForm.tsx'
 import { en, type LoomKey } from '../../../src/client/shared/locales.ts'
 import type { ProjectRecord, TaskRecord, VersionRecord } from 'dsh-workloom/types'
@@ -269,4 +270,26 @@ it('filters the local branch list from the typed ref and still accepts free text
     typed?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
   })
   expect(input?.value).toBe('hotfix/1.0')
+})
+
+
+it('keeps only one branch dropdown open across sibling pickers', async () => {
+  ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
+  const sources = [
+    { id: brandString<'loom.source'>('a'), repo: '/repo/a', path: 'a' },
+    { id: brandString<'loom.source'>('b'), repo: '/repo/b', path: 'b' },
+  ]
+  const listBranches = async (): Promise<{ ok: true; value: { topLevel: string; current: string; branches: string[] } }> => ({ ok: true, value: { topLevel: '/repo', current: 'main', branches: ['main', 'dev'] } })
+  container = document.createElement('div')
+  document.body.append(container)
+  root = createRoot(container)
+  await act(async () => {
+    root?.render(createElement('div', null, sources.map(source => createElement(BranchPicker, { key: source.id, t, source, value: '', listBranches, onChange: () => undefined }))))
+  })
+  const arrows = [...container.querySelectorAll<HTMLButtonElement>(`button[aria-label="${en['branch.open']}"]`)]
+  expect(arrows).toHaveLength(2)
+  await act(async () => { arrows[0]?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true })); await new Promise(resolve => setTimeout(resolve, 0)) })
+  await act(async () => { arrows[1]?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true })); await new Promise(resolve => setTimeout(resolve, 0)) })
+  // The first menu closes when the second opens, so only one menu's items exist.
+  expect(document.querySelectorAll('[role="menuitem"]')).toHaveLength(2)
 })

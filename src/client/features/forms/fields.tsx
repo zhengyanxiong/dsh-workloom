@@ -6,6 +6,10 @@ import { COLORS } from '../../ui/tokens.ts'
 import { field, fieldLabel, hint, input } from './styles.ts'
 import { Translate } from './types.ts'
 
+/** Only one branch dropdown may be open at a time across the version form. */
+let activeBranchMenu: { close: () => void } | undefined
+
+/** Preset name plus its localized description. */
 export function PresetOptionLabel({ name, description }: { readonly name: string; readonly description: string }) {
   return <span style={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: 280 }}>
     <span style={{ fontSize: 'var(--text-h3-size)', lineHeight: '20px', color: COLORS.text }}>{name}</span>
@@ -30,6 +34,16 @@ export function BranchPicker({ t, source, value, listBranches, onChange, compact
   const [open, setOpen] = useState(false)
   const [filterText, setFilterText] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
+  const selfMenu = useRef<{ close: () => void }>({ close: () => setOpen(false) })
+  useEffect(() => {
+    if (!open) {
+      if (activeBranchMenu === selfMenu.current) activeBranchMenu = undefined
+      return
+    }
+    if (activeBranchMenu !== undefined && activeBranchMenu !== selfMenu.current) activeBranchMenu.close()
+    activeBranchMenu = selfMenu.current
+    return () => { if (activeBranchMenu === selfMenu.current) activeBranchMenu = undefined }
+  }, [open])
   useEffect(() => {
     const input = inputRef.current
     if (input === null || typeof ResizeObserver === 'undefined') return
