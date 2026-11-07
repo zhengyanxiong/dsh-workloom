@@ -1,6 +1,6 @@
 /** Loom workbench shell: project tree, native conversation, context and kanban. */
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
-import { IconCloseOutlineRegular, IconPlusOutlineRegular, Button } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconCloseOutlineRegular, Button } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { CSSProperties, ReactNode } from 'react'
 import type { InjectFace, PropsLocale, PropsRenderFactories, PropsRuntime, SessionProviderComponent } from '@deepseek-ai/dsh-client-ui-slots'
 import type { SessionReference } from '@deepseek-ai/dsh-api-session-controller/client'
@@ -8,10 +8,10 @@ import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { fileAddressFor } from '@deepseek-ai/dsh-util-workspace-path'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import type {
-  CatalogSnapshot, GenerateLockRequest, Lock, ProjectRecord, TaskPriority, TaskRecord, VersionRecord,
+  CatalogSnapshot, ProjectRecord, TaskPriority, TaskRecord, VersionRecord,
   WorkspaceChangesRequest, WorkspaceRecord, VersionWorkspaceInput,
 } from 'dsh-workloom/types'
-import { ImportProjectForm, LockButton, ProjectForm, TaskForm, VersionForm, type AgentPresetOption, type VersionStep } from './LoomForms.tsx'
+import { ImportProjectForm, ProjectForm, TaskForm, VersionForm, type AgentPresetOption, type VersionStep } from './LoomForms.tsx'
 import { readPreferences, writePreferences, type LoomPreferences } from './features/settings/LoomSettings.tsx'
 import { LoomSettingsPage } from './features/settings/LoomSettingsPage.tsx'
 import type { ExecutionActions } from './LoomExecution.tsx'
@@ -32,6 +32,8 @@ import { openFilePreview, workspacePreview, workspaceReviewPreview } from './pre
 import { LoomContextPanel } from './LoomContextPanel.tsx'
 import { LoomDeleteDialog } from './LoomDeleteDialog.tsx'
 import { LoomSidebar } from './shell/LoomSidebar.tsx'
+import { LoomGlobalStyles } from './shell/LoomGlobalStyles.tsx'
+import { NextStepCard } from './features/workbench/NextStepCard.tsx'
 import { LoomCommandPalette } from './features/palette/LoomCommandPalette.tsx'
 import { LoomKanban } from './features/board/LoomKanban.tsx'
 import { LoomTemporaryDialog, type LoomTemporaryActions } from './LoomTemporaryDialog.tsx'
@@ -81,72 +83,6 @@ const modalHint: CSSProperties = { margin: '0 0 12px', color: COLORS.dim, fontSi
 const modalSub: CSSProperties = { marginTop: 7, color: COLORS.dim, fontSize: 'var(--text-compact-size)', lineHeight: 1.5 }
 const MODAL_WIDTH: Readonly<Record<CreateKind | EditKind, number>> = { project: 760, import: 640, version: 660, task: 660 }
 const note: CSSProperties = { padding: 12, borderRadius: 8, color: COLORS.dim, background: COLORS.panel2, lineHeight: 1.6, margin: 0 }
-
-function NextStepCard({ t, projects, project, versions, version, locks, tasks, onCreateProject, onCreateVersion, onCreateTask, onSelectProject, onSelectVersion, onSelectTask, generateLock, onLockChanged }: {
-  t: LoomPanelProps['t']
-  projects: readonly ProjectRecord[]
-  project: ProjectRecord | undefined
-  versions: readonly VersionRecord[]
-  version: VersionRecord | undefined
-  locks: readonly Lock[]
-  tasks: readonly TaskRecord[]
-  onCreateProject: () => void
-  onCreateVersion: () => void
-  onCreateTask: () => void
-  onSelectProject: (record: ProjectRecord) => void
-  onSelectVersion: (record: VersionRecord) => void
-  onSelectTask: (record: TaskRecord) => void
-  generateLock: (request: GenerateLockRequest) => Promise<RemoteResult<Lock>>
-  onLockChanged: () => void
-}) {
-  const stage = project === undefined ? 0 : versions.length === 0 ? 1 : version === undefined ? 1 : locks.length === 0 ? 2 : tasks.length === 0 ? 3 : 4
-  const steps: readonly { readonly key: LoomKey; readonly done: boolean }[] = [
-    { key: 'project.title', done: project !== undefined },
-    { key: 'version.title', done: versions.length > 0 },
-    { key: 'lock.title', done: locks.length > 0 },
-    { key: 'task.title', done: tasks.length > 0 },
-  ]
-  return <div style={{ width: '100%', maxWidth: 560, background: COLORS.panel2, border: `0.5px solid ${COLORS.border}`, borderRadius: 12, padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
-    <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-        <span style={{ color: COLORS.accent, fontSize: 'var(--text-stat-size)' }}>🧶</span>
-        <strong style={{ fontSize: 'var(--text-h2-size)', fontWeight: 500, color: COLORS.text }}>{t('onboard.title')}</strong>
-      </div>
-      <p style={{ margin: 0, color: COLORS.dim, fontSize: 'var(--text-compact-size)', lineHeight: 1.6 }}>{t(stage === 0 ? 'onboard.projectHint' : stage === 1 ? 'onboard.versionHint' : stage === 2 ? 'onboard.lockHint' : stage === 3 ? 'onboard.taskHint' : 'onboard.done')}</p>
-    </div>
-    <ol aria-label={t('onboard.steps')} style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', listStyle: 'none', gap: 0, padding: 0, margin: 0 }}>
-      {steps.map((step, index) => {
-        const current = index === stage
-        return <li key={step.key} style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, minWidth: 0 }}>
-          {index > 0 && <span aria-hidden style={{ position: 'absolute', top: 10, right: '50%', width: '100%', height: 1, background: step.done || current ? COLORS.accent : COLORS.border }} />}
-          <span style={{ position: 'relative', zIndex: 1, width: 22, height: 22, borderRadius: 999, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 'var(--text-label-size)', fontWeight: 500, background: step.done || current ? COLORS.accent : COLORS.panel3, color: step.done || current ? 'var(--dsw-alias-label-primary-foreground)' : COLORS.dim, border: `1px solid ${step.done || current ? COLORS.accent : COLORS.border}` }}>{step.done ? '✓' : String(index + 1)}</span>
-          <span style={{ maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: current ? COLORS.text : COLORS.dim, fontSize: 'var(--text-small-size)', fontWeight: current ? 600 : 400 }}>{t(step.key)}</span>
-        </li>
-      })}
-    </ol>
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-      {project === undefined && projects.length > 0 && <>
-        <span style={{ color: COLORS.dim, fontSize: 'var(--text-compact-size)' }}>{t('onboard.selectProject')}</span>
-        {projects.slice(0, 4).map(record => <Button key={record.id} size="sm" variant="outline" onClick={() => onSelectProject(record)}>{record.config.name}</Button>)}
-        <Button size="sm" variant="ghost" icon={<IconPlusOutlineRegular />} onClick={onCreateProject}>{t('project.new')}</Button>
-      </>}
-      {project === undefined && projects.length === 0 && <Button variant="primary" className="loom-primary" icon={<IconPlusOutlineRegular />} onClick={onCreateProject}>{t('project.new')}</Button>}
-      {project !== undefined && versions.length === 0 && <Button variant="primary" className="loom-primary" icon={<IconPlusOutlineRegular />} onClick={onCreateVersion}>{t('version.new')}</Button>}
-      {project !== undefined && versions.length > 0 && version === undefined && <>
-        <span style={{ color: COLORS.dim, fontSize: 'var(--text-compact-size)' }}>{t('onboard.selectVersion')}</span>
-        {versions.map(record => <Button key={record.id} size="sm" variant="outline" onClick={() => onSelectVersion(record)}>{record.name}</Button>)}
-        <Button size="sm" variant="ghost" icon={<IconPlusOutlineRegular />} onClick={onCreateVersion}>{t('version.new')}</Button>
-      </>}
-      {version !== undefined && locks.length === 0 && <LockButton t={t} version={version} generate={generateLock} onCreated={onLockChanged} />}
-      {version !== undefined && locks.length > 0 && tasks.length === 0 && <Button variant="primary" className="loom-primary" icon={<IconPlusOutlineRegular />} onClick={onCreateTask}>{t('task.new')}</Button>}
-      {version !== undefined && locks.length > 0 && tasks.length > 0 && <>
-        <span style={{ color: COLORS.dim, fontSize: 'var(--text-compact-size)' }}>{t('onboard.chooseTask')}</span>
-        {tasks.slice(-3).reverse().map(record => <Button key={record.id} size="sm" variant="outline" onClick={() => onSelectTask(record)}>{record.title}</Button>)}
-        <Button size="sm" variant="ghost" icon={<IconPlusOutlineRegular />} onClick={onCreateTask}>{t('task.new')}</Button>
-      </>}
-    </div>
-  </div>
-}
 
 function readPinnedProjects(): ProjectRecord['id'][] {
   if (typeof localStorage === 'undefined') return []
@@ -864,62 +800,7 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
   const createDisabledTask = currentVersion === undefined
   return <div ref={rootRef} data-theme={resolveLoomTheme(preferences.theme, darkTheme)} data-density={preferences.density} data-loom-reduced-motion={preferences.reducedMotion ? 'true' : undefined} className={`${LOOM_ROOT_CLASS} loom-root ${shell.root}`}>
     <LoomThemeStyles />
-    <style>{`
-      .loom-root {
-        container-type: inline-size;
-        --loom-canvas: var(--color-bg);
-        --loom-surface: var(--color-surface);
-        --loom-surface-2: var(--color-panel);
-        --loom-surface-3: var(--color-line-soft);
-        --loom-selected: var(--color-accent-soft);
-        --loom-accent: var(--color-accent);
-        --loom-accent-hover: var(--color-accent-ink);
-        --loom-accent-active: var(--color-accent-ink);
-        --loom-on-accent: var(--color-bg);
-        --loom-border: var(--color-line);
-        --loom-border-strong: var(--color-line-strong);
-        --loom-text: var(--color-ink);
-        --loom-dim: var(--color-ink-3);
-        --loom-faint: var(--color-muted);
-        --text-body-size: ${String(preferences.fontSize)}px;
-      }
-      .loom-palette { width: min(560px, calc(100vw - 48px)) !important; max-height: min(640px, calc(100vh - 96px)); padding: 0 !important; gap: 0 !important; overflow: hidden; }
-      .loom-root [role='separator']:focus-visible { outline: 2px solid var(--color-accent) !important; outline-offset: 2px; }
-      .loom-branch-menu { --dsw-menu-surface-fill: var(--loom-surface); --dsw-menu-backdrop-filter: none; width: var(--loom-branch-menu-width, 320px) !important; max-width: none !important; background: var(--loom-surface) !important; border: 0.5px solid var(--loom-border) !important; box-shadow: 0 12px 32px color-mix(in srgb, var(--color-ink) 16%, transparent) !important; }
-      .loom-workspace-switch { align-self: flex-start; }
-      .loom-primary { background: var(--loom-accent) !important; color: var(--loom-on-accent) !important; border: 0.5px solid transparent !important; border-radius: 8px !important; font-size: var(--text-compact-size) !important; font-weight: 500 !important; box-shadow: 0 1px 2px color-mix(in srgb, var(--color-ink) 12%, transparent); transition: background-color .12s ease, box-shadow .12s ease; }
-      .loom-primary:hover:not(:disabled) { background: var(--loom-accent-hover) !important; }
-      .loom-primary:active:not(:disabled) { background: var(--loom-accent-active) !important; box-shadow: none; }
-      .loom-primary:focus-visible { outline: 2px solid color-mix(in srgb, var(--loom-accent) 55%, transparent); outline-offset: 2px; }
-      .loom-primary:disabled { opacity: .55; }
-      .loom-top-context { max-width: 190px; }
-      .loom-top-select { max-width: 132px; }
-      .loom-top-context:hover { background: var(--dsw-alias-bg-layer-3); color: var(--dsw-alias-label-primary); }
-      .loom-top-action:hover { border-color: var(--loom-border-strong); color: var(--dsw-alias-label-primary); }
-      .loom-top-new:hover { filter: brightness(1.08); }
-      .loom-view-switch button:hover:not([aria-pressed='true']) { background: var(--dsw-alias-bg-layer-3); color: var(--dsw-alias-label-primary); }
-      .loom-menu-item:hover { background: var(--dsw-alias-bg-layer-3); }
-      .loom-new-item:hover:not(:disabled) { background: var(--dsw-alias-bg-layer-3); }
-      .loom-sidebar-section-head:hover { color: var(--dsw-alias-label-secondary) !important; }
-      .loom-new-item:disabled { cursor: default; }
-      div.loom-modal-delete { width: min(480px, calc(100vw - 32px)); }
-      div.loom-modal-takeover { width: min(440px, calc(100vw - 32px)); }
-      .loom-row-action:hover { background: color-mix(in srgb, var(--dsw-alias-label-primary) 8%, transparent); color: var(--dsw-alias-label-primary) !important; }
-      .loom-session-row { border-radius: 5px; }
-      .loom-session-row:hover { background: color-mix(in srgb, var(--dsw-alias-label-primary) 6%, transparent); }
-      .loom-session-row:focus-within { background: color-mix(in srgb, var(--loom-selected) 65%, transparent); }
-      .loom-session-button:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary); outline-offset: -1px; }
-      @media (hover: none) { .loom-session-row:hover { background: transparent; } }
-      .loom-tree-row .loom-row-actions { opacity: 0; visibility: hidden; pointer-events: none; transition: opacity .12s ease; }
-      .loom-tree-row:hover .loom-row-actions, .loom-tree-row:focus-within .loom-row-actions, .loom-tree-row-active .loom-row-actions { opacity: 1; visibility: visible; pointer-events: auto; }
-      .loom-top-action:focus-visible, .loom-top-new:focus-visible, .loom-view-switch button:focus-visible, .loom-menu-item:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary); outline-offset: 1px; }
-      .loom-top-select:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary); outline-offset: 2px; border-radius: 3px; }
-      @media (hover: none) { .loom-tree-row .loom-row-actions { opacity: 1; visibility: visible; pointer-events: auto; } }
-      @container (max-width: 1180px) { .loom-sidebar { width: 280px !important; } .loom-aside { max-width: 380px !important; } .loom-aside.loom-aside-preview { max-width: 460px !important; } .loom-top-label, .loom-top-divider, .loom-top-activity-label, .loom-top-action-label { display: none; } .loom-top-context { max-width: 140px; } .loom-top-select { max-width: 100px; } .loom-top-activity { padding: 0 7px; } .loom-top-new { width: 30px; padding: 0 !important; } .loom-view-switch button { padding: 0 9px; } .loom-aside.loom-aside-kanban, .loom-aside-handle.loom-aside-handle-kanban, .loom-aside-toggle-kb { display: none !important; } }
-      @container (max-width: 940px) { .loom-sidebar { display: none !important; } .loom-sidebar.loom-sidebar-open { display: block !important; position: absolute; top: 48px; bottom: 0; left: 0; z-index: 70; width: 240px !important; box-shadow: 12px 0 28px color-mix(in srgb, var(--color-ink) 35%, transparent); } .loom-aside { max-width: 300px !important; } .loom-aside.loom-aside-preview { max-width: 380px !important; } .loom-aside.loom-aside-kanban, .loom-aside-handle.loom-aside-handle-kanban, .loom-aside-toggle-kb { display: none !important; } }
-      @container (max-width: 760px) { .loom-aside, .loom-aside-handle, .loom-aside-toggle { display: none !important; } .loom-brand-name { display: none; } .loom-top-context { max-width: 128px; } .loom-top-select { max-width: 76px; } }
-      @container (max-width: 560px) { .loom-topbar { flex-wrap: wrap !important; height: auto !important; min-height: 48px; padding: 6px 8px !important; column-gap: 4px !important; row-gap: 4px; } .loom-top-spacer { display: none !important; } .loom-top-context { flex: 1 1 140px; max-width: none; padding: 0 6px; order: 5; } .loom-top-select { flex: 1; max-width: none; width: 100%; } .loom-view-switch { margin-left: auto; } .loom-view-switch button { padding: 0 7px; } .loom-top-activity { display: none !important; } .loom-sidebar.loom-sidebar-open { top: 85px !important; } .loom-sidebar-backdrop { top: 85px !important; } .loom-wizard-steps li > span[aria-hidden='true'] { display: none !important; } .loom-wizard-steps button { flex-direction: column; align-items: center; gap: 5px; } .loom-wizard-steps button > span:last-child { justify-content: center; text-align: center; } .loom-wizard-steps button > span:last-child > span:first-child { overflow: visible; white-space: normal; font-size: var(--text-small-size); line-height: 1.25; } }
-    `}</style>
+    <LoomGlobalStyles fontSize={preferences.fontSize} />
     <LoomCommandPalette open={paletteOpen} t={t} snapshot={snapshot} onClose={() => setPaletteOpen(false)} onActivate={activatePaletteItem} />
     <LoomTopbar
       t={t}
