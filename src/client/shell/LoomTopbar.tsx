@@ -7,7 +7,7 @@
 import type { RefObject } from 'react'
 import {
   IconBranchOutlineRegular, IconChecklistOutlineRegular, IconDownloadOutlineRegular,
-  IconFolderOpenRegular, IconPanelLeftOutlineRegular, IconPlusOutlineRegular,
+  IconFolderOpenRegular, IconInfoOutlineRegular, IconPanelLeftOutlineRegular, IconPlusOutlineRegular,
   IconProjectAddOutlineRegular, IconSettingsOutlineRegular, Tooltip,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { CatalogSnapshot, ProjectRecord, VersionRecord } from 'dsh-workloom/types'
@@ -101,9 +101,10 @@ export function LoomTopbar(props: LoomTopbarProps): JSX.Element {
     <span className={classes.spacer} />
     <span className={classes.activity} title={`${String(activeCount)} ${t('top.activeWorkspaces')}`}>
       <span className={classes.dot} />
-      <span>{activeCount}</span>
-      <span>{t('top.activeWorkspaces')}</span>
+      <span className={classes.activityCount}>{activeCount}</span>
+      <span className={classes.activityLabel}>{t('top.activeWorkspaces')}</span>
     </span>
+    <span aria-hidden className={classes.divider} />
     <div className={classes.actions}>
       <div className={classes.newWrap} ref={newMenuRef}>
         <LoomButton className="loom-top-new" variant="secondary" size="md" icon={<IconPlusOutlineRegular size={14} />} aria-haspopup="menu" aria-expanded={menuOpen} onClick={onToggleMenu}>{t('top.new')}</LoomButton>
@@ -127,9 +128,9 @@ export function LoomTopbar(props: LoomTopbarProps): JSX.Element {
           </button>
         </div>}
       </div>
-      <Tooltip label={t('ctx.project')} side="bottom" delayMs={300}>
-        <LoomButton variant="ghost" size="sm" iconOnly icon={<IconPanelLeftOutlineRegular size={14} />} aria-label={t('ctx.project')} aria-pressed={asideOpen} onClick={onToggleAside} />
-      </Tooltip>
+      {(route === 'task' || route === 'session') && <Tooltip label={t('top.contextPanel')} side="bottom" delayMs={300}>
+        <LoomButton variant="ghost" size="sm" iconOnly icon={<IconInfoOutlineRegular size={14} />} aria-label={t('top.contextPanel')} aria-pressed={asideOpen} onClick={onToggleAside} />
+      </Tooltip>}
       <Tooltip label={t('top.settings')} side="bottom" delayMs={300}>
         <LoomButton variant="ghost" size="sm" iconOnly icon={<IconSettingsOutlineRegular size={14} />} aria-label={t('top.settings')} onClick={onOpenSettings} />
       </Tooltip>
