@@ -45,6 +45,11 @@ export interface TaskRecord extends Task {
    * Version-bound workspace selected at task creation; a pending or failed task may start on another ready workspace of the same version.
    */
   workspaceId?: WorkspaceRecord['id'] | undefined
+  /**
+   * Agent preset used by Sessions created for this task; absent means inherit
+   * the owning project's preset.
+   */
+  agentPreset?: string | undefined
   description?: string | undefined
   moduleIds?: readonly Branded<'loom.module'>[] | undefined
   priority?: TaskPriority | undefined

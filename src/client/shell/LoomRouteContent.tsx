@@ -3,6 +3,7 @@ import type { CSSProperties, Dispatch, SetStateAction } from 'react'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { SessionReference } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { AuditEntry, CatalogSnapshot, ProjectRecord, TaskPriority, TaskRecord, VersionRecord } from 'dsh-workloom/types'
+import type { AgentPresetOption } from '../../api/agent.ts'
 import type { LoomPanelProps } from '../LoomPanel.tsx'
 import type { LoomRoute } from './router.ts'
 import type { ShellFilter, TaskAttemptRow } from '../shared/projection.ts'
@@ -26,6 +27,7 @@ type Setter<T> = Dispatch<SetStateAction<T>>
 /** Inputs for the route content. */
 export interface LoomRouteContentProps {
   readonly t: LoomPanelProps['t']
+  readonly agentPresets: readonly AgentPresetOption[]
   readonly route: LoomRoute
   readonly view: 'workbench' | 'kanban'
   readonly snapshot: CatalogSnapshot | undefined
@@ -99,7 +101,7 @@ export interface LoomRouteContentProps {
  * @returns the route content.
  */
 export function LoomRouteContent(props: LoomRouteContentProps): JSX.Element {
-  const { t, route, view, snapshot, preferences, setPreferences, activeCount, pinnedProjects, updatePreferences, displayProject, displayVersion, displayVersionProject, detailTask, detailAttemptRows, detailModules, headerTitle, detailPriority, selected, available, failure, held, executionSession, liveTaskIds, filter, filterProject, filterVersion, filterStatus, filterPriority, filterModule, kbSearch, kbMode, currentProject, currentVersion, auditRows, execution, loadTaskChanges, generateLock, workspaceStatus, versionContext, SessionProvider, renderSlot, setProject, setVersion, setTask, setSelected, setExecutionSession, setPinnedProjects, setFilterProject, setFilterVersion, setFilterStatus, setFilterPriority, setFilterModule, setKbSearch, setKbMode, setAttempt, setCreate, selectTask, selectSession, openAttemptSession, openCreate, openEdit, navigate, moveTask, createVersionFor, createTaskForVersion, togglePreviewWrap } = props
+  const { t, agentPresets, route, view, snapshot, preferences, setPreferences, activeCount, pinnedProjects, updatePreferences, displayProject, displayVersion, displayVersionProject, detailTask, detailAttemptRows, detailModules, headerTitle, detailPriority, selected, available, failure, held, executionSession, liveTaskIds, filter, filterProject, filterVersion, filterStatus, filterPriority, filterModule, kbSearch, kbMode, currentProject, currentVersion, auditRows, execution, loadTaskChanges, generateLock, workspaceStatus, versionContext, SessionProvider, renderSlot, setProject, setVersion, setTask, setSelected, setExecutionSession, setPinnedProjects, setFilterProject, setFilterVersion, setFilterStatus, setFilterPriority, setFilterModule, setKbSearch, setKbMode, setAttempt, setCreate, selectTask, selectSession, openAttemptSession, openCreate, openEdit, navigate, moveTask, createVersionFor, createTaskForVersion, togglePreviewWrap } = props
   const note: CSSProperties = { padding: 12, borderRadius: 8, color: 'var(--loom-text)', background: 'var(--loom-surface-2)', lineHeight: 1.6, margin: 0 }
   return <>
       {route === 'home'
@@ -190,6 +192,7 @@ export function LoomRouteContent(props: LoomRouteContentProps): JSX.Element {
                     version={displayVersion}
                     snapshot={snapshot}
                     audit={auditRows}
+                    agentPresets={agentPresets}
                     actions={execution}
                     loadChanges={loadTaskChanges}
                     wrap={preferences.previewWrap}

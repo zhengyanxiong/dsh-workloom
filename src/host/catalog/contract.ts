@@ -100,6 +100,7 @@ export interface RegisterPreparedWorkspaceInput {
  */
 export interface CreateTaskOptions {
   readonly workspaceId?: WorkspaceRecord['id'] | undefined
+  readonly agentPreset?: string | undefined
   readonly description?: string | undefined
   readonly moduleIds?: readonly Branded<'loom.module'>[] | undefined
   readonly priority?: TaskPriority | undefined

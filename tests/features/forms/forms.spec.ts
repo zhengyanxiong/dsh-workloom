@@ -151,3 +151,9 @@ it('flags a version description over the shared limit and blocks the next step',
   expect(html).toContain(en['version.descriptionTooLong'].replace('{max}', String(VERSION_DESCRIPTION_MAX_CHARS)))
   expect(html).toContain(`aria-invalid="true"`)
 })
+
+it('carries a per-task Agent preset into the create request', () => {
+  const version = { id: 'v1', projectId: 'p1', name: 'v1', description: '', sources: [] } as never
+  expect(taskRequest(version, 'Ship', { description: '', priority: 'normal', moduleIds: [], agentPreset: 'minimal' })).toMatchObject({ agentPreset: 'minimal' })
+  expect(taskRequest(version, 'Ship', { description: '', priority: 'normal', moduleIds: [] })).not.toHaveProperty('agentPreset')
+})

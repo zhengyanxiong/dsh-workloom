@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { IconCheckOutlineRegular, IconChevronLeftOutlineRegular, Tag, type TagTone } from '../../ui/primitives.ts'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { AuditEntry, CatalogSnapshot, ProjectRecord, TaskRecord, VersionRecord } from 'dsh-workloom/types'
+import type { AgentPresetOption } from '../../../api/agent.ts'
 import { ACTOR_LABEL, AUDIT_LABEL } from '../../ui/labels.ts'
 import { PRIORITY_META, STATUS_META } from '../../ui/status.ts'
 import type { LoomKey } from '../../shared/locales.ts'
@@ -74,6 +75,7 @@ export interface LoomTaskWorkbenchProps {
   readonly version: VersionRecord | undefined
   readonly snapshot: CatalogSnapshot
   readonly audit: readonly AuditEntry[]
+  readonly agentPresets?: readonly AgentPresetOption[] | undefined
   readonly actions: ExecutionActions
   readonly loadChanges: LoadWorkspaceChanges
   readonly wrap: boolean
@@ -94,7 +96,7 @@ export interface LoomTaskWorkbenchProps {
  * @returns the task document.
  */
 export function LoomTaskWorkbench(props: LoomTaskWorkbenchProps): ReactNode {
-  const { t, task, version, snapshot, audit, actions, loadChanges, wrap, onToggleWrap, attemptRows, selectedSessionId, onSelectSession, onOpenSession, onBack } = props
+  const { t, task, version, snapshot, audit, agentPresets, actions, loadChanges, wrap, onToggleWrap, attemptRows, selectedSessionId, onSelectSession, onOpenSession, onBack } = props
   const status = STATUS_META[task.status]
   const priority = PRIORITY_META[task.priority ?? 'normal']
   const items = acceptanceItems(task.description ?? '')
@@ -163,6 +165,7 @@ export function LoomTaskWorkbench(props: LoomTaskWorkbenchProps): ReactNode {
             t={t}
             task={task}
             snapshot={snapshot}
+            agentPresets={agentPresets}
             selectedSession={selectedSessionId as SessionId | undefined}
             actions={actions}
             loadChanges={loadChanges}

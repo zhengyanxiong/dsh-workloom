@@ -404,3 +404,15 @@ it('lets a pending task start on another ready workspace of the same version', a
   // A running round is bound to its workspace; rebinding waits for the next round.
   await expect(catalog.startAttempt(task.id, first.id)).rejects.toThrow(/workspace_mismatch|task_not_startable/u)
 })
+
+it('stores and clears a per-task Agent preset override', async () => {
+  const { dir, catalog } = await fixture()
+  const project = await catalog.createProject({ name: 'Shop', sources: [{ id: 'web', repo: join(dir, 'repo'), path: 'web' }], modules: [] })
+  const version = await catalog.createVersion(project.id, 'v', [{ sourceId: project.config.sources[0]!.id, ref: 'main' }])
+  const task = await catalog.createTask(version.id, 'Preset task', { agentPreset: 'ptc' })
+  expect(task.agentPreset).toBe('ptc')
+  const updated = await catalog.updateTask(task.id, 'Preset task', { agentPreset: 'minimal' })
+  expect(updated.agentPreset).toBe('minimal')
+  const cleared = await catalog.updateTask(task.id, 'Preset task')
+  expect(cleared.agentPreset).toBeUndefined()
+})

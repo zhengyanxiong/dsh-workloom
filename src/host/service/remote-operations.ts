@@ -141,6 +141,7 @@ export class RemoteOperations {
       const parsed = taskRequest.parse(request)
       return catalog.createTask(brandString<VersionRecord['id']>(parsed.versionId), parsed.title, {
         ...(parsed.workspaceId === undefined ? {} : { workspaceId: brandString<WorkspaceRecord['id']>(parsed.workspaceId) }),
+        ...(parsed.agentPreset === undefined ? {} : { agentPreset: parsed.agentPreset }),
         ...(parsed.description === undefined ? {} : { description: parsed.description }),
         ...(parsed.moduleIds === undefined ? {} : { moduleIds: parsed.moduleIds.map(moduleId => brandString<Branded<'loom.module'>>(moduleId)) }),
         ...(parsed.priority === undefined ? {} : { priority: parsed.priority }),
@@ -153,6 +154,7 @@ export class RemoteOperations {
     return run(catalog => {
       const parsed = updateTaskRequest.parse(request)
       return catalog.updateTask(brandString<TaskRecord['id']>(parsed.taskId), parsed.title, {
+        ...(parsed.agentPreset === undefined ? {} : { agentPreset: parsed.agentPreset }),
         ...(parsed.description === undefined ? {} : { description: parsed.description }),
         ...(parsed.moduleIds === undefined ? {} : { moduleIds: parsed.moduleIds.map(moduleId => brandString<Branded<'loom.module'>>(moduleId)) }),
         ...(parsed.priority === undefined ? {} : { priority: parsed.priority }),

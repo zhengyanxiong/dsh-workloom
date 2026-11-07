@@ -226,3 +226,24 @@ it('reports that the version must provide a workspace', () => {
   expect(html).not.toContain(en['source.branch'])
   expect(html).not.toContain(en['workspace.mode.managedHint'])
 })
+
+it('defaults the start preset to the project and honors a per-task override', () => {
+  const agentPresets = [{ id: 'ptc', isDefault: false, name: 'PTC' }, { id: 'minimal', isDefault: false, name: 'Minimal' }]
+  const presetProject: ProjectRecord = { ...project, config: { ...project.config, agentPreset: 'ptc' } }
+  const presetSnapshot: CatalogSnapshot = { ...snapshot, projects: [presetProject] }
+  const inherited = renderToStaticMarkup(createElement(ExecutionPanel, { t, task: pending, snapshot: presetSnapshot, agentPresets, selectedSession: undefined, actions, ...diffProps }))
+  expect(inherited).toContain(en['task.agentPreset'])
+  expect(inherited).toContain(en['task.agentPresetProjectDefault'].replace('{name}', 'PTC'))
+  const overriddenTask: TaskRecord = { ...pending, agentPreset: 'minimal' }
+  const overridden = renderToStaticMarkup(createElement(ExecutionPanel, { t, task: overriddenTask, snapshot: presetSnapshot, agentPresets, selectedSession: undefined, actions, ...diffProps }))
+  expect(overridden).toContain('Minimal')
+})
+
+it('exposes a preset selector when creating a new session for a running task', () => {
+  const agentPresets = [{ id: 'ptc', isDefault: false, name: 'PTC' }]
+  const presetProject: ProjectRecord = { ...project, config: { ...project.config, agentPreset: 'ptc' } }
+  const html = renderToStaticMarkup(createElement(ExecutionPanel, { t, task: running, snapshot: { ...snapshot, projects: [presetProject] }, agentPresets, selectedSession: undefined, actions, ...diffProps }))
+  expect(html).toContain(en['session.agentPreset'])
+  expect(html).toContain(en['session.agentPresetHint'])
+  expect(html).toContain('PTC')
+})

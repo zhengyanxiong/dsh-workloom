@@ -177,7 +177,7 @@ it('walks a new task from content through optional scope to preview before creat
   ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
   const project: ProjectRecord = {
     id: brandString<ProjectRecord['id']>('p1'),
-    config: { name: 'Shop', sources: [{ id: brandString<'loom.source'>('web'), repo: '/repo/shop', path: 'shop' }], modules: [] },
+    config: { name: 'Shop', sources: [{ id: brandString<'loom.source'>('web'), repo: '/repo/shop', path: 'shop' }], modules: [], agentPreset: 'ptc' },
   }
   const version: VersionRecord = { id: brandString<VersionRecord['id']>('v1'), projectId: project.id, name: 'v1', sources: [] }
   const task: TaskRecord = { id: brandString<TaskRecord['id']>('t1'), projectId: project.id, versionId: version.id, title: 'Ship', status: 'pending' }
@@ -188,6 +188,7 @@ it('walks a new task from content through optional scope to preview before creat
   await act(async () => {
     root?.render(createElement(TaskForm, {
       t, open: true, project, version,
+      agentPresets: [{ id: 'ptc', isDefault: false, name: 'PTC' }, { id: 'minimal', isDefault: false, name: 'Minimal' }],
       create: async request => { created = request; return { ok: true, value: task } },
       onCreated: () => undefined,
     }))
@@ -209,6 +210,8 @@ it('walks a new task from content through optional scope to preview before creat
   expect(container.textContent).toContain(en['task.step.scope'])
   await click(en['form.next'])
   expect(container.textContent).toContain(en['task.priority'])
+  expect(container.textContent).toContain(en['task.agentPreset'])
+  expect(container.textContent).toContain('PTC')
   expect(container.textContent).toContain(en['form.skip'])
   await click(en['form.next'])
   expect(container.textContent).toContain(en['task.step.preview'])

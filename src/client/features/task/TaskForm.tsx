@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Button, IconChevronLeftOutlineRegular, IconPlusOutlineRegular } from '../../ui/primitives.ts'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
+import type { AgentPresetOption } from '../../../api/agent.ts'
 import type { CreateTaskRequest, ProjectRecord, TaskRecord, TaskPriority, VersionRecord, UpdateTaskRequest } from 'dsh-workloom/types'
 import { COLORS } from '../../ui/tokens.ts'
 import { LoomWizardSteps } from '../forms/LoomWizardSteps.tsx'
@@ -23,6 +24,8 @@ interface TaskFormProps {
   createWorkspace?: ((input: WorkspaceCreationInput) => Promise<WorkspaceCreateOutcome>) | undefined
   /** Native directory picker for workspace creation. */
   pickDirectory?: ((startPath?: string) => Promise<string | null>) | undefined
+  /** Preset catalog for the per-task Agent preset override. */
+  agentPresets?: readonly AgentPresetOption[] | undefined
   create(request: CreateTaskRequest): Promise<RemoteResult<TaskRecord>>
   update?(request: UpdateTaskRequest): Promise<RemoteResult<TaskRecord>>
   task?: TaskRecord
@@ -43,7 +46,7 @@ const TASK_STEPS: readonly { readonly key: TaskStep; readonly label: LoomKey }[]
 const PRIORITY_LABEL: Readonly<Record<TaskPriority, LoomKey>> = { low: 'task.priority.low', normal: 'task.priority.normal', high: 'task.priority.high' }
 
 /** Create or edit one task under the selected version. */
-export function TaskForm({ t, version, project, workspaces, createWorkspace, pickDirectory, create, update, task, onCreated, open: controlledOpen, onOpenChange, onBusyChange }: TaskFormProps) {
+export function TaskForm({ t, version, project, workspaces, createWorkspace, pickDirectory, agentPresets = [], create, update, task, onCreated, open: controlledOpen, onOpenChange, onBusyChange }: TaskFormProps) {
   const editing = task !== undefined
   const [internalOpen, setInternalOpen] = useState(false)
   const open = controlledOpen ?? internalOpen
@@ -54,6 +57,9 @@ export function TaskForm({ t, version, project, workspaces, createWorkspace, pic
   const [priority, setPriority] = useState<TaskPriority>(task?.priority ?? 'normal')
   const [moduleIds, setModuleIds] = useState<string[]>([...(task?.moduleIds ?? [])])
   const [workspaceId, setWorkspaceId] = useState<string>(workspaces?.[0]?.id ?? '')
+  const [agentPreset, setAgentPreset] = useState(task?.agentPreset ?? '')
+  const projectPreset = agentPresets.find(preset => preset.id === project.config.agentPreset)
+  const projectPresetLabel = project.config.agentPreset === undefined ? t('project.agentPresetDefault') : projectPreset?.name ?? project.config.agentPreset
   const [createdWorkspace, setCreatedWorkspace] = useState<{ id: string; path: string; rootPath?: string | undefined; label?: string | undefined }>()
   const workspaceOptions = createdWorkspace === undefined || (workspaces ?? []).some(workspace => workspace.id === createdWorkspace.id)
     ? workspaces ?? []
@@ -62,7 +68,7 @@ export function TaskForm({ t, version, project, workspaces, createWorkspace, pic
   const reportBusy = (value: boolean): void => { setBusy(value); onBusyChange?.(value) }
   const [failure, setFailure] = useState<string>()
   if (!open) return editing ? null : <Button variant="outline" icon={<IconPlusOutlineRegular />} onClick={() => setOpen(true)}>{t('task.new')}</Button>
-  const request = taskRequest(version, title, { description, priority, moduleIds }, workspaceId)
+  const request = taskRequest(version, title, { description, priority, moduleIds, agentPreset }, workspaceId)
   const stepIndex = TASK_STEPS.findIndex(candidate => candidate.key === step)
   const titleReady = title.trim() !== ''
   function canVisit(candidate: TaskStep): boolean {
@@ -146,6 +152,19 @@ export function TaskForm({ t, version, project, workspaces, createWorkspace, pic
           options={[{ value: 'low', label: t('task.priority.low') }, { value: 'normal', label: t('task.priority.normal') }, { value: 'high', label: t('task.priority.high') }]}
           onChange={value => setPriority(value as TaskPriority)}
         />
+      </label>
+      <label style={field}><span style={fieldLabel}>{t('task.agentPreset')}</span>
+        <LoomSelect
+          block
+          ariaLabel={t('task.agentPreset')}
+          value={agentPreset}
+          options={[
+            { value: '', label: t('task.agentPresetProjectDefault').replace('{name}', projectPresetLabel) },
+            ...agentPresets.map(preset => ({ value: preset.id, label: preset.name ?? preset.id })),
+          ]}
+          onChange={value => setAgentPreset(value)}
+        />
+        <p style={hint}>{t('task.agentPresetHint')}</p>
       </label>
       <div style={field}>
         <span style={fieldLabel}>{t('task.modules')}</span>

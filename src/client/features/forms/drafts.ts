@@ -196,6 +196,8 @@ export interface TaskMetadataDraft {
   readonly description: string
   readonly priority: TaskPriority
   readonly moduleIds: readonly string[]
+  /** Per-task Agent preset; empty inherits the project preset. */
+  readonly agentPreset?: string
 }
 
 /**
@@ -211,10 +213,12 @@ export function taskRequest(version: VersionRecord, title: string, metadata?: Ta
   const description = metadata?.description.trim() ?? ''
   const priority = metadata?.priority ?? 'normal'
   const moduleIds = metadata?.moduleIds ?? []
+  const agentPreset = metadata?.agentPreset?.trim() ?? ''
   return {
     versionId: version.id,
     ...(workspaceId === undefined || workspaceId === '' ? {} : { workspaceId }),
     title: admitted,
+    ...(agentPreset === '' ? {} : { agentPreset }),
     ...(description === '' ? {} : { description }),
     ...(priority === 'normal' ? {} : { priority }),
     ...(moduleIds.length === 0 ? {} : { moduleIds }),

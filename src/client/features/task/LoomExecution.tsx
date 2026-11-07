@@ -16,8 +16,10 @@ import type { FailureReport } from '../../ui/failure.ts'
 import { LoomCleanupDialog, type LoomCleanupFailure } from '../dialogs/LoomCleanupDialog.tsx'
 import { LoomTakeoverDialog } from '../dialogs/LoomTakeoverDialog.tsx'
 import { LoomPreparationPanel } from './LoomPreparationPanel.tsx'
+import { LoomSelect } from '../../ui/Select.tsx'
 import { autoWorkspaceRepositoryPath } from '../../../domain/workspace.ts'
 import type { WorkspaceCreateOutcome, WorkspaceCreationInput } from '../workspace/WorkspaceChoice.tsx'
+import type { AgentPresetOption } from '../../../api/agent.ts'
 import { WorkspaceChoice } from '../workspace/WorkspaceChoice.tsx'
 import { workspaceSourceGroups } from '../workspace/workspace-refs.ts'
 import type { LoadWorkspaceChanges } from '../preview/LoomDiff.tsx'
@@ -71,6 +73,7 @@ interface ExecutionPanelProps {
   t: Translate
   task: TaskRecord
   snapshot: CatalogSnapshot
+  agentPresets?: readonly AgentPresetOption[] | undefined
   selectedSession: SessionId | undefined
   actions: ExecutionActions
   loadChanges: LoadWorkspaceChanges
@@ -132,7 +135,7 @@ function InlineFailure({ t, failure, style }: { t: Translate; failure: Operation
  * @param props - Selected task, catalog records, the active Loom session, and Host actions.
  * @returns business controls without pretending a Session state is a task state.
  */
-export function ExecutionPanel({ t, task, snapshot, selectedSession, actions, loadChanges, wrap, onToggleWrap }: ExecutionPanelProps) {
+export function ExecutionPanel({ t, task, snapshot, agentPresets = [], selectedSession, actions, loadChanges, wrap, onToggleWrap }: ExecutionPanelProps) {
   const [busy, setBusy] = useState(false)
   const [failure, setFailure] = useState<OperationFailure>()
   const [cleanOpen, setCleanOpen] = useState(false)
@@ -140,11 +143,15 @@ export function ExecutionPanel({ t, task, snapshot, selectedSession, actions, lo
   const [discardAllowed, setDiscardAllowed] = useState(false)
   const [takeoverConfirm, setTakeoverConfirm] = useState(false)
   const [busyLabel, setBusyLabel] = useState<string>()
+  const [sessionPreset, setSessionPreset] = useState(task.agentPreset ?? '')
+  useEffect(() => { setSessionPreset(task.agentPreset ?? '') }, [task.id, task.agentPreset])
   const [observed, setObserved] = useState<WorkspaceRecord>()
   const [polling, setPolling] = useState(false)
   const current = task.attempts.at(-1)
   const version = snapshot.versions.find(candidate => candidate.id === task.versionId)
-  const agentPreset = snapshot.projects.find(candidate => candidate.id === version?.projectId)?.config.agentPreset
+  const projectPreset = snapshot.projects.find(candidate => candidate.id === version?.projectId)?.config.agentPreset
+  const projectPresetName = agentPresets.find(preset => preset.id === projectPreset)?.name ?? projectPreset ?? t('project.agentPresetDefault')
+  const presetOptions = [{ value: '', label: t('task.agentPresetProjectDefault').replace('{name}', projectPresetName) }, ...agentPresets.map(preset => ({ value: preset.id, label: preset.name ?? preset.id }))]
   const workspace = current === undefined ? undefined : snapshot.workspaces.find(candidate => candidate.id === current.workspaceId)
   const live = observed !== undefined && observed.id === workspace?.id ? observed : workspace
   const preparation = live?.preparation
@@ -272,7 +279,8 @@ export function ExecutionPanel({ t, task, snapshot, selectedSession, actions, lo
     if (workspace === undefined) return
     setBusy(true); setFailure(undefined)
     try {
-      const sessionId = await actions.createSessionInWorkspace(workspace.path, agentPreset)
+      const preset = sessionPreset === '' ? projectPreset : sessionPreset
+      const sessionId = await actions.createSessionInWorkspace(workspace.path, preset)
       const result = await actions.attachSession({ taskId: task.id, sessionId })
       if (!result.ok) { report(t('op.attach'), result.error.code, result.error.message); return }
       actions.onSession(sessionId)
@@ -286,7 +294,12 @@ export function ExecutionPanel({ t, task, snapshot, selectedSession, actions, lo
     </div>
     {failure !== undefined && <InlineFailure t={t} failure={failure} />}
     {preparation !== undefined && workspace !== undefined && preparation.status !== 'ready' && <LoomPreparationPanel t={t} preparation={preparation} busy={busy} onRetry={() => { void retryPrepare() }} />}
-    {(task.status === 'pending' || task.status === 'failed') && version !== undefined && <StartForm t={t} task={task} snapshot={snapshot} versionId={version.id} actions={actions} />}
+    {(task.status === 'pending' || task.status === 'failed') && version !== undefined && <StartForm t={t} task={task} snapshot={snapshot} versionId={version.id} agentPresets={agentPresets} actions={actions} />}
+    {(task.status === 'running' || task.status === 'review') && workspace !== undefined && <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <span style={ownerLabel}>{t('session.agentPreset')}</span>
+      <LoomSelect block ariaLabel={t('session.agentPreset')} value={sessionPreset} options={presetOptions} onChange={setSessionPreset} />
+      <span style={ownerMeta}>{t('session.agentPresetHint')}</span>
+    </div>}
     {(task.status === 'running' || task.status === 'review') && workspace !== undefined && <div style={actionBar}>
       {boundSession !== undefined && <Button size="sm" variant="outline" disabled={busy} onClick={continueSession}>{t('session.continue')}</Button>}
       <Button size="sm" variant="outline" disabled={busy} onClick={() => { void openSession() }}>{t('session.new')}</Button>
@@ -354,6 +367,7 @@ interface StartFormProps {
   task: TaskRecord
   snapshot: CatalogSnapshot
   versionId: TaskRecord['versionId']
+  agentPresets?: readonly AgentPresetOption[] | undefined
   actions: ExecutionActions
 }
 
@@ -365,7 +379,7 @@ export function taskDraftPrompt(t: Translate, task: TaskRecord): string {
 }
 
 /** Select one ready workspace bound to the task's version; creation belongs to the version flow. */
-function StartForm({ t, task, snapshot, versionId, actions }: StartFormProps) {
+function StartForm({ t, task, snapshot, versionId, agentPresets = [], actions }: StartFormProps) {
   const version = snapshot.versions.find(candidate => candidate.id === versionId)
   const project = version === undefined ? undefined : snapshot.projects.find(candidate => candidate.id === version.projectId)
   const lock = version === undefined ? undefined : snapshot.locks.filter(candidate => candidate.versionId === version.id).at(-1)
@@ -373,8 +387,12 @@ function StartForm({ t, task, snapshot, versionId, actions }: StartFormProps) {
     && (workspace.preparation === undefined || workspace.preparation.status === 'ready'))
   const [createdWorkspace, setCreatedWorkspace] = useState<WorkspaceRecord>()
   const [selectedId, setSelectedId] = useState<WorkspaceRecord['id'] | undefined>(task.workspaceId ?? ready[0]?.id)
+  const [preset, setPreset] = useState(task.agentPreset ?? '')
   const [busy, setBusy] = useState(false)
   const [failure, setFailure] = useState<OperationFailure>()
+  const projectPreset = project?.config.agentPreset
+  const projectPresetName = agentPresets.find(candidate => candidate.id === projectPreset)?.name ?? projectPreset ?? t('project.agentPresetDefault')
+  const presetOptions = [{ value: '', label: t('task.agentPresetProjectDefault').replace('{name}', projectPresetName) }, ...agentPresets.map(candidate => ({ value: candidate.id, label: candidate.name ?? candidate.id }))]
   const available = createdWorkspace === undefined || ready.some(workspace => workspace.id === createdWorkspace.id)
     ? ready
     : [...ready, createdWorkspace]
@@ -425,7 +443,8 @@ function StartForm({ t, task, snapshot, versionId, actions }: StartFormProps) {
       }
       const started = await actions.startAttempt({ taskId: task.id, workspaceId: selected.id })
       if (!started.ok) { report(t('task.start'), started.error.code, started.error.message); return }
-      const sessionId = await actions.createSessionInWorkspace(selected.path, project?.config.agentPreset)
+      const resolvedPreset = preset === '' ? projectPreset : preset
+      const sessionId = await actions.createSessionInWorkspace(selected.path, resolvedPreset)
       const attached = await actions.attachSession({ taskId: task.id, sessionId })
       if (!attached.ok) { report(t('op.attach'), attached.error.code, attached.error.message); return }
       const acquired = await actions.acquireExecution({ workspaceId: selected.id, sessionId })
@@ -454,6 +473,11 @@ function StartForm({ t, task, snapshot, versionId, actions }: StartFormProps) {
       />
     </div>
     {available.length <= 1 && <p style={{ ...hint, margin: 0 }}>{t('task.workspaceConcurrentHint')}</p>}
+    <div style={field}>
+      <span>{t('task.agentPreset')}</span>
+      <LoomSelect block ariaLabel={t('task.agentPreset')} value={preset} options={presetOptions} onChange={setPreset} />
+      <p style={{ ...hint, margin: 0 }}>{t('task.agentPresetHint')}</p>
+    </div>
     {failure !== undefined && <InlineFailure t={t} failure={failure} />}
     <Button type="submit" variant="primary" className="loom-primary" disabled={busy || selected === undefined} style={{ alignSelf: 'flex-start' }}>
       {busy ? t('form.submitPending') : t('task.start')}

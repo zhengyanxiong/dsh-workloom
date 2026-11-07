@@ -42,6 +42,7 @@ export async function createTask(runtime: TaskCrudRuntime, versionId: TaskRecord
   const moduleIds = [...(options.moduleIds ?? [])]
   if (!distinct(moduleIds)) throw new CatalogError('invalid_task')
   const priority = options.priority ?? 'normal'
+  const agentPreset = options.agentPreset?.trim() ?? ''
   return runtime.transaction(draft => {
     const version = versionIn(draft, versionId)
     const project = draft.projects.find(candidate => candidate.id === version.projectId)
@@ -55,6 +56,7 @@ export async function createTask(runtime: TaskCrudRuntime, versionId: TaskRecord
     const record: TaskRecord = {
       ...pendingTask(brandString<Task['id']>(randomUUID()), versionId),
       ...(options.workspaceId === undefined ? {} : { workspaceId: options.workspaceId }),
+      ...(agentPreset === '' ? {} : { agentPreset }),
       title: admittedTitle,
       description,
       moduleIds,
@@ -82,12 +84,22 @@ export async function updateTask(runtime: TaskCrudRuntime, taskId: TaskRecord['i
   const moduleIds = [...(options.moduleIds ?? [])]
   if (!distinct(moduleIds)) throw new CatalogError('invalid_task')
   const priority = options.priority ?? 'normal'
+  const agentPreset = options.agentPreset?.trim() ?? ''
   return runtime.transaction(draft => {
     const task = taskIn(draft, taskId)
     const version = versionIn(draft, task.versionId)
     const project = draft.projects.find(candidate => candidate.id === version.projectId)
     if (project === undefined || moduleIds.some(moduleId => !project.config.modules.some(module => module.id === moduleId))) throw new CatalogError('invalid_task')
-    const next: TaskRecord = { ...task, title: admittedTitle, description, moduleIds, priority, updatedAt: nowIso() }
+    const { agentPreset: _previousPreset, ...rest } = task
+    const next: TaskRecord = {
+      ...rest,
+      ...(agentPreset === '' ? {} : { agentPreset }),
+      title: admittedTitle,
+      description,
+      moduleIds,
+      priority,
+      updatedAt: nowIso(),
+    }
     draft.tasks[draft.tasks.indexOf(task)] = next
     runtime.recordAudit(draft, 'task.updated', 'human', { taskId: next.id, detail: admittedTitle })
     return next

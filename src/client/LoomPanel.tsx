@@ -693,6 +693,7 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
       />}
       <LoomRouteContent
         t={t}
+        agentPresets={agentPresets}
         route={route}
         view={view}
         snapshot={snapshot}

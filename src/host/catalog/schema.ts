@@ -73,6 +73,7 @@ const taskSchema = z.strictObject({
   id: id<'loom.task'>(),
   versionId: id<'loom.version'>(),
   workspaceId: id<'loom.workspace'>().optional(),
+  agentPreset: z.string().max(200).optional(),
   title: text,
   description: z.string().max(4000).optional().transform(value => value ?? ''),
   moduleIds: z.array(id<'loom.module'>()).optional().transform(value => value ?? []),

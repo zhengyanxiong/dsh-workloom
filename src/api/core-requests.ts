@@ -68,6 +68,8 @@ export interface CreateTaskRequest {
    */
   readonly workspaceId?: string
   readonly title: string
+  /** Per-task Agent preset; omitted inherits the project preset. */
+  readonly agentPreset?: string
   readonly description?: string
   readonly moduleIds?: readonly string[]
   readonly priority?: 'low' | 'normal' | 'high'
@@ -101,6 +103,8 @@ export interface UpdateVersionRequest {
 export interface UpdateTaskRequest {
   readonly taskId: string
   readonly title: string
+  /** Per-task Agent preset; omitting it clears an existing override. */
+  readonly agentPreset?: string
   readonly description?: string
   readonly moduleIds?: readonly string[]
   readonly priority?: 'low' | 'normal' | 'high'
