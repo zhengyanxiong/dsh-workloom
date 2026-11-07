@@ -11,14 +11,13 @@ import type {
   CatalogSnapshot, ProjectRecord, TaskPriority, TaskRecord, VersionRecord,
   WorkspaceChangesRequest, WorkspaceRecord, VersionWorkspaceInput,
 } from 'dsh-workloom/types'
-import { ImportProjectForm, ProjectForm, TaskForm, VersionForm, type AgentPresetOption, type VersionStep } from './LoomForms.tsx'
+import { type AgentPresetOption, type VersionStep } from './LoomForms.tsx'
 import { readPreferences, writePreferences, type LoomPreferences } from './features/settings/LoomSettings.tsx'
 import { LoomSettingsPage } from './features/settings/LoomSettingsPage.tsx'
 import type { ExecutionActions } from './features/task/LoomExecution.tsx'
 import { LoomBottomPanel, type LoomBottomPane } from './LoomBottomPanel.tsx'
 import { LoomResizeHandle } from './shell/LoomResizeHandle.tsx'
 import { LoomFilePreview } from './features/preview/LoomFilePreview.tsx'
-import { LoomDirectoryBrowser } from './features/workspace/LoomDirectoryBrowser.tsx'
 import { LoomReviewPreview } from './features/preview/LoomReviewPreview.tsx'
 import { LoomTopbar } from './shell/LoomTopbar.tsx'
 import { LoomSessionHeader } from './features/session/LoomSessionHeader.tsx'
@@ -30,8 +29,8 @@ import shell from './shell/LoomShell.module.css'
 import { parseLoomHash, type LoomRoute } from './shell/router.ts'
 import { openFilePreview, workspacePreview, workspaceReviewPreview } from './features/preview/preview.ts'
 import { LoomContextPanel } from './LoomContextPanel.tsx'
-import { LoomDeleteDialog } from './features/dialogs/LoomDeleteDialog.tsx'
 import { LoomSidebar } from './shell/LoomSidebar.tsx'
+import { LoomFormDialogs, type CreateKind, type EditKind } from './features/dialogs/LoomFormDialogs.tsx'
 import { LoomGlobalStyles } from './shell/LoomGlobalStyles.tsx'
 import { NextStepCard } from './features/workbench/NextStepCard.tsx'
 import { LoomCommandPalette } from './features/palette/LoomCommandPalette.tsx'
@@ -72,16 +71,7 @@ type CatalogState =
   | { readonly status: 'error' }
   | { readonly status: 'ready'; readonly snapshot: CatalogSnapshot }
 type View = 'workbench' | 'kanban'
-type CreateKind = 'project' | 'import' | 'version' | 'task'
-type EditKind = 'project' | 'version' | 'task'
 
-const modalOverlay: CSSProperties = { position: 'fixed', inset: 0, zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, overflow: 'auto', background: 'color-mix(in srgb, var(--color-ink) 42%, transparent)' }
-const modalCard: CSSProperties = { display: 'flex', flexDirection: 'column', width: '100%', maxHeight: 'calc(100% - 48px)', boxSizing: 'border-box', overflowY: 'auto', padding: '20px 22px 0', background: COLORS.panel, border: `0.5px solid ${COLORS.border}`, borderRadius: 'var(--dsw-radius-lg)', boxShadow: '0 24px 64px color-mix(in srgb, var(--color-ink) 32%, transparent)' }
-const modalHeader: CSSProperties = { display: 'flex', alignItems: 'flex-start', gap: 8, minHeight: 30, marginBottom: 6 }
-const modalTitle: CSSProperties = { fontSize: 'var(--text-stat-size)', fontWeight: 500, lineHeight: 1.3, letterSpacing: '-.015em' }
-const modalHint: CSSProperties = { margin: '0 0 12px', color: COLORS.dim, fontSize: 'var(--text-compact-size)', lineHeight: 1.55 }
-const modalSub: CSSProperties = { marginTop: 7, color: COLORS.dim, fontSize: 'var(--text-compact-size)', lineHeight: 1.5 }
-const MODAL_WIDTH: Readonly<Record<CreateKind | EditKind, number>> = { project: 760, import: 640, version: 660, task: 660 }
 const note: CSSProperties = { padding: 12, borderRadius: 8, color: COLORS.dim, background: COLORS.panel2, lineHeight: 1.6, margin: 0 }
 
 function readPinnedProjects(): ProjectRecord['id'][] {
@@ -1053,42 +1043,6 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
       actions={temporary}
       onClose={() => setTemporaryOpen(false)}
     />
-    {create !== undefined && <div style={modalOverlay}>
-      <div role="dialog" aria-modal="true" aria-label={create === 'project' ? t('top.newProject') : create === 'import' ? t('project.import') : create === 'version' ? t('top.newVersion') : t('top.newTask')} style={{ ...modalCard, maxWidth: MODAL_WIDTH[create] }} onClick={event => event.stopPropagation()}>
-        <div style={modalHeader}>
-          <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-            <strong style={modalTitle}>{create === 'project' ? t('top.newProject') : create === 'import' ? t('project.import') : create === 'version' ? t('top.newVersion') : t('top.newTask')}</strong>
-            {create === 'version' && <span style={modalSub}>{t(versionStep === 'name' ? 'version.sub.name' : versionStep === 'refs' ? 'version.sub.refs' : versionStep === 'workspace' ? 'version.sub.workspace' : 'version.sub.preview')}</span>}
-          </div>
-          <Button size="sm" variant="ghost" icon={<IconCloseOutlineRegular />} aria-label={t('form.close')} title={t('form.close')} onClick={() => setCreate(undefined)} style={{ marginLeft: 'auto', width: 28, height: 28, padding: 0, justifyContent: 'center' }} />
-        </div>
-        {create !== 'version' && <p style={modalHint}>{create === 'project' ? t('flow.project') : create === 'task' ? t('flow.task') : t('flow.import')}</p>}
-        {create === 'project' && <ProjectForm t={t} open onBusyChange={setModalBusy} agentPresets={agentPresets} pickDirectory={chooseDirectory} onOpenChange={value => { if (!value) setCreate(undefined) }} create={createProject} onCreated={created => { setProject(created.id); setVersion(undefined); setTask(undefined); setSelected(undefined); setCreate(undefined); setAttempt(current => current + 1) }} />}
-        {create === 'import' && <ImportProjectForm t={t} open onBusyChange={setModalBusy} onOpenChange={value => { if (!value) setCreate(undefined) }} create={createProject} onCreated={created => { setProject(created.id); setVersion(undefined); setTask(undefined); setSelected(undefined); setCreate(undefined); setAttempt(current => current + 1) }} />}
-        {create === 'version' && currentProject !== undefined && <VersionForm t={t} open onBusyChange={setModalBusy} onStepChange={setVersionStep} listBranches={repositoryBranches} onOpenChange={value => { if (!value) setCreate(undefined) }} project={currentProject} pickDirectory={chooseDirectory} create={createVersion} onCreated={created => { setVersion(created.id); setTask(undefined); setSelected(undefined); setCreate(undefined); setAttempt(current => current + 1) }} />}
-        {create === 'task' && currentVersion !== undefined && currentVersionProject !== undefined && <TaskForm t={t} open onBusyChange={setModalBusy} onOpenChange={value => { if (!value) setCreate(undefined) }} version={currentVersion} project={currentVersionProject} workspaces={(snapshot?.workspaces ?? []).filter(workspace => workspace.versionId === currentVersion.id && workspace.cleaned !== true && (workspace.preparation === undefined || workspace.preparation.status === 'ready'))} create={createTask} onCreated={created => { setTask(created); setSelected(undefined); setView('workbench'); navigate('task'); setCreate(undefined); setAttempt(current => current + 1) }} />}
-        {create === 'version' && currentProject === undefined && <p style={note}>{t('project.select')}</p>}
-        {create === 'task' && currentVersion === undefined && <p style={note}>{t('version.select')}</p>}
-      </div>
-    </div>}
-    {edit !== undefined && <div style={modalOverlay}>
-      <div role="dialog" aria-modal="true" aria-label={edit === 'project' ? t('project.edit') : edit === 'version' ? t('version.edit') : t('task.edit')} style={{ ...modalCard, maxWidth: MODAL_WIDTH[edit] }} onClick={event => event.stopPropagation()}>
-        <div style={modalHeader}>
-          <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-            <strong style={modalTitle}>{edit === 'project' ? t('project.edit') : edit === 'version' ? t('version.edit') : t('task.edit')}</strong>
-          </div>
-          <Button size="sm" variant="ghost" icon={<IconCloseOutlineRegular />} aria-label={t('form.close')} title={t('form.close')} onClick={() => setEdit(undefined)} style={{ marginLeft: 'auto', width: 28, height: 28, padding: 0, justifyContent: 'center' }} />
-        </div>
-        {edit === 'project' && displayProject !== undefined && <ProjectForm t={t} open onBusyChange={setModalBusy} project={displayProject} agentPresets={agentPresets} pickDirectory={chooseDirectory} create={createProject} update={updateProject} onOpenChange={value => { if (!value) setEdit(undefined) }} onCreated={updated => { setProject(updated.id); setEdit(undefined); setAttempt(current => current + 1) }} />}
-        {edit === 'version' && displayVersion !== undefined && displayVersionProject !== undefined && <VersionForm t={t} open onBusyChange={setModalBusy} version={displayVersion} project={displayVersionProject} listBranches={repositoryBranches} pickDirectory={chooseDirectory} boundWorkspaces={(snapshot?.workspaces ?? []).filter(workspace => workspace.versionId === displayVersion.id).map(workspace => ({ ...workspace, taskCount: (snapshot?.tasks ?? []).filter(task => task.workspaceId === workspace.id || task.attempts.some(attempt => attempt.workspaceId === workspace.id)).length, ...(snapshot?.executions.find(execution => execution.workspaceId === workspace.id)?.owner === undefined ? {} : { ownerSessionId: snapshot?.executions.find(execution => execution.workspaceId === workspace.id)?.owner?.sessionId }) }))} otherWorkspaces={(snapshot?.workspaces ?? []).filter(workspace => workspace.versionId !== displayVersion.id && workspace.cleaned !== true).map(workspace => ({ id: workspace.id, label: workspace.label, rootPath: workspace.rootPath, path: workspace.path, mode: workspace.mode, versionId: workspace.versionId, versionName: snapshot?.versions.find(version => version.id === workspace.versionId)?.name ?? '' }))} renameWorkspace={renameVersionWorkspace} deleteWorkspace={removeVersionWorkspace} cleanupWorkspace={removeVersionWorkspace} addWorkspace={addVersionWorkspace} onWorkspaceAdded={() => setAttempt(current => current + 1)} create={createVersion} update={updateVersion} onOpenChange={value => { if (!value) setEdit(undefined) }} onCreated={updated => { setVersion(updated.id); setEdit(undefined); setAttempt(current => current + 1) }} />}
-        {edit === 'task' && detailTask !== undefined && displayVersion !== undefined && displayVersionProject !== undefined && <TaskForm t={t} open onBusyChange={setModalBusy} task={detailTask} version={displayVersion} project={displayVersionProject} create={createTask} update={updateTask} onOpenChange={value => { if (!value) setEdit(undefined) }} onCreated={updated => { setTask(updated); setView('workbench'); setEdit(undefined); setAttempt(current => current + 1) }} />}
-      </div>
-    </div>}
-    {directoryRequest !== undefined && <LoomDirectoryBrowser t={t}
-      {...(directoryRequest.startPath === undefined ? {} : { startPath: directoryRequest.startPath })}
-      loadListing={listDirectory}
-      onCancel={() => finishDirectory(null)} onPick={path => finishDirectory(path)} />}
-    {treeDelete !== undefined && <LoomDeleteDialog t={t} kind="project" subject={treeDelete.config.name} busy={treeDeleting} failure={treeDeleteFailure}
-      onCancel={() => { setTreeDelete(undefined); setTreeDeleteFailure(undefined) }} onConfirm={() => { void confirmTreeDelete() }} />}
+    <LoomFormDialogs t={t} create={create} edit={edit} versionStep={versionStep} currentProject={currentProject} currentVersion={currentVersion} currentVersionProject={currentVersionProject} displayProject={displayProject} displayVersion={displayVersion} displayVersionProject={displayVersionProject} detailTask={detailTask} snapshot={snapshot} agentPresets={agentPresets} createProject={createProject} createVersion={createVersion} createTask={createTask} updateProject={updateProject} updateVersion={updateVersion} updateTask={updateTask} repositoryBranches={repositoryBranches} chooseDirectory={chooseDirectory} addVersionWorkspace={addVersionWorkspace} renameVersionWorkspace={renameVersionWorkspace} removeVersionWorkspace={removeVersionWorkspace} directoryRequest={directoryRequest} finishDirectory={finishDirectory} listDirectory={listDirectory} treeDelete={treeDelete} treeDeleting={treeDeleting} treeDeleteFailure={treeDeleteFailure} confirmTreeDelete={confirmTreeDelete} setCreate={setCreate} setEdit={setEdit} setModalBusy={setModalBusy} setVersionStep={setVersionStep} setProject={setProject} setVersion={setVersion} setTask={setTask} setSelected={setSelected} setAttempt={setAttempt} setView={setView} setTreeDelete={setTreeDelete} setTreeDeleteFailure={setTreeDeleteFailure} navigate={navigate} />
   </div>
 }
