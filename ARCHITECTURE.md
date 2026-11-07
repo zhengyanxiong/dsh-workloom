@@ -180,6 +180,10 @@ src/client/ui/*
 
 不再需要全仓库搜改。
 
+## Typert 生成物维护
+
+`lib/typert.host.js` 与 `lib/typert.remote-client.js` 是检查入仓库的生成物；独立包无法运行 monorepo 里的 generator。修改 Remote 请求/响应字段时必须同步更新这两个文件，否则 RPC 边界的 zod schema 会静默剥离字段；`tests/typert-artifacts.spec.ts` 守护任务预设相关 schema。
+
 ## 风险与不做的事
 
 - 不在本计划中修改业务语义；
