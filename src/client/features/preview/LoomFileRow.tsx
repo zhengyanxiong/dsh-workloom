@@ -1,7 +1,7 @@
 /** Shared changed-file row used by the bottom Diff tree and the turn review list. */
 import type { ReactNode } from 'react'
-import { IconDeliverDocRegular } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { LoomKey } from './locales.ts'
+import { IconDeliverDocRegular } from '../../ui/primitives.ts'
+import type { LoomKey } from '../../locales.ts'
 
 type Translate = (key: LoomKey) => string
 

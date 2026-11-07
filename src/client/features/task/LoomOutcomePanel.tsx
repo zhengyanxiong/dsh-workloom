@@ -1,11 +1,11 @@
 /** Acceptance decision area: Agent evidence, real tests, Diff baseline and the human confirmation. */
 import { useState, type CSSProperties, type ReactNode } from 'react'
-import { Button, IconBranchOutlineRegular, IconCheckOutlineRegular, IconWarningTriangleOutlineRegular, Tag } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button, IconBranchOutlineRegular, IconCheckOutlineRegular, IconWarningTriangleOutlineRegular, Tag } from '../../ui/primitives.ts'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import type { CatalogSnapshot, TaskOutcome, TaskRecord, TransitionTaskRequest } from 'dsh-workloom/types'
-import { LoomDiff, type LoadWorkspaceChanges } from './LoomDiff.tsx'
-import { COLORS, failureReport, formatTimestamp, metaLine, thrownFailureReport, type FailureReport } from './shell.ts'
-import type { LoomKey } from './locales.ts'
+import { LoomDiff, type LoadWorkspaceChanges } from '../preview/LoomDiff.tsx'
+import { COLORS, failureReport, formatTimestamp, metaLine, thrownFailureReport, type FailureReport } from '../../shell.ts'
+import type { LoomKey } from '../../locales.ts'
 
 type Translate = (key: LoomKey) => string
 

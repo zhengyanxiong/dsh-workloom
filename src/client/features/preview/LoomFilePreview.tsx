@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from
 import {
   CodeBlock, FileTypeIcon, IconChevronDownOutlineRegular, IconCloseOutlineRegular, IconFolderOpenRegular, IconFullscreenOutlineRegular, ImageLightbox, MarkdownDelegateProvider, MarkdownText, Menu, PathLabel, languageForPath, type MenuEntry,
   type ImageLightboxLabels, type MarkdownLabels,
-} from '@deepseek-ai/dsh-client-ui-primitives'
+} from '../../ui/primitives.ts'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import type { SessionWorkspacePathApplication } from '@deepseek-ai/dsh-api-session-controller/types'
 import type { WorkspaceFileBytes, WorkspaceFileText } from '@deepseek-ai/dsh-api-workspace-files/types'
@@ -12,9 +12,9 @@ import type { WorkspaceFileChangeRecord, WorkspaceRepositoryChangesRecord } from
 import type { LoadWorkspaceChanges, LoomFileDiffInput } from './LoomDiff.tsx'
 import { LoomHunks } from './LoomHunks.tsx'
 import { LoomSpreadsheetPreview } from './LoomSpreadsheetPreview.tsx'
-import { LoomWrapToggle } from './LoomWrapToggle.tsx'
-import { diffViewport } from './shell.ts'
-import type { LoomKey } from './locales.ts'
+import { LoomWrapToggle } from '../../LoomWrapToggle.tsx'
+import { diffViewport } from '../../shell.ts'
+import type { LoomKey } from '../../locales.ts'
 
 type Translate = (key: LoomKey) => string
 

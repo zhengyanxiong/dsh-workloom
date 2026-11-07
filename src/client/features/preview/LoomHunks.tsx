@@ -2,7 +2,7 @@
 import type { CSSProperties, ReactNode } from 'react'
 import type { WorkspaceFileChangeRecord } from 'dsh-workloom/types'
 import type { LoomFileDiffInput } from './LoomDiff.tsx'
-import type { LoomKey } from './locales.ts'
+import type { LoomKey } from '../../locales.ts'
 
 type Translate = (key: LoomKey) => string
 

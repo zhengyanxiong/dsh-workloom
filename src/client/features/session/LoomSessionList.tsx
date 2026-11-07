@@ -1,10 +1,10 @@
 /** Every execution round and its attached native Sessions, with switch/retry actions. */
 import type { CSSProperties } from 'react'
-import { Button, StateDot, Tag } from '@deepseek-ai/dsh-client-ui-primitives'
-import { COLORS, metaLine, shortCommit, STATUS_META } from './shell.ts'
-import type { LoomKey } from './locales.ts'
-import { absoluteTime, relativeTime } from './time.ts'
-import type { AttemptSessionRow, SessionUnavailableReason, TaskAttemptRow } from './projection.ts'
+import { Button, StateDot, Tag } from '../../ui/primitives.ts'
+import { COLORS, metaLine, shortCommit, STATUS_META } from '../../shell.ts'
+import type { LoomKey } from '../../locales.ts'
+import { absoluteTime, relativeTime } from '../../time.ts'
+import type { AttemptSessionRow, SessionUnavailableReason, TaskAttemptRow } from '../../projection.ts'
 
 type Translate = (key: LoomKey, params?: Readonly<Record<string, string>>) => string
 

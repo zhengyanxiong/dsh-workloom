@@ -1,9 +1,9 @@
 /** Right-rail version dependency graph: task → workspace → owning Session and queue. */
 import type { CSSProperties, ReactNode } from 'react'
-import { Button, StateDot, Tag } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button, StateDot, Tag } from '../../ui/primitives.ts'
 import type { CatalogSnapshot, TaskRecord, VersionRecord, WorkspaceRecord } from 'dsh-workloom/types'
-import { COLORS, STATUS_DOT, STATUS_META } from './shell.ts'
-import type { LoomKey } from './locales.ts'
+import { COLORS, STATUS_DOT, STATUS_META } from '../../shell.ts'
+import type { LoomKey } from '../../locales.ts'
 
 type Translate = (key: LoomKey, params?: Readonly<Record<string, string>>) => string
 

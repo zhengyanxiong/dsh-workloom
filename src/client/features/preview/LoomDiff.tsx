@@ -3,15 +3,15 @@ import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import {
   IconChevronDownOutlineRegular, IconChevronRightOutlineRegular, IconFolderCloseRegular, IconFolderOpenRegular, IconPanelLeftOutlineRegular,
-} from '@deepseek-ai/dsh-client-ui-primitives'
+} from '../../ui/primitives.ts'
 import type {
   WorkspaceChangesRequest, WorkspaceFileChangeRecord, WorkspaceRepositoryChangesRecord,
 } from 'dsh-workloom/types'
 import { LoomFileCounts, LoomFileRow } from './LoomFileRow.tsx'
 import { LoomHunks } from './LoomHunks.tsx'
-import { LoomWrapToggle } from './LoomWrapToggle.tsx'
-import { diffViewport } from './shell.ts'
-import type { LoomKey } from './locales.ts'
+import { LoomWrapToggle } from '../../LoomWrapToggle.tsx'
+import { diffViewport } from '../../shell.ts'
+import type { LoomKey } from '../../locales.ts'
 
 type Translate = (key: LoomKey) => string
 

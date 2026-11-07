@@ -1,10 +1,10 @@
 /** In-app directory browser for Hosts whose directory picker exposes browse primitives. */
 import { useCallback, useEffect, useState, type CSSProperties } from 'react'
-import { Button, IconChevronLeftOutlineRegular, IconFolderOpenRegular, Modal } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button, IconChevronLeftOutlineRegular, IconFolderOpenRegular, Modal } from '../../ui/primitives.ts'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import type { DirectoryListing } from 'dsh-workloom/types'
-import { COLORS } from './shell.ts'
-import type { LoomKey } from './locales.ts'
+import { COLORS } from '../../shell.ts'
+import type { LoomKey } from '../../locales.ts'
 
 type Translate = (key: LoomKey) => string
 

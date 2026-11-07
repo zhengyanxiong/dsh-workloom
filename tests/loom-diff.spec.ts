@@ -2,7 +2,7 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
 import type { WorkspaceRepositoryChangesRecord } from 'dsh-workloom/types'
-import { buildDiffTrees, diffTreeFiles, LoomDiff } from '../src/client/LoomDiff.tsx'
+import { buildDiffTrees, diffTreeFiles, LoomDiff } from '../src/client/features/preview/LoomDiff.tsx'
 import { en, type LoomKey } from '../src/client/locales.ts'
 const t = (key: LoomKey) => en[key]
 const loadChanges = () => Promise.resolve({ ok: false as const, error: { code: 'unused' } } as never)

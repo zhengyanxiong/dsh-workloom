@@ -2,7 +2,7 @@
 import { act, createElement } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, expect, it, vi } from 'vitest'
-import { LoomDirectoryBrowser } from '../src/client/LoomDirectoryBrowser.tsx'
+import { LoomDirectoryBrowser } from '../src/client/features/workspace/LoomDirectoryBrowser.tsx'
 import { en, type LoomKey } from '../src/client/locales.ts'
 import type { DirectoryListing } from 'dsh-workloom/types'
 

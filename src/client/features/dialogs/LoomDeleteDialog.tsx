@@ -1,7 +1,7 @@
 /** Modal confirmation for deleting one project, version or task. */
-import { Button, IconWarningTriangleOutlineRegular, Modal } from '@deepseek-ai/dsh-client-ui-primitives'
-import { COLORS, type FailureReport } from './shell.ts'
-import type { LoomKey } from './locales.ts'
+import { Button, IconWarningTriangleOutlineRegular, Modal } from '../../ui/primitives.ts'
+import { COLORS, type FailureReport } from '../../shell.ts'
+import type { LoomKey } from '../../locales.ts'
 
 type Translate = (key: LoomKey) => string
 

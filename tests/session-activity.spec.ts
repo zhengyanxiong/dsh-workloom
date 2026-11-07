@@ -1,7 +1,7 @@
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
-import { LoomSessionActivity, type LoomJobsFace } from '../src/client/LoomSessionActivity.tsx'
+import { LoomSessionActivity, type LoomJobsFace } from '../src/client/features/session/LoomSessionActivity.tsx'
 import { en, type LoomKey } from '../src/client/locales.ts'
 
 const t = (key: LoomKey, params?: Readonly<Record<string, string>>) => {

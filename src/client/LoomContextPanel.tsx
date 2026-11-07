@@ -9,10 +9,10 @@ import type { CatalogSnapshot, GenerateLockRequest, Lock, ProjectRecord, Reposit
 import { currentWorkspace, versionOccupancy, type TokenUsageView, type VersionOccupancyRow } from './projection.ts'
 import { renderVersionContext, type VersionContext } from '../shared/version-context.ts'
 import { LockButton } from './LoomForms.tsx'
-import { LoomDeleteDialog, type DeleteKind } from './LoomDeleteDialog.tsx'
+import { LoomDeleteDialog, type DeleteKind } from './features/dialogs/LoomDeleteDialog.tsx'
 import { COLORS, failureReport, sectionTitle, shortCommit, thrownFailureReport, type FailureReport, PRIORITY_META, STATUS_META } from './shell.ts'
 import { TaskStatusDot } from './LoomStatusDot.tsx'
-import { LoomWorkspaceOpen } from './LoomWorkspaceOpen.tsx'
+import { LoomWorkspaceOpen } from './features/workspace/LoomWorkspaceOpen.tsx'
 import type { LoomKey } from './locales.ts'
 
 type Translate = (key: LoomKey, params?: Readonly<Record<string, string>>) => string

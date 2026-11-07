@@ -3,7 +3,7 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
 import { en, type LoomKey } from '../src/client/locales.ts'
-import { LoomSessionHeader } from '../src/client/LoomSessionHeader.tsx'
+import { LoomSessionHeader } from '../src/client/features/session/LoomSessionHeader.tsx'
 
 const t = (key: LoomKey) => en[key]
 

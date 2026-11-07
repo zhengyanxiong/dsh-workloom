@@ -5,7 +5,7 @@ import type { CreateVersionRequest, ProjectRecord, SourceConfig, VersionRecord, 
 import { autoWorkspaceRepositoryPath } from '../../../domain/workspace.ts'
 import { VERSION_DESCRIPTION_MAX_CHARS } from '../../../shared/version-context.ts'
 import { COLORS, failureKey } from '../../shell.ts'
-import { LoomWizardSteps } from '../../LoomWizardSteps.tsx'
+import { LoomWizardSteps } from '../forms/LoomWizardSteps.tsx'
 import { LoomSelect } from '../../ui/Select.tsx'
 import type { LoomKey } from '../../locales.ts'
 import { alert, branchCard, branchError, branchPath, branchPathNote, branchPathText, branchTag, branchTagEmpty, branchTop, card, field, fieldLabel, footer, footerSpacer, formStyle, helperStrip, hint, input, mono, previewRow, sectionHeading, sectionHeadingTitle, stack, textarea, workspaceActions, workspaceCard, workspaceConfirm, workspaceConfirmActions, workspaceConfirmText, workspaceCopy, workspaceList, workspaceMeta, workspacePath, workspaceTitle } from '../forms/styles.ts'

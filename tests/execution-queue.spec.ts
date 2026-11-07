@@ -2,9 +2,9 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
 import { brandNumber, brandString } from '@deepseek-ai/dsh-brand'
-import { LoomExecutionQueue } from '../src/client/LoomExecutionQueue.tsx'
+import { LoomExecutionQueue } from '../src/client/features/task/LoomExecutionQueue.tsx'
 import { en, type LoomKey } from '../src/client/locales.ts'
-import type { ExecutionActions } from '../src/client/LoomExecution.tsx'
+import type { ExecutionActions } from '../src/client/features/task/LoomExecution.tsx'
 import type { ExecutionState, SessionId } from 'dsh-workloom/types'
 
 const t = (key: LoomKey, params?: Readonly<Record<string, string>>) => {

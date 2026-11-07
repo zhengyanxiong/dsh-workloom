@@ -5,7 +5,7 @@ import { afterEach, expect, it, vi } from 'vitest'
 import { brandNumber, brandString } from '@deepseek-ai/dsh-brand'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import type { CatalogSnapshot, Lock, TaskRecord, TemporarySessionRecord, VersionRecord, WorkspaceRecord } from 'dsh-workloom/types'
-import { LoomTemporaryDialog, type LoomTemporaryActions } from '../src/client/LoomTemporaryDialog.tsx'
+import { LoomTemporaryDialog, type LoomTemporaryActions } from '../src/client/features/dialogs/LoomTemporaryDialog.tsx'
 import { en, type LoomKey } from '../src/client/locales.ts'
 
 const t = (key: LoomKey) => en[key]

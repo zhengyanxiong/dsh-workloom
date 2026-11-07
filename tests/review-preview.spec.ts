@@ -2,7 +2,7 @@
 import { act, createElement } from 'react'
 import { createRoot } from 'react-dom/client'
 import { afterEach, expect, it, vi } from 'vitest'
-import { LoomReviewPreview } from '../src/client/LoomReviewPreview.tsx'
+import { LoomReviewPreview } from '../src/client/features/preview/LoomReviewPreview.tsx'
 import { en } from '../src/client/locales.ts'
 
 // React's act() requires the DOM test flag; Vitest does not set it for a plain jsdom file.

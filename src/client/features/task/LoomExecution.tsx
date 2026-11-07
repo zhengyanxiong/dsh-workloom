@@ -1,21 +1,21 @@
 /** Execution controls for the selected task: workspaces, sessions and business status. */
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
-import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button } from '../../ui/primitives.ts'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import type {
   AttachSessionRequest, CatalogSnapshot, CleanupWorkspaceRequest, CommitWorkspaceRequest, ExecutionRequest, ExecutionState, PrepareWorkspaceRequest, WorkspaceCommitResult,
   ReleaseExecutionRequest, StartAttemptRequest, TaskRecord, TransitionTaskRequest, WorkspaceRecord, RegisterWorkspaceRequest,
   RepositoryBranches, RepositoryBranchesRequest, InspectWorkspaceRequest, WorkspaceInspection, ReorderExecutionQueueRequest,
 } from 'dsh-workloom/types'
-import type { LoomKey } from './locales.ts'
+import type { LoomKey } from '../../locales.ts'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import { currentExecution } from './projection.ts'
-import { COLORS, failureKey, failureReport, thrownFailureReport, type FailureReport } from './shell.ts'
-import { LoomCleanupDialog, type LoomCleanupFailure } from './LoomCleanupDialog.tsx'
-import { LoomTakeoverDialog } from './LoomTakeoverDialog.tsx'
+import { currentExecution } from '../../projection.ts'
+import { COLORS, failureKey, failureReport, thrownFailureReport, type FailureReport } from '../../shell.ts'
+import { LoomCleanupDialog, type LoomCleanupFailure } from '../dialogs/LoomCleanupDialog.tsx'
+import { LoomTakeoverDialog } from '../dialogs/LoomTakeoverDialog.tsx'
 import { LoomPreparationPanel } from './LoomPreparationPanel.tsx'
-import { LoomSelect } from './ui/Select.tsx'
-import type { LoadWorkspaceChanges } from './LoomDiff.tsx'
+import { LoomSelect } from '../../ui/Select.tsx'
+import type { LoadWorkspaceChanges } from '../preview/LoomDiff.tsx'
 
 type Translate = (key: LoomKey) => string
 

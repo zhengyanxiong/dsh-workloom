@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { clampSize, nextSize } from '../src/client/LoomResizeHandle.tsx'
+import { clampSize, nextSize } from '../src/client/shell/LoomResizeHandle.tsx'
 it('clamps pane sizes to the accepted interval', () => {
   expect(clampSize(100, 220, 720)).toBe(220)
   expect(clampSize(500, 220, 720)).toBe(500)

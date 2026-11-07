@@ -1,12 +1,12 @@
 /** Read-only XLSX table preview rendered from the real workbook bytes. */
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
-import { Button, FileTypeIcon } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button, FileTypeIcon } from '../../ui/primitives.ts'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import type { WorkspaceFileBytes } from '@deepseek-ai/dsh-api-workspace-files/types'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import { readSpreadsheet, type SpreadsheetWorkbook } from './xlsx.ts'
-import { COLORS } from './shell.ts'
-import type { LoomKey } from './locales.ts'
+import { readSpreadsheet, type SpreadsheetWorkbook } from '../../xlsx.ts'
+import { COLORS } from '../../shell.ts'
+import type { LoomKey } from '../../locales.ts'
 
 type Translate = (key: LoomKey) => string
 

@@ -1,11 +1,11 @@
 /** Version workspace list: directories, baseline, real change status, owners and cleanup risk. */
 import { useEffect, useState, type CSSProperties } from 'react'
-import { Tag } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Tag } from '../../ui/primitives.ts'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import type { WorkspaceStatusResult } from 'dsh-workloom/types'
-import { COLORS, metaLine, shortCommit } from './shell.ts'
-import type { LoomKey } from './locales.ts'
-import { workspaceName, type VersionWorkspaceRow } from './projection.ts'
+import { COLORS, metaLine, shortCommit } from '../../shell.ts'
+import type { LoomKey } from '../../locales.ts'
+import { workspaceName, type VersionWorkspaceRow } from '../../projection.ts'
 
 type Translate = (key: LoomKey, params?: Readonly<Record<string, string>>) => string
 

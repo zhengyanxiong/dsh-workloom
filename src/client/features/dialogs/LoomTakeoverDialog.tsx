@@ -1,9 +1,9 @@
 /** Modal confirmation for stopping the current workspace owner and taking execution over. */
 import type { CSSProperties, ReactNode } from 'react'
-import { Button, IconWarningTriangleOutlineRegular, Modal } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button, IconWarningTriangleOutlineRegular, Modal } from '../../ui/primitives.ts'
 import type { ExecutionState, TaskOutcome, TaskRecord, WorkspaceRecord } from 'dsh-workloom/types'
-import { COLORS, formatTimestamp, metaLine } from './shell.ts'
-import type { LoomKey } from './locales.ts'
+import { COLORS, formatTimestamp, metaLine } from '../../shell.ts'
+import type { LoomKey } from '../../locales.ts'
 
 type Translate = (key: LoomKey) => string
 

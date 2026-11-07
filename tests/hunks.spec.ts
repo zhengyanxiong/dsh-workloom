@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { hunkRows } from '../src/client/LoomHunks.tsx'
+import { hunkRows } from '../src/client/features/preview/LoomHunks.tsx'
 
 it('numbers unified diff rows by hunk position', () => {
   expect(hunkRows([{ oldStart: 2, oldLines: 2, newStart: 2, newLines: 2, lines: [' keep', '-old', '+new', '\\ No newline at end of file'] }])).toEqual([

@@ -19,12 +19,12 @@ import { cssText as projectCss } from '../features/project/LoomProjectPage.modul
 import { cssText as commandPaletteCss } from '../features/palette/LoomCommandPalette.module.css'
 import { cssText as kanbanCss } from '../features/board/LoomKanban.module.css'
 import { cssText as boardListCss } from '../features/board/LoomBoardList.module.css'
-import { cssText as taskCss } from '../LoomTaskWorkbench.module.css'
+import { cssText as taskCss } from '../features/task/LoomTaskWorkbench.module.css'
 import { cssText as settingsRowsCss } from '../features/settings/LoomSettings.module.css'
 import { cssText as settingsCss } from '../features/settings/LoomSettingsPage.module.css'
-import { cssText as sessionHeaderCss } from '../LoomSessionHeader.module.css'
-import { cssText as sessionGraphCss } from '../LoomSessionGraph.module.css'
-import { cssText as sessionActivityCss } from '../LoomSessionActivity.module.css'
+import { cssText as sessionHeaderCss } from '../features/session/LoomSessionHeader.module.css'
+import { cssText as sessionGraphCss } from '../features/session/LoomSessionGraph.module.css'
+import { cssText as sessionActivityCss } from '../features/session/LoomSessionActivity.module.css'
 import classes from './LoomTheme.module.css'
 
 /** Class that bridges DSH component aliases onto Loom design tokens. */

@@ -1,10 +1,10 @@
 /** Session header: task context pills and the workbench navigation actions. */
-import { IconCloseOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconCloseOutlineRegular } from '../../ui/primitives.ts'
 import type { TaskPriority } from 'dsh-workloom/types'
-import type { TaskStatus } from '../domain/task.ts'
-import { PRIORITY_META, STATUS_META } from './shell.ts'
-import type { LoomKey } from './locales.ts'
-import { LoomButton } from './ui/Button.tsx'
+import type { TaskStatus } from '../../../domain/task.ts'
+import { PRIORITY_META, STATUS_META } from '../../shell.ts'
+import type { LoomKey } from '../../locales.ts'
+import { LoomButton } from '../../ui/Button.tsx'
 import classes from './LoomSessionHeader.module.css'
 
 type Translate = (key: LoomKey) => string

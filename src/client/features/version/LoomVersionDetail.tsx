@@ -3,17 +3,17 @@ import { useState, type CSSProperties } from 'react'
 import {
   Button, DisclosureRow, IconClockOutlineRegular, IconContextInjectionOutlineRegular,
   IconEditOutlineRegular, IconPlusOutlineRegular, Tag,
-} from '@deepseek-ai/dsh-client-ui-primitives'
+} from '../../ui/primitives.ts'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import type { CatalogSnapshot, GenerateLockRequest, Lock, ProjectRecord, TaskRecord, VersionRecord } from 'dsh-workloom/types'
-import { renderVersionContext, type VersionContext } from '../shared/version-context.ts'
-import { COLORS, formatTimestamp, metaLine, PRIORITY_META, shortCommit, STATUS_META } from './shell.ts'
-import { TaskStatusDot } from './LoomStatusDot.tsx'
-import type { LoomKey } from './locales.ts'
-import { LockButton } from './LoomForms.tsx'
-import { LoomWorkspaceList, type LoadWorkspaceStatus } from './LoomWorkspaceList.tsx'
-import { workspaceName } from './projection.ts'
-import { lockTasks, lockWorkspaces, versionLocks, versionOccupancy, versionRepositoryRows, versionWorkspaceRows } from './projection.ts'
+import { renderVersionContext, type VersionContext } from '../../../shared/version-context.ts'
+import { COLORS, formatTimestamp, metaLine, PRIORITY_META, shortCommit, STATUS_META } from '../../shell.ts'
+import { TaskStatusDot } from '../../LoomStatusDot.tsx'
+import type { LoomKey } from '../../locales.ts'
+import { LockButton } from '../../LoomForms.tsx'
+import { LoomWorkspaceList, type LoadWorkspaceStatus } from '../workspace/LoomWorkspaceList.tsx'
+import { workspaceName } from '../../projection.ts'
+import { lockTasks, lockWorkspaces, versionLocks, versionOccupancy, versionRepositoryRows, versionWorkspaceRows } from '../../projection.ts'
 
 type Translate = (key: LoomKey, params?: Readonly<Record<string, string>>) => string
 

@@ -1,12 +1,12 @@
 /** Temporary-session creation: independent folder first, explicit workspace reuse with execution access. */
 import { useState, type CSSProperties, type ReactNode } from 'react'
-import { Button, IconFolderOpenRegular, IconWarningTriangleOutlineRegular, Modal, Tag } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button, IconFolderOpenRegular, IconWarningTriangleOutlineRegular, Modal, Tag } from '../../ui/primitives.ts'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { CatalogSnapshot, RegisterTemporarySessionRequest, TemporarySessionRecord, VersionRecord, WorkspaceRecord } from 'dsh-workloom/types'
-import { COLORS, failureReport, thrownFailureReport, type FailureReport } from './shell.ts'
-import type { LoomKey } from './locales.ts'
-import { workspaceName } from './projection.ts'
+import { COLORS, failureReport, thrownFailureReport, type FailureReport } from '../../shell.ts'
+import type { LoomKey } from '../../locales.ts'
+import { workspaceName } from '../../projection.ts'
 
 type Translate = (key: LoomKey, params?: Readonly<Record<string, string>>) => string
 

@@ -1,10 +1,10 @@
 /** Modal cleanup confirmation with native workspace Diff and per-repository cleanup results. */
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
-import { IconFullscreenOutlineRegular, Tag } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconFullscreenOutlineRegular, Tag } from '../../ui/primitives.ts'
 import type { WorkspaceRecord } from 'dsh-workloom/types'
-import { LoomDiff, type LoadWorkspaceChanges } from './LoomDiff.tsx'
-import { COLORS, failureKey, metaLine } from './shell.ts'
-import type { LoomKey } from './locales.ts'
+import { LoomDiff, type LoadWorkspaceChanges } from '../preview/LoomDiff.tsx'
+import { COLORS, failureKey, metaLine } from '../../shell.ts'
+import type { LoomKey } from '../../locales.ts'
 
 type Translate = (key: LoomKey, params?: Readonly<Record<string, string>>) => string
 

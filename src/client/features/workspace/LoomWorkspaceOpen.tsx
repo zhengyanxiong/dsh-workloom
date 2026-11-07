@@ -1,10 +1,10 @@
 /** Workspace-directory opener backed by the Host open-in-app catalog and Windows file handlers. */
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
-import { IconChevronDownOutlineRegular, IconFolderOpenRegular, Menu, type MenuEntry } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconChevronDownOutlineRegular, IconFolderOpenRegular, Menu, type MenuEntry } from '../../ui/primitives.ts'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
-import { COLORS } from './shell.ts'
-import { pushLoomNotice } from './feedback.ts'
-import type { LoomKey } from './locales.ts'
+import { COLORS } from '../../shell.ts'
+import { pushLoomNotice } from '../../feedback.ts'
+import type { LoomKey } from '../../locales.ts'
 
 type Translate = (key: LoomKey, params?: Readonly<Record<string, string>>) => string
 

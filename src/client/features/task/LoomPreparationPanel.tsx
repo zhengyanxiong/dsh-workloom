@@ -1,9 +1,9 @@
 /** Per-repository workspace preparation progress with a failure-only retry. */
 import { type CSSProperties, type ReactNode } from 'react'
-import { Button, Tag } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button, Tag } from '../../ui/primitives.ts'
 import type { WorkspacePreparation } from 'dsh-workloom/types'
-import { COLORS, metaLine } from './shell.ts'
-import type { LoomKey } from './locales.ts'
+import { COLORS, metaLine } from '../../shell.ts'
+import type { LoomKey } from '../../locales.ts'
 
 type Translate = (key: LoomKey) => string
 

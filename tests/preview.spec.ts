@@ -2,7 +2,7 @@ import { expect, it } from 'vitest'
 import {
   openFilePreview, openReviewPreview, previewTargetFromAddress, reviewIndexFromOptions, reviewTargetFromAddress, routeLoomResource,
   workspacePreview, workspaceReviewPreview,
-} from '../src/client/preview.ts'
+} from '../src/client/features/preview/preview.ts'
 it('reads a native session file address for the workbench preview', () => {
   expect(previewTargetFromAddress('dsh-resource://file/session/s1/src/a%20b.ts')).toEqual({ sessionId: 's1', path: 'src/a b.ts' })
 })

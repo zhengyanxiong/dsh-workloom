@@ -3,7 +3,7 @@ import { Button, IconChevronLeftOutlineRegular, IconPlusOutlineRegular } from '.
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import type { CreateTaskRequest, ProjectRecord, TaskRecord, TaskPriority, VersionRecord, UpdateTaskRequest } from 'dsh-workloom/types'
 import { COLORS } from '../../shell.ts'
-import { LoomWizardSteps } from '../../LoomWizardSteps.tsx'
+import { LoomWizardSteps } from '../forms/LoomWizardSteps.tsx'
 import { LoomSelect } from '../../ui/Select.tsx'
 import type { LoomKey } from '../../locales.ts'
 import { alert, card, field, fieldLabel, footer, footerSpacer, formStyle, hint, input, previewRow, stack, textarea } from '../forms/styles.ts'

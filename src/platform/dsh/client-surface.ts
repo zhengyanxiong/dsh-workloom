@@ -18,7 +18,7 @@ import { readPreferences } from '../../client/features/settings/LoomSettings.tsx
 import { LoomMark } from '../../client/LoomMark.tsx'
 import { LoomNoticeHost } from '../../client/LoomNoticeHost.tsx'
 import { ConversationEmbed } from '../../client/conversation/ConversationEmbed.tsx'
-import { openFilePreview, openReviewPreview, routeLoomResource } from '../../client/preview.ts'
+import { openFilePreview, openReviewPreview, routeLoomResource } from '../../client/features/preview/preview.ts'
 import { NS } from '../../client/locales.ts'
 import type { LoomUi, Translate } from './ui.ts'
 import './dsh-types.ts'

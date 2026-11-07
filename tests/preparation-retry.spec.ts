@@ -5,7 +5,7 @@ import { afterEach, expect, it, vi } from 'vitest'
 import { brandString } from '@deepseek-ai/dsh-brand'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import type { CatalogSnapshot, Lock, TaskRecord, VersionRecord, WorkspaceRecord } from 'dsh-workloom/types'
-import { ExecutionPanel, type ExecutionActions } from '../src/client/LoomExecution.tsx'
+import { ExecutionPanel, type ExecutionActions } from '../src/client/features/task/LoomExecution.tsx'
 import { en, type LoomKey } from '../src/client/locales.ts'
 
 const t = (key: LoomKey) => en[key]

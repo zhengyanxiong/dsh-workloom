@@ -3,7 +3,7 @@ import { act, createElement } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, expect, it } from 'vitest'
 import { brandNumber, brandString } from '@deepseek-ai/dsh-brand'
-import { ExecutionPanel, type ExecutionActions } from '../src/client/LoomExecution.tsx'
+import { ExecutionPanel, type ExecutionActions } from '../src/client/features/task/LoomExecution.tsx'
 import { en, type LoomKey } from '../src/client/locales.ts'
 import type { CatalogSnapshot, Lock, TaskRecord, VersionRecord, WorkspaceRecord } from 'dsh-workloom/types'
 

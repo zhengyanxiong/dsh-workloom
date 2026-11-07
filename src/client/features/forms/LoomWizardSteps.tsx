@@ -1,8 +1,8 @@
 /** Shared creation-wizard step rail for Workloom modals. */
 import type { CSSProperties } from 'react'
-import { IconCheckOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
-import { COLORS } from './shell.ts'
-import type { LoomKey } from './locales.ts'
+import { IconCheckOutlineRegular } from '../../ui/primitives.ts'
+import { COLORS } from '../../shell.ts'
+import type { LoomKey } from '../../locales.ts'
 
 type Translate = (key: LoomKey) => string
 

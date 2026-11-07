@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
 import { brandString } from '@deepseek-ai/dsh-brand'
 import type { WorkspaceRecord } from 'dsh-workloom/types'
-import { LoomCleanupDialog } from '../src/client/LoomCleanupDialog.tsx'
+import { LoomCleanupDialog } from '../src/client/features/dialogs/LoomCleanupDialog.tsx'
 import { en, type LoomKey } from '../src/client/locales.ts'
 const t = (key: LoomKey) => en[key]
 const workspace: WorkspaceRecord = { id: brandString<WorkspaceRecord['id']>('w1'), versionId: brandString<'loom.version'>('v1'), lockId: brandString<'loom.lock'>('l1'), path: '/tmp/loom/workspace' }
