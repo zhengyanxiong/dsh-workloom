@@ -16,6 +16,7 @@ import { cssText as shellCss } from '../shell/LoomShell.module.css'
 import { cssText as bottomCss } from '../LoomBottomPanel.module.css'
 import { cssText as overviewCss } from '../shell/LoomOverview.module.css'
 import { cssText as projectCss } from '../shell/LoomProjectPage.module.css'
+import { cssText as commandPaletteCss } from '../LoomCommandPalette.module.css'
 import { cssText as kanbanCss } from '../LoomKanban.module.css'
 import { cssText as boardListCss } from '../LoomBoardList.module.css'
 import { cssText as taskCss } from '../LoomTaskWorkbench.module.css'
@@ -44,6 +45,7 @@ export function LoomThemeStyles(): JSX.Element {
     <style data-loom-bottom>{bottomCss}</style>
     <style data-loom-overview>{overviewCss}</style>
     <style data-loom-project>{projectCss}</style>
+    <style data-loom-palette>{commandPaletteCss}</style>
     <style data-loom-kanban>{kanbanCss}</style>
     <style data-loom-board-list>{boardListCss}</style>
     <style data-loom-task>{taskCss}</style>

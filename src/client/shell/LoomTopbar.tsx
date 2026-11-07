@@ -7,7 +7,7 @@
 import type { RefObject } from 'react'
 import {
   IconBranchOutlineRegular, IconChecklistOutlineRegular, IconDownloadOutlineRegular,
-  IconFolderOpenRegular, IconInfoOutlineRegular, IconPanelLeftOutlineRegular, IconPlusOutlineRegular,
+  IconFolderOpenRegular, IconInfoOutlineRegular, IconPanelLeftOutlineRegular, IconPlusOutlineRegular, IconSearchOutlineRegular,
   IconProjectAddOutlineRegular, IconSettingsOutlineRegular, Tooltip,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { CatalogSnapshot, ProjectRecord, VersionRecord } from 'dsh-workloom/types'
@@ -16,6 +16,7 @@ import { LoomButton } from '../ui/Button.tsx'
 import { LoomSelect } from '../ui/Select.tsx'
 import type { LoomKey } from '../locales.ts'
 import { LOOM_NAV_ROUTES, type LoomRoute } from './router.ts'
+import { ROUTE_LABEL } from './route-labels.ts'
 import classes from './LoomTopbar.module.css'
 
 type Translate = (key: LoomKey) => string
@@ -45,15 +46,7 @@ export interface LoomTopbarProps {
   readonly onOpenCreate: (kind: 'project' | 'import' | 'version' | 'task') => void
   readonly onToggleAside: () => void
   readonly onOpenSettings: () => void
-}
-
-const ROUTE_LABEL: Readonly<Record<LoomRoute, LoomKey>> = {
-  home: 'nav.overview',
-  board: 'view.kanban',
-  task: 'nav.tasks',
-  session: 'sessions',
-  project: 'nav.projects',
-  settings: 'nav.settings',
+  readonly onOpenPalette: () => void
 }
 
 /**
@@ -62,7 +55,7 @@ const ROUTE_LABEL: Readonly<Record<LoomRoute, LoomKey>> = {
  * @returns the shell header.
  */
 export function LoomTopbar(props: LoomTopbarProps): JSX.Element {
-  const { t, narrow, sidebarOpen, sidebarCollapsed, menuOpen, project, version, snapshot, activeCount, route, asideOpen, createDisabledVersion, createDisabledTask, newMenuRef, onToggleSidebar, onToggleSidebarCollapsed, onToggleMenu, onSelectProject, onSelectVersion, onNavigate, onOpenCreate, onToggleAside, onOpenSettings } = props
+  const { t, narrow, sidebarOpen, sidebarCollapsed, menuOpen, project, version, snapshot, activeCount, route, asideOpen, createDisabledVersion, createDisabledTask, newMenuRef, onToggleSidebar, onToggleSidebarCollapsed, onToggleMenu, onSelectProject, onSelectVersion, onNavigate, onOpenCreate, onToggleAside, onOpenSettings, onOpenPalette } = props
   return <header className={`${classes.topbar} loom-topbar`}>
     {narrow && <LoomButton variant="ghost" size="sm" iconOnly icon={<IconFolderOpenRegular size={14} />} aria-label={t('side.projects')} aria-expanded={sidebarOpen} onClick={onToggleSidebar} />}
     <span className={classes.brand}>
@@ -99,6 +92,11 @@ export function LoomTopbar(props: LoomTopbarProps): JSX.Element {
       {LOOM_NAV_ROUTES.map(item => <button key={item} type="button" role="tab" aria-selected={route === item} className={`${classes.navItem} ${route === item ? classes.navItemActive : ''}`} onClick={() => onNavigate(item)}>{t(ROUTE_LABEL[item])}</button>)}
     </span>
     <span className={classes.spacer} />
+    <button type="button" className={classes.search} aria-label={t('top.search')} aria-keyshortcuts="Control+K Meta+K" onClick={onOpenPalette}>
+      <span aria-hidden className={classes.searchIcon}><IconSearchOutlineRegular size={13} /></span>
+      <span className={classes.searchText}>{t('top.search')}</span>
+      <kbd className={classes.searchKbd}>Ctrl K</kbd>
+    </button>
     <span className={classes.activity} title={`${String(activeCount)} ${t('top.activeWorkspaces')}`}>
       <span className={classes.dot} />
       <span className={classes.activityCount}>{activeCount}</span>

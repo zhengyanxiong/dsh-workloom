@@ -34,6 +34,7 @@ function render(route: LoomRoute): string {
     onOpenCreate: noop,
     onToggleAside: noop,
     onOpenSettings: noop,
+    onOpenPalette: noop,
   }))
 }
 
@@ -42,6 +43,13 @@ it('keeps the active-workspace count and settings action in the right cluster', 
   expect(html).toContain(en['top.activeWorkspaces'])
   expect(html).toContain('>2<')
   expect(html).toContain(en['top.settings'])
+})
+
+it('exposes the Ctrl K search trigger in the action cluster', () => {
+  const html = render('board')
+  expect(html).toContain(`aria-label="${en['top.search']}"`)
+  expect(html).toContain('aria-keyshortcuts="Control+K Meta+K"')
+  expect(html).toContain('Ctrl K')
 })
 
 it('keeps settings out of the top tabs but reachable from the gear action', () => {

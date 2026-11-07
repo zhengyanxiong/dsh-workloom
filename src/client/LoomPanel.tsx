@@ -35,6 +35,7 @@ import { PinButton, ProjectTaskRow, SidebarSectionToggle, SidebarSessionRow, Tre
 import { openFilePreview, workspacePreview, workspaceReviewPreview } from './preview.ts'
 import { LoomContextPanel } from './LoomContextPanel.tsx'
 import { LoomDeleteDialog } from './LoomDeleteDialog.tsx'
+import { LoomCommandPalette } from './LoomCommandPalette.tsx'
 import { LoomKanban } from './LoomKanban.tsx'
 import { LoomTemporaryDialog, type LoomTemporaryActions } from './LoomTemporaryDialog.tsx'
 import { LoomTaskWorkbench } from './LoomTaskWorkbench.tsx'
@@ -44,6 +45,7 @@ import { LoomVersionGraph } from './LoomVersionGraph.tsx'
 import { LoomSessionGraph, type LoomTaskSessionRow } from './LoomSessionGraph.tsx'
 import { LoomSessionList } from './LoomSessionList.tsx'
 import { autoWorkspaceRepositoryPath } from '../domain/workspace.ts'
+import type { LoomPaletteItem } from './palette.ts'
 import { activeWorkspaceCount, aggregateTokenUsage, boundSessions, tokenUsageOf, currentWorkspace, taskAttemptRows, taskSessionRows, workspaceName, type ShellFilter } from './projection.ts'
 import { deriveVersionContext } from '../shared/version-context.ts'
 import { COLORS, failureReport, metaLine, select, shortCommit, thrownFailureReport, type FailureReport } from './shell.ts'
@@ -262,6 +264,19 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
     const wantDark = resolveLoomTheme(preferences.theme, false) === 'dark'
     if (body.hasAttribute('data-ds-dark-theme') !== wantDark) body.toggleAttribute('data-ds-dark-theme', wantDark)
   }, [preferences.theme])
+
+  // Ctrl/Cmd+K opens the jump palette from anywhere inside Loom.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const onKey = (event: KeyboardEvent): void => {
+      if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === 'k') {
+        event.preventDefault()
+        setPaletteOpen(current => !current)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => { window.removeEventListener('keydown', onKey) }
+  }, [])
   useEffect(() => {
     if (typeof document === 'undefined') return
     const body = document.body
@@ -316,6 +331,7 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
   const [catalog, setCatalog] = useState<CatalogState>({ status: 'loading' })
   const [attempt, setAttempt] = useState(0)
   const [asideOpen, setAsideOpen] = useState(preferences.contextOpen)
+  const [paletteOpen, setPaletteOpen] = useState(false)
   const [previewFullscreen, setPreviewFullscreen] = useState(false)
   const [bottomCollapsed, setBottomCollapsed] = useState(true)
   const [pane, setPane] = useState<LoomBottomPane>('diff')
@@ -801,6 +817,23 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
     setSelected(id); setView('workbench')
     navigate('session')
   }
+
+  /** Jump to the destination chosen in the command palette. */
+  const activatePaletteItem = (item: LoomPaletteItem): void => {
+    setPaletteOpen(false)
+    const target = item.target
+    if (target.kind === 'page') { navigate(target.route); return }
+    if (target.kind === 'project') { setProject(target.projectId); setVersion(undefined); setTask(undefined); setSelected(undefined); navigate('project'); return }
+    if (target.kind === 'version') { setProject(target.projectId); setVersion(target.versionId); setTask(undefined); setSelected(undefined); navigate('project'); return }
+    if (target.kind === 'task') {
+      const record = snapshot?.tasks.find(task => task.id === target.taskId)
+      if (record !== undefined) { selectTask(record); navigate('task') }
+      return
+    }
+    const owner = snapshot?.tasks.find(task => task.attempts.some(attempt => attempt.sessionIds.includes(target.sessionId)))
+    selectSession(target.sessionId, owner)
+    navigate('session')
+  }
   /** Open one attached Session from the round list; retrying the open one re-runs retention. */
   const openAttemptSession = (id: string): void => {
     if (id === selected) setSessionRetry(value => value + 1)
@@ -918,6 +951,7 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
         --loom-faint: var(--color-muted);
         --text-body-size: ${String(preferences.fontSize)}px;
       }
+      .loom-palette { width: min(560px, calc(100vw - 48px)) !important; max-height: min(640px, calc(100vh - 96px)); padding: 0 !important; gap: 0 !important; overflow: hidden; }
       .loom-branch-menu { --dsw-menu-surface-fill: var(--loom-surface); --dsw-menu-backdrop-filter: none; width: var(--loom-branch-menu-width, 320px) !important; max-width: none !important; background: var(--loom-surface) !important; border: 0.5px solid var(--loom-border) !important; box-shadow: 0 12px 32px rgba(15, 17, 21, .16) !important; }
       .loom-workspace-switch { align-self: flex-start; }
       .loom-primary { background: var(--loom-accent) !important; color: var(--loom-on-accent) !important; border: 0.5px solid transparent !important; border-radius: 8px !important; font-size: 12.5px !important; font-weight: 500 !important; box-shadow: 0 1px 2px rgba(15, 17, 21, .12); transition: background-color .12s ease, box-shadow .12s ease; }
@@ -953,6 +987,7 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
       @container (max-width: 760px) { .loom-aside, .loom-aside-handle, .loom-aside-toggle { display: none !important; } .loom-brand-name { display: none; } .loom-top-context { max-width: 128px; } .loom-top-select { max-width: 76px; } }
       @container (max-width: 560px) { .loom-topbar { flex-wrap: wrap !important; height: auto !important; min-height: 48px; padding: 6px 8px !important; column-gap: 4px !important; row-gap: 4px; } .loom-top-spacer { display: none !important; } .loom-top-context { flex: 1 1 140px; max-width: none; padding: 0 6px; order: 5; } .loom-top-select { flex: 1; max-width: none; width: 100%; } .loom-view-switch { margin-left: auto; } .loom-view-switch button { padding: 0 7px; } .loom-top-activity { display: none !important; } .loom-sidebar.loom-sidebar-open { top: 85px !important; } .loom-sidebar-backdrop { top: 85px !important; } .loom-wizard-steps li > span[aria-hidden='true'] { display: none !important; } .loom-wizard-steps button { flex-direction: column; align-items: center; gap: 5px; } .loom-wizard-steps button > span:last-child { justify-content: center; text-align: center; } .loom-wizard-steps button > span:last-child > span:first-child { overflow: visible; white-space: normal; font-size: 11px; line-height: 1.25; } }
     `}</style>
+    <LoomCommandPalette open={paletteOpen} t={t} snapshot={snapshot} onClose={() => setPaletteOpen(false)} onActivate={activatePaletteItem} />
     <LoomTopbar
       t={t}
       narrow={narrow}
@@ -980,6 +1015,7 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
       onOpenCreate={openCreate}
       onToggleAside={() => setAsideOpen(value => { const next = !value; setPreferences(current => ({ ...current, contextOpen: next })); return next })}
       onOpenSettings={() => navigate('settings')}
+      onOpenPalette={() => setPaletteOpen(true)}
     />
     <div className={shell.body}>
       {narrow && sidebarOpen && <div aria-hidden className={shell.sidebarBackdrop} onClick={() => setSidebarOpen(false)} />}
