@@ -21,8 +21,11 @@ import { LoomReviewPreview } from './features/preview/LoomReviewPreview.tsx'
 import { LoomTopbar } from './shell/LoomTopbar.tsx'
 import { LOOM_ROOT_CLASS, LoomThemeStyles } from './theme/LoomTheme.tsx'
 import { resolveLoomTheme } from './theme/selection.ts'
+import { useHostTheme } from './theme/useHostTheme.ts'
+import { useLoomRoute } from './shell/useLoomRoute.ts'
+import { useLoomViewport } from './shell/useLoomViewport.ts'
 import shell from './shell/LoomShell.module.css'
-import { parseLoomHash, type LoomRoute } from './shell/router.ts'
+import type { LoomRoute } from './shell/router.ts'
 import { openFilePreview, workspacePreview, workspaceReviewPreview } from './features/preview/preview.ts'
 import { LoomContextPanel } from './LoomContextPanel.tsx'
 import { LoomSidebar } from './shell/LoomSidebar.tsx'
@@ -62,7 +65,6 @@ type CatalogState =
   | { readonly status: 'loading' }
   | { readonly status: 'error' }
   | { readonly status: 'ready'; readonly snapshot: CatalogSnapshot }
-type View = 'workbench' | 'kanban'
 
 
 function readPinnedProjects(): ProjectRecord['id'][] {
@@ -82,11 +84,9 @@ function readPinnedProjects(): ProjectRecord['id'][] {
 export function LoomPanel({ t, useSessions, retainSession, openResource, loadSnapshot, createProject, updateProject, deleteProject, createVersion, updateVersion, deleteVersion, createTask, updateTask, deleteTask, generateLock, prepareWorkspace, prepareWorkspaceSilent, registerWorkspace, repositoryBranches, inspectWorkspace, pickDirectory, listDirectory, requestDraftInitialization, startAttempt, attachSession, registerTemporarySession, listAgentPresets, transitionTask, createSessionInWorkspace, openPath, openPathApplications, openPathWith, workspaceChanges, workspaceChangeCount, workspaceStatus, readFile, readBytes, commitWorkspace, updateWorkspace, deleteWorkspace, cleanupWorkspace, cleanupWorkspaceSilent, acquireExecution, cancelExecution, reorderExecutionQueue, releaseExecution, takeoverExecution, forkSession, jobs, SessionProvider, renderSlot }: LoomPanelProps) {
   const sessions = useSessions(state => state)
   const [preferences, setPreferences] = useState<LoomPreferences>(readPreferences)
-  const [view, setView] = useState<View>(preferences.view)
-  const [route, setRoute] = useState<LoomRoute>(() => typeof window === 'undefined' ? 'task' : parseLoomHash(window.location.hash).route)
-  const [darkTheme, setDarkTheme] = useState(() => typeof document === 'undefined' ? false : document.body.hasAttribute('data-ds-dark-theme'))
-  const [loomWidth, setLoomWidth] = useState(() => typeof window === 'undefined' ? 1440 : window.innerWidth)
-  const [viewport, setViewport] = useState(() => ({ width: typeof window === 'undefined' ? 1440 : window.innerWidth, height: typeof window === 'undefined' ? 900 : window.innerHeight }))
+  const { route, setRoute, view, setView } = useLoomRoute(preferences.view)
+  const darkTheme = useHostTheme(preferences.theme)
+  const { rootRef, loomWidth, viewport } = useLoomViewport()
   const navigate = useCallback((next: LoomRoute): void => {
     setRoute(next)
     if (next === 'board') setView('kanban')
@@ -96,24 +96,6 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
       if (window.location.hash !== hash) window.location.hash = hash
     }
   }, [])
-  useEffect(() => {
-    if (typeof document === 'undefined') return
-    const body = document.body
-    if (preferences.theme === 'auto') {
-      // Follow DSH again: restore the host theme captured before the override.
-      if (originalHostDark.current !== undefined) {
-        if (body.hasAttribute('data-ds-dark-theme') !== originalHostDark.current) body.toggleAttribute('data-ds-dark-theme', originalHostDark.current)
-        originalHostDark.current = undefined
-      }
-      return
-    }
-    // An explicit Loom theme must also retheme the DSH chrome and every portal
-    // surface (menus, dialogs, toasts) that renders outside the Loom tree.
-    if (originalHostDark.current === undefined) originalHostDark.current = body.hasAttribute('data-ds-dark-theme')
-    const wantDark = resolveLoomTheme(preferences.theme, false) === 'dark'
-    if (body.hasAttribute('data-ds-dark-theme') !== wantDark) body.toggleAttribute('data-ds-dark-theme', wantDark)
-  }, [preferences.theme])
-
   // Ctrl/Cmd+K opens the jump palette from anywhere inside Loom.
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -125,27 +107,6 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
     }
     window.addEventListener('keydown', onKey)
     return () => { window.removeEventListener('keydown', onKey) }
-  }, [])
-  useEffect(() => {
-    if (typeof document === 'undefined') return
-    const body = document.body
-    const sync = (): void => setDarkTheme(body.hasAttribute('data-ds-dark-theme'))
-    sync()
-    const observer = new MutationObserver(sync)
-    observer.observe(body, { attributes: true, attributeFilter: ['data-ds-dark-theme'] })
-    return () => observer.disconnect()
-  }, [])
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    const apply = (): void => {
-      const next = parseLoomHash(window.location.hash).route
-      setRoute(next)
-      if (next === 'board') setView('kanban')
-      else if (next === 'task' || next === 'session' || next === 'project') setView('workbench')
-      }
-    apply()
-    window.addEventListener('hashchange', apply)
-    return () => window.removeEventListener('hashchange', apply)
   }, [])
 
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -169,8 +130,6 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
   const directoryResolve = useRef<((value: string | null) => void) | undefined>(undefined)
   const [draftAttempt, setDraftAttempt] = useState(0)
   const heldRef = useRef<{ id: SessionId; reference: SessionReference } | undefined>(undefined)
-  const rootRef = useRef<HTMLDivElement | null>(null)
-  const originalHostDark = useRef<boolean | undefined>(undefined)
   const [failure, setFailure] = useState<SessionId>()
   const [sessionRetry, setSessionRetry] = useState(0)
   const [search, setSearch] = useState('')
@@ -244,24 +203,6 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
     window.addEventListener('keydown', close)
     return () => window.removeEventListener('keydown', close)
   }, [create, edit, modalBusy])
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    const element = rootRef.current
-    const measure = (): void => {
-      if (element === null) return
-      const width = element.getBoundingClientRect().width
-      if (width > 0) setLoomWidth(width)
-    }
-    measure()
-    const observer = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(measure)
-    if (observer !== undefined && element !== null) observer.observe(element)
-    const resize = (): void => setViewport(current => ({ ...current, height: window.innerHeight }))
-    window.addEventListener('resize', resize)
-    return () => {
-      observer?.disconnect()
-      window.removeEventListener('resize', resize)
-    }
-  }, [])
   useEffect(() => { setSidebarOpen(false) }, [project, version, task])
   useEffect(() => {
     if (project !== undefined) setExpandedProjects(current => current.has(project) ? current : new Set(current).add(project))
