@@ -34,8 +34,8 @@ function render(overrides: Partial<LoomBoardFiltersProps>): string {
 
 it('renders every secondary filter, the WIP limit and the clear action', () => {
   const html = render({})
-  expect(html).toContain(`aria-label="${en['top.version']}"`)
-  expect(html).toContain(`aria-label="${en['kb.status']}"`)
+  expect(html).toContain(`aria-label="${en['top.version']} ${en['top.allVersions']}"`)
+  expect(html).toContain(`aria-label="${en['kb.status']} ${en['kb.allStatuses']}"`)
   expect(html).toContain(`aria-label="${en['kb.module']}"`)
   expect(html).toContain(`placeholder="${en['kb.search']}"`)
   expect(html).toContain(`WIP 3`)

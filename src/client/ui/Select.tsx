@@ -37,6 +37,8 @@ export function LoomSelect({ value, options, onChange, ariaLabel, className, dis
   const root = useRef<HTMLDivElement>(null)
   const trigger = useRef<HTMLButtonElement>(null)
   const selected = options.find(option => option.value === value) ?? options[0]
+  // Keep the visible value inside the accessible name so voice control can match it.
+  const accessibleName = selected === undefined || selected.label === ariaLabel ? ariaLabel : `${ariaLabel} ${selected.label}`
   useEffect(() => {
     if (!open) return
     const onPointer = (event: PointerEvent): void => {
@@ -51,7 +53,7 @@ export function LoomSelect({ value, options, onChange, ariaLabel, className, dis
   }, [open])
   const wrapClass = [classes.wrap, size === 'sm' ? classes.sm : '', variant === 'ghost' ? classes.ghost : '', block ? classes.block : '', className ?? ''].filter(Boolean).join(' ')
   return <div ref={root} className={wrapClass}>
-    <button ref={trigger} type="button" className={classes.trigger} aria-label={ariaLabel} aria-haspopup="listbox" aria-expanded={open} disabled={disabled} onClick={() => setOpen(current => !current)} onKeyDown={event => { if (event.key === 'ArrowDown') { event.preventDefault(); setOpen(true) } }}>
+    <button ref={trigger} type="button" className={classes.trigger} aria-label={accessibleName} aria-haspopup="listbox" aria-expanded={open} disabled={disabled} onClick={() => setOpen(current => !current)} onKeyDown={event => { if (event.key === 'ArrowDown') { event.preventDefault(); setOpen(true) } }}>
       <span className={classes.value}>{selected?.label ?? value}</span>
       <span aria-hidden className={`${classes.chevron} ${open ? classes.chevronOpen : ''}`}><IconChevronDownOutlineRegular size={13} /></span>
     </button>

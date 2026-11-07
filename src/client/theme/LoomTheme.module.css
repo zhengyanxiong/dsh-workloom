@@ -35,7 +35,7 @@
   --dsw-alias-state-warn-label: var(--color-warning);
   --dsw-alias-state-warn-tertiary: var(--color-warning-soft);
   --dsw-alias-state-error-primary: var(--color-danger);
-  --dsw-alias-state-business-primary: var(--color-accent);
+  --dsw-alias-state-business-primary: var(--color-accent-ink);
   --dsw-alias-state-idle-primary: var(--color-muted);
   --dsw-alias-switch-thumb: var(--color-surface);
   --dsw-alias-tooltip-bg: var(--color-ink);

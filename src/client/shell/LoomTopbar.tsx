@@ -92,9 +92,9 @@ export function LoomTopbar(props: LoomTopbarProps): JSX.Element {
       {LOOM_NAV_ROUTES.map(item => <button key={item} type="button" role="tab" aria-selected={route === item} className={`${classes.navItem} ${route === item ? classes.navItemActive : ''}`} onClick={() => onNavigate(item)}>{t(ROUTE_LABEL[item])}</button>)}
     </span>
     <span className={classes.spacer} />
-    <button type="button" className={classes.search} aria-label={t('top.search')} aria-keyshortcuts="Control+K Meta+K" onClick={onOpenPalette}>
+    <button type="button" className={classes.search} aria-label={`${t('top.search')} Ctrl K`} aria-keyshortcuts="Control+K Meta+K" onClick={onOpenPalette}>
       <span aria-hidden className={classes.searchIcon}><IconSearchOutlineRegular size={13} /></span>
-      <span className={classes.searchText}>{t('top.search')}</span>
+      <span className={classes.searchText}>{t('top.search')}</span>{' '}
       <kbd className={classes.searchKbd}>Ctrl K</kbd>
     </button>
     <span className={classes.activity} title={`${String(activeCount)} ${t('top.activeWorkspaces')}`}>

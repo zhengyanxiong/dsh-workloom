@@ -170,11 +170,11 @@ export function LoomExecutionQueue({ t, workspaceId, sessions, execution, select
   return <section style={section} aria-label={t('sessionQueue.title')}>
     <div style={heading}><h3 style={headingTitle}>{t('sessionQueue.title')}</h3><span style={hint}>{t('sessionQueue.hint')}</span></div>
     <div style={legend}><span>● {t('sessionQueue.owner')}</span><span>● {t('sessionQueue.waiting')}</span><span>● {t('sessionQueue.idle')}</span></div>
-    {remaining.owner !== undefined && <><div style={groupLabel}>{t('sessionQueue.owner')}<span style={rule} /></div>{rowFor(remaining.owner, 'owner')}</>}
+    {remaining.owner !== undefined && <><div style={groupLabel}>{t('sessionQueue.owner')}<span style={rule} /></div><div role="list" aria-label={t('sessionQueue.owner')}>{rowFor(remaining.owner, 'owner')}</div></>}
     {remaining.ordered.length > 0 && <><div style={groupLabel}>{t('sessionQueue.waiting')}<span style={rule} /></div>
-      {remaining.ordered.map(session => <div key={session.sessionId}>{dropBefore === session.sessionId && dragId !== undefined && dragId !== session.sessionId && <div style={dropLine} />}{rowFor(session, 'waiting')}</div>)}
+      <div role="list" aria-label={t('sessionQueue.waiting')}>{remaining.ordered.map(session => <div key={session.sessionId} role="presentation">{dropBefore === session.sessionId && dragId !== undefined && dragId !== session.sessionId && <div style={dropLine} />}{rowFor(session, 'waiting')}</div>)}</div>
       <div style={{ ...empty, padding: '5px 9px' }} onDragOver={event => { if (dragId !== undefined) { event.preventDefault(); setDropBefore(undefined) } }} onDrop={event => { event.preventDefault(); if (dragId !== undefined) reorder(dragId, undefined); setDragId(undefined); setDropBefore(undefined) }}>{t('sessionQueue.dropEnd')}</div></>}
-    {remaining.idle.length > 0 && <><div style={groupLabel}>{t('sessionQueue.idle')}<span style={rule} /></div>{remaining.idle.map(session => rowFor(session, 'idle'))}</>}
+    {remaining.idle.length > 0 && <><div style={groupLabel}>{t('sessionQueue.idle')}<span style={rule} /></div><div role="list" aria-label={t('sessionQueue.idle')}>{remaining.idle.map(session => rowFor(session, 'idle'))}</div></>}
     {failure !== undefined && <p role="alert" style={error}>{failure}</p>}
     <p style={hint}>{t('sessionQueue.keyboardHint')}</p>
   </section>

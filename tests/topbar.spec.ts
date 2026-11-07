@@ -47,7 +47,7 @@ it('keeps the active-workspace count and settings action in the right cluster', 
 
 it('exposes the Ctrl K search trigger in the action cluster', () => {
   const html = render('board')
-  expect(html).toContain(`aria-label="${en['top.search']}"`)
+  expect(html).toContain(`aria-label="${en['top.search']} Ctrl K"`)
   expect(html).toContain('aria-keyshortcuts="Control+K Meta+K"')
   expect(html).toContain('Ctrl K')
 })

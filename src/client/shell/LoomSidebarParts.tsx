@@ -30,7 +30,7 @@ export function TreeRow(props: { depth: number; active?: boolean; expanded?: boo
   </button>
 }
 
-export const versionChip: CSSProperties = { display: 'inline-flex', alignItems: 'center', height: 18, padding: '0 6px', borderRadius: 4, background: 'color-mix(in srgb, var(--loom-accent) 11%, transparent)', color: COLORS.accent, fontSize: 'var(--text-label-size)', fontWeight: 500 }
+export const versionChip: CSSProperties = { display: 'inline-flex', alignItems: 'center', height: 18, padding: '0 6px', borderRadius: 4, background: 'var(--color-accent-soft)', color: 'var(--color-accent-ink)', fontSize: 'var(--text-label-size)', fontWeight: 500 }
 
 export function SidebarSessionRow({ t, row, projectName, taskTitle, temporary, active, onSelect }: {
   t: Translate

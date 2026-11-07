@@ -1,21 +1,23 @@
 /* Command palette card: portaled by DSH Modal, so colours use host aliases. */
 .palette { display: flex; flex-direction: column; min-height: 0; max-height: min(520px, 72vh); color: var(--dsw-alias-label-primary); font-family: var(--font-body); }
 .searchRow { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--dsw-alias-border-l2); }
-.searchIcon { flex: none; display: inline-flex; color: var(--dsw-alias-label-caption); }
+.searchIcon { flex: none; display: inline-flex; color: var(--dsw-alias-label-secondary); }
 .input { flex: 1; min-width: 0; border: 0; background: transparent; color: inherit; font: inherit; font-size: var(--text-body-size); outline: none; }
-.input::placeholder { color: var(--dsw-alias-label-caption); }
-.kbd { flex: none; padding: 0 var(--space-2); border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--radius-xs); color: var(--dsw-alias-label-caption); font-family: var(--font-mono); font-size: var(--text-nano-size); line-height: 18px; }
+.input:focus { outline: 2px solid var(--dsw-alias-brand-primary); outline-offset: 2px; border-radius: var(--radius-xs); }
+.input:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary); outline-offset: 2px; border-radius: var(--radius-xs); }
+.input::placeholder { color: var(--dsw-alias-label-secondary); }
+.kbd { flex: none; padding: 0 var(--space-2); border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--radius-xs); color: var(--dsw-alias-label-secondary); font-family: var(--font-mono); font-size: var(--text-nano-size); line-height: 18px; }
 .results { flex: 1; min-height: 0; overflow: auto; padding: var(--space-2); }
 .group { display: flex; flex-direction: column; gap: 1px; }
 .group + .group { margin-top: var(--space-2); }
-.groupTitle { padding: var(--space-1) var(--space-2); color: var(--dsw-alias-label-caption); font-family: var(--font-mono); font-size: var(--text-nano-size); letter-spacing: .08em; text-transform: uppercase; }
+.groupTitle { padding: var(--space-1) var(--space-2); color: var(--dsw-alias-label-secondary); font-family: var(--font-mono); font-size: var(--text-nano-size); letter-spacing: .08em; text-transform: uppercase; }
 .option { display: flex; align-items: center; gap: var(--space-2); width: 100%; min-width: 0; padding: var(--space-2); border: 0; border-radius: var(--radius-sm); background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
 .optionActive { background: var(--dsw-alias-interactive-bg-hover); }
-.optionIcon { flex: none; display: inline-flex; color: var(--dsw-alias-label-caption); }
+.optionIcon { flex: none; display: inline-flex; color: var(--dsw-alias-label-secondary); }
 .optionText { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0; }
 .optionLabel { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--dsw-alias-label-primary); font-size: var(--text-small-size); line-height: var(--text-small-lh); }
-.optionDetail { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--dsw-alias-label-caption); font-family: var(--font-mono); font-size: var(--text-nano-size); }
-.empty { margin: 0; padding: var(--space-8) var(--space-4); text-align: center; color: var(--dsw-alias-label-caption); font-size: var(--text-small-size); }
-.footer { display: flex; align-items: center; gap: var(--space-4); padding: var(--space-2) var(--space-4); border-top: 1px solid var(--dsw-alias-border-l2); color: var(--dsw-alias-label-caption); font-size: var(--text-label-size); }
+.optionDetail { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--dsw-alias-label-secondary); font-family: var(--font-mono); font-size: var(--text-nano-size); }
+.empty { margin: 0; padding: var(--space-8) var(--space-4); text-align: center; color: var(--dsw-alias-label-secondary); font-size: var(--text-small-size); }
+.footer { display: flex; align-items: center; gap: var(--space-4); padding: var(--space-2) var(--space-4); border-top: 1px solid var(--dsw-alias-border-l2); color: var(--dsw-alias-label-secondary); font-size: var(--text-label-size); }
 .footer span { display: inline-flex; align-items: center; gap: var(--space-1); }
 .footerKbd { padding: 0 var(--space-1); border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--radius-xs); font-family: var(--font-mono); font-size: var(--text-nano-size); line-height: 16px; }
