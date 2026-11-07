@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { createElement, Fragment } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
-import { LoomBrandMark, LoomMark } from '../src/client/LoomMark.tsx'
+import { LoomBrandMark, LoomMark } from '../src/client/ui/LoomMark.tsx'
 
 it('draws the sidebar monogram at the requested size in the inherited color', () => {
   const html = renderToStaticMarkup(createElement(LoomMark, { size: 18 }))

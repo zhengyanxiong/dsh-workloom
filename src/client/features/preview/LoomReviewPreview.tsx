@@ -2,7 +2,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { LoomFileCounts, LoomFileRow } from './LoomFileRow.tsx'
 import { LoomHunks } from './LoomHunks.tsx'
-import { LoomWrapToggle } from '../../LoomWrapToggle.tsx'
+import { LoomWrapToggle } from '../../ui/LoomWrapToggle.tsx'
 import { diffViewport } from '../../shell.ts'
 import type { LoomKey } from '../../locales.ts'
 

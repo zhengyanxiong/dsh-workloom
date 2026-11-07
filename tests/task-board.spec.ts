@@ -5,7 +5,7 @@ import { brandString } from '@deepseek-ai/dsh-brand'
 import type { BoardTask } from '../src/client/features/board/board.ts'
 import type { CatalogSnapshot, ProjectRecord, TaskRecord, VersionRecord } from 'dsh-workloom/types'
 import { LoomKanban } from '../src/client/features/board/LoomKanban.tsx'
-import { TaskBoard } from '../src/client/TaskBoard.tsx'
+import { TaskBoard } from '../src/client/features/board/TaskBoard.tsx'
 import { en, type LoomKey } from '../src/client/locales.ts'
 
 const t = (key: LoomKey) => en[key]

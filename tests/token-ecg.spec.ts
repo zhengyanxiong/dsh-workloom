@@ -1,7 +1,7 @@
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
-import { isGenerating, LoomTokenECG, readTokens, writeTokens } from '../src/client/LoomTokenECG.tsx'
+import { isGenerating, LoomTokenECG, readTokens, writeTokens } from '../src/client/ui/LoomTokenECG.tsx'
 import { en, type LoomKey } from '../src/client/locales.ts'
 
 const t = (key: LoomKey) => en[key]

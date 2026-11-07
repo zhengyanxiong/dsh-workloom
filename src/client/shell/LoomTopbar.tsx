@@ -11,7 +11,7 @@ import {
   IconProjectAddOutlineRegular, IconSettingsOutlineRegular, Tooltip,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { CatalogSnapshot, ProjectRecord, VersionRecord } from 'dsh-workloom/types'
-import { LoomBrandMark } from '../LoomMark.tsx'
+import { LoomBrandMark } from '../ui/LoomMark.tsx'
 import { LoomButton } from '../ui/Button.tsx'
 import { LoomSelect } from '../ui/Select.tsx'
 import type { LoomKey } from '../locales.ts'

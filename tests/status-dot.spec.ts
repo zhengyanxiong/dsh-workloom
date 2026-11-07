@@ -1,7 +1,7 @@
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
-import { TaskStatusDot } from '../src/client/LoomStatusDot.tsx'
+import { TaskStatusDot } from '../src/client/ui/LoomStatusDot.tsx'
 
 it('animates only when the Session is actually running', () => {
   const live = renderToStaticMarkup(createElement(TaskStatusDot, { status: 'running', live: true }))

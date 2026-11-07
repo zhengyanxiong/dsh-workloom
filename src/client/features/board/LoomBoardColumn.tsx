@@ -4,7 +4,7 @@ import { IconBranchOutlineRegular, IconClockOutlineRegular, IconPlusOutlineRegul
 import type { ProjectRecord, TaskRecord } from 'dsh-workloom/types'
 import type { BoardColumn } from './board.ts'
 import type { LoomKey } from '../../locales.ts'
-import { TaskStatusDot } from '../../LoomStatusDot.tsx'
+import { TaskStatusDot } from '../../ui/LoomStatusDot.tsx'
 import { PRIORITY_META, STATUS_META } from '../../shell.ts'
 import { relativeTime } from '../../time.ts'
 import { LoomEmptyState } from '../../ui/EmptyState.tsx'

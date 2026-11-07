@@ -1,6 +1,6 @@
 /** Preview, review and bottom-dock visibility for the Loom shell. */
 import { useEffect, useState, useSyncExternalStore, type Dispatch, type SetStateAction } from 'react'
-import type { LoomBottomPane } from '../LoomBottomPanel.tsx'
+import type { LoomBottomPane } from './LoomBottomPanel.tsx'
 import { workspacePreview, workspaceReviewPreview } from '../features/preview/preview.ts'
 
 /** Preview side state and setters used by the shell render. */

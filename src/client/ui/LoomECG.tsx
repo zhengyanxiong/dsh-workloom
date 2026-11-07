@@ -1,6 +1,6 @@
 /** Rate-shaped ECG trace for the execution-gate owner card. */
 import { useEffect, useRef, type CSSProperties } from 'react'
-import { COLORS } from './shell.ts'
+import { COLORS } from '../shell.ts'
 
 const HEIGHT = 38
 const BASELINE = HEIGHT * 0.62

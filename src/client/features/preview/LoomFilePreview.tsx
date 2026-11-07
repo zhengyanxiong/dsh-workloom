@@ -12,7 +12,7 @@ import type { WorkspaceFileChangeRecord, WorkspaceRepositoryChangesRecord } from
 import type { LoadWorkspaceChanges, LoomFileDiffInput } from './LoomDiff.tsx'
 import { LoomHunks } from './LoomHunks.tsx'
 import { LoomSpreadsheetPreview } from './LoomSpreadsheetPreview.tsx'
-import { LoomWrapToggle } from '../../LoomWrapToggle.tsx'
+import { LoomWrapToggle } from '../../ui/LoomWrapToggle.tsx'
 import { diffViewport } from '../../shell.ts'
 import type { LoomKey } from '../../locales.ts'
 

@@ -1,8 +1,8 @@
 /** Auto-wrap switch shared by every surface that shows a comparison. */
 import type { ReactNode } from 'react'
 import { IconNowrapFillRegular, IconWrapFillRegular, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
-import { COLORS } from './shell.ts'
-import type { LoomKey } from './locales.ts'
+import { COLORS } from '../shell.ts'
+import type { LoomKey } from '../locales.ts'
 
 type Translate = (key: LoomKey) => string
 

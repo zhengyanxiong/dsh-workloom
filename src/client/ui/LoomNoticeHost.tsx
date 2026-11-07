@@ -2,7 +2,7 @@
 import { useSyncExternalStore, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import { IconCheckCircleFillRegular, IconCloseCircleFillRegular } from '@deepseek-ai/dsh-client-ui-primitives'
-import { getLoomNotices, subscribeLoomNotices } from './feedback.ts'
+import { getLoomNotices, subscribeLoomNotices } from '../feedback.ts'
 
 const stack: CSSProperties = {
   position: 'fixed', top: 58, left: '50%', transform: 'translateX(-50%)', zIndex: 1200,

@@ -5,7 +5,7 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, expect, it, vi } from 'vitest'
 import type { WorkspaceRepositoryChangesRecord } from 'dsh-workloom/types'
 import { LoomDiff } from '../src/client/features/preview/LoomDiff.tsx'
-import { LoomWrapToggle } from '../src/client/LoomWrapToggle.tsx'
+import { LoomWrapToggle } from '../src/client/ui/LoomWrapToggle.tsx'
 import { en, type LoomKey } from '../src/client/locales.ts'
 
 const t = (key: LoomKey) => en[key]

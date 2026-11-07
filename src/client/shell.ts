@@ -4,29 +4,10 @@ import type { AuditEvent, Lock, TaskPriority } from 'dsh-workloom/types'
 import type { TaskStatus } from '../domain/task.ts'
 import type { StateDotState } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { LoomKey } from './locales.ts'
+import { COLORS } from './ui/tokens.ts'
 
-/** Theme aliases shared by every Loom shell region. */
-export const COLORS = {
-  /** Workloom canvas; DSH's light layers are all white, so the shell owns the paper/panel split. */
-  bg: 'var(--loom-canvas)',
-  panel: 'var(--loom-surface)',
-  panel2: 'var(--loom-surface-2)',
-  panel3: 'var(--loom-surface-3)',
-  selected: 'var(--loom-selected)',
-  border: 'var(--loom-border)',
-  borderStrong: 'var(--loom-border-strong)',
-  text: 'var(--color-ink)',
-  dim: 'var(--color-ink-3)',
-  faint: 'var(--color-muted)',
-  /** Design brand blue; DSH's brand alias is monochrome, so accents use this token. */
-  accent: 'var(--loom-accent)',
-  business: 'var(--color-accent)',
-  green: 'var(--color-success)',
-  warn: 'var(--color-warning)',
-  error: 'var(--color-danger)',
-  cyan: 'var(--color-accent)',
-  purple: 'var(--color-accent-ink)',
-} as const
+export { COLORS } from './ui/tokens.ts'
+
 
 /** Business-state presentation shared by the board, cards and header. */
 export const STATUS_META: Readonly<Record<TaskStatus, { readonly key: LoomKey; readonly color: string }>> = {

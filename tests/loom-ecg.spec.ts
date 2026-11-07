@@ -2,7 +2,7 @@
 import { act, createElement } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import { LoomECG } from '../src/client/LoomECG.tsx'
+import { LoomECG } from '../src/client/ui/LoomECG.tsx'
 
 // React 18 only runs effects synchronously inside act() when this flag is set.
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true

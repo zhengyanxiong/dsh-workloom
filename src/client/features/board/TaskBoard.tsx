@@ -1,8 +1,8 @@
 /** Kanban columns over authoritative task records, with no mock data. */
 import { createElement, type CSSProperties } from 'react'
-import type { BoardColumn, BoardFilter, BoardTask } from './features/board/board.ts'
-import { projectBoard } from './features/board/board.ts'
-import type { LoomKey } from './locales.ts'
+import type { BoardColumn, BoardFilter, BoardTask } from './board.ts'
+import { projectBoard } from './board.ts'
+import type { LoomKey } from '../../locales.ts'
 
 const STATUS_KEY = {
   pending: 'task.status.pending',

@@ -1,7 +1,7 @@
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
-import { LoomBottomPanel } from '../src/client/LoomBottomPanel.tsx'
+import { LoomBottomPanel } from '../src/client/shell/LoomBottomPanel.tsx'
 import { en, type LoomKey } from '../src/client/locales.ts'
 const t = (key: LoomKey) => en[key]
 const props = {

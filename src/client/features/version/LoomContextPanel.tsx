@@ -3,17 +3,17 @@ import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
 import {
   Button, DisclosureRow, IconContextInjectionOutlineRegular, IconEditOutlineRegular, IconEllipsisOutlineRegular, IconPlusOutlineRegular, IconTrashOutlineRegular, Menu,
   type MenuEntry,
-} from '@deepseek-ai/dsh-client-ui-primitives'
+} from '../../ui/primitives.ts'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import type { CatalogSnapshot, GenerateLockRequest, Lock, ProjectRecord, RepositoryBranches, RepositoryBranchesRequest, SourceConfig, TaskRecord, VersionRecord } from 'dsh-workloom/types'
-import { currentWorkspace, versionOccupancy, type TokenUsageView, type VersionOccupancyRow } from './projection.ts'
-import { renderVersionContext, type VersionContext } from '../shared/version-context.ts'
-import { LockButton } from './LoomForms.tsx'
-import { LoomDeleteDialog, type DeleteKind } from './features/dialogs/LoomDeleteDialog.tsx'
-import { COLORS, failureReport, sectionTitle, shortCommit, thrownFailureReport, type FailureReport, PRIORITY_META, STATUS_META } from './shell.ts'
-import { TaskStatusDot } from './LoomStatusDot.tsx'
-import { LoomWorkspaceOpen } from './features/workspace/LoomWorkspaceOpen.tsx'
-import type { LoomKey } from './locales.ts'
+import { currentWorkspace, versionOccupancy, type TokenUsageView, type VersionOccupancyRow } from '../../projection.ts'
+import { renderVersionContext, type VersionContext } from '../../../shared/version-context.ts'
+import { LockButton } from '../../LoomForms.tsx'
+import { LoomDeleteDialog, type DeleteKind } from '../dialogs/LoomDeleteDialog.tsx'
+import { COLORS, failureReport, sectionTitle, shortCommit, thrownFailureReport, type FailureReport, PRIORITY_META, STATUS_META } from '../../shell.ts'
+import { TaskStatusDot } from '../../ui/LoomStatusDot.tsx'
+import { LoomWorkspaceOpen } from '../workspace/LoomWorkspaceOpen.tsx'
+import type { LoomKey } from '../../locales.ts'
 
 type Translate = (key: LoomKey, params?: Readonly<Record<string, string>>) => string
 
