@@ -1,5 +1,5 @@
 /** Inline creation and edit forms for Loom projects, versions and tasks. */
-import { useEffect, useRef, useState, type ChangeEvent, type CSSProperties, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react'
 import {
   Button, IconAgentPresetOutlineRegular, IconChevronDownOutlineRegular, IconChevronLeftOutlineRegular, IconDownloadOutlineRegular, IconFolderOpenRegular, IconInfoOutlineRegular, IconPlusOutlineRegular, IconTrashOutlineRegular, Menu,
   type MenuEntry,
@@ -8,8 +8,8 @@ import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import type { AgentPresetOption } from '../api/agent.ts'
 export type { AgentPresetOption } from '../api/agent.ts'
 import type {
-  CreateTaskRequest, CreateVersionRequest, GenerateLockRequest, Lock, ModuleConfig,
-  ProjectConfig, ProjectRecord, SourceConfig, SubProjectConfig, TaskRecord, TaskPriority, VersionRecord, VersionWorkspaceInput, WorkspaceRecord,
+  CreateTaskRequest, CreateVersionRequest, GenerateLockRequest, Lock,
+  ProjectConfig, ProjectRecord, SourceConfig, TaskRecord, TaskPriority, VersionRecord, VersionWorkspaceInput, WorkspaceRecord,
   UpdateProjectRequest, UpdateTaskRequest, UpdateVersionRequest, RepositoryBranches, RepositoryBranchesRequest,
 } from 'dsh-workloom/types'
 import { parseProject, ProjectError } from '../domain/project.ts'
@@ -19,274 +19,24 @@ import { COLORS, failureKey } from './shell.ts'
 import { LoomWizardSteps } from './LoomWizardSteps.tsx'
 import { LoomSelect } from './ui/Select.tsx'
 import type { LoomKey } from './locales.ts'
+import {
+  alert, branchCard, branchError, branchPath, branchPathNote, branchPathText, branchTag, branchTagEmpty, branchTop,
+  card, field, fieldLabel, footer, footerSpacer, formStyle, helperStrip, hint, input, mono, previewRow,
+  sectionHeading, sectionHeadingTitle, stack, textarea, workspaceActions, workspaceCard, workspaceConfirm,
+  workspaceConfirmActions, workspaceConfirmText, workspaceCopy, workspaceList, workspaceMeta, workspacePath,
+  workspaceTitle,
+} from './features/forms/styles.ts'
+import { FailureNotice } from './features/forms/FailureNotice.tsx'
+import {
+  emptyModuleRow, emptySourceRow, sourceIds, sourcePathsOverlap, projectRequest, versionRequest, taskRequest, workspaceDraftInput,
+  type ModuleDraft, type SourceDraft, type WorkspaceDraft,
+} from './features/forms/drafts.ts'
+export {
+  emptyModuleRow, emptySourceRow, sourceIds, sourcePathsOverlap, projectRequest, versionRequest, taskRequest, workspaceDraftInput,
+} from './features/forms/drafts.ts'
+export type { ModuleDraft, SourceDraft, TaskMetadataDraft } from './features/forms/drafts.ts'
 
 type Translate = (key: LoomKey, params?: Readonly<Record<string, string>>) => string
-
-const formStyle: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 16, marginTop: 12 }
-const stack: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 10 }
-const card: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 10, padding: 12, border: `0.5px solid ${COLORS.border}`, borderRadius: 'var(--dsw-radius-md)', background: COLORS.panel2 }
-const mono: CSSProperties = { fontFamily: 'ui-monospace, monospace', fontSize: 'var(--text-label-size)' }
-const input: CSSProperties = {
-  width: '100%', height: 36, boxSizing: 'border-box', padding: '0 10px', border: `0.5px solid ${COLORS.borderStrong}`,
-  borderRadius: 'var(--dsw-radius-sm)', background: COLORS.panel, color: COLORS.text, font: 'inherit', fontSize: 'var(--text-h3-size)', lineHeight: '20px',
-}
-const textarea: CSSProperties = { ...input, height: 'auto', minHeight: 88, padding: '8px 10px', resize: 'vertical' }
-const field: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 5 }
-const fieldLabel: CSSProperties = { color: COLORS.dim, fontSize: 'var(--text-compact-size)', fontWeight: 500 }
-const hint: CSSProperties = { margin: 0, color: COLORS.dim, fontSize: 'var(--text-small-size)', lineHeight: 1.55 }
-const alert: CSSProperties = { margin: 0, color: COLORS.dim, fontSize: 'var(--text-compact-size)' }
-const failureCode: CSSProperties = { display: 'block', marginTop: 4, color: COLORS.error, fontFamily: 'ui-monospace, monospace', fontSize: 'var(--text-small-size)', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }
-const footer: CSSProperties = { position: 'sticky', bottom: 0, zIndex: 2, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 4, paddingTop: 12, paddingBottom: 18, borderTop: `0.5px solid ${COLORS.border}`, background: COLORS.panel }
-const footerSpacer: CSSProperties = { flex: 1, minWidth: 8 }
-const previewRow: CSSProperties = { display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', padding: '7px 8px', borderRadius: 'var(--dsw-radius-sm)', background: COLORS.panel, border: `0.5px solid ${COLORS.border}` }
-const workspaceList: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 8 }
-const workspaceCard: CSSProperties = { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10, padding: '11px 12px', borderRadius: 'var(--dsw-radius-md)', background: COLORS.panel2, border: `0.5px solid ${COLORS.border}` }
-const workspaceCopy: CSSProperties = { minWidth: 0, flex: '1 1 240px', display: 'flex', flexDirection: 'column', gap: 4 }
-const workspaceTitle: CSSProperties = { color: COLORS.text, fontSize: 'var(--text-compact-size)', lineHeight: 1.35, overflowWrap: 'anywhere' }
-const workspacePath: CSSProperties = { color: COLORS.faint, fontFamily: 'ui-monospace, monospace', fontSize: 'var(--text-label-size)', lineHeight: 1.45, overflowWrap: 'anywhere' }
-const workspaceMeta: CSSProperties = { color: COLORS.faint, fontSize: 'var(--text-label-size)', lineHeight: 1.45 }
-const workspaceActions: CSSProperties = { display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }
-const workspaceConfirm: CSSProperties = { flexBasis: '100%', display: 'flex', flexDirection: 'column', gap: 8, marginTop: 2, paddingTop: 9, borderTop: `0.5px solid ${COLORS.border}`, color: COLORS.text, fontSize: 'var(--text-small-size)' }
-const workspaceConfirmText: CSSProperties = { margin: 0, color: COLORS.dim, lineHeight: 1.6 }
-const workspaceConfirmActions: CSSProperties = { display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }
-
-const sectionHeading: CSSProperties = { display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, marginBottom: 14 }
-const sectionHeadingTitle: CSSProperties = { margin: 0, fontSize: 'var(--text-h3-size)', fontWeight: 500, letterSpacing: '-.005em' }
-const branchCard: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 10, padding: '13px 14px', border: `0.5px solid ${COLORS.border}`, borderRadius: 10, background: COLORS.panel }
-const branchTop: CSSProperties = { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, minWidth: 0 }
-const branchPath: CSSProperties = { minWidth: 0, flex: 1 }
-const branchPathText: CSSProperties = { fontFamily: 'ui-monospace, monospace', fontSize: 'var(--text-small-size)', lineHeight: 1.5, color: COLORS.dim, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
-const branchPathNote: CSSProperties = { marginTop: 2, fontSize: 'var(--text-label-size)', color: COLORS.faint }
-const branchTag: CSSProperties = { display: 'inline-flex', alignItems: 'center', flex: 'none', maxWidth: '46%', padding: '2px 7px', borderRadius: 4, background: 'color-mix(in srgb, var(--loom-accent) 11%, transparent)', color: COLORS.accent, fontFamily: 'ui-monospace, monospace', fontSize: 'var(--text-label-size)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
-const branchTagEmpty: CSSProperties = { ...branchTag, background: 'color-mix(in srgb, var(--dsw-alias-label-error) 8%, transparent)', color: COLORS.error, border: `0.5px solid color-mix(in srgb, var(--dsw-alias-label-error) 35%, transparent)` }
-const branchError: CSSProperties = { display: 'flex', alignItems: 'flex-start', gap: 5, margin: 0, color: COLORS.error, fontSize: 'var(--text-small-size)', lineHeight: 1.5 }
-const helperStrip: CSSProperties = { display: 'flex', alignItems: 'flex-start', gap: 9, padding: '10px 12px', marginTop: 2, borderRadius: 8, background: COLORS.panel2, border: `0.5px solid ${COLORS.border}`, color: COLORS.dim, fontSize: 'var(--text-small-size)', lineHeight: 1.55 }
-
-function FailureNotice({ failure, t }: { failure: string; t: Translate }) {
-  const key = failureKey(failure)
-  return <div role="alert" style={alert}>
-    <p style={{ margin: 0 }}>{key === undefined ? t('state.error') : t(key)}</p>
-    {failure !== 'invalid_form' && <code style={failureCode}>{failure}</code>}
-  </div>
-}
-
-/** One repository row of the project form. */
-export interface SourceDraft {
-  readonly id?: SourceConfig['id']
-  readonly repo: string
-  readonly path: string
-  /** Optional V2 sub-project name; rows sharing it are grouped together. */
-  readonly subProject?: string
-  /** Existing sub-project identity, preserved when its display name is edited. */
-  readonly subProjectId?: string
-}
-
-/** One business module row; the repository choice names a derived source id. */
-export interface ModuleDraft {
-  readonly id?: ModuleConfig['id']
-  readonly source: string
-  readonly path: string
-}
-
-/**
- * Start a repository row empty so the form never silently submits placeholder ids or directories.
- * @returns a blank repository row.
- */
-export function emptySourceRow(): SourceDraft {
-  return { repo: '', path: '' }
-}
-
-/**
- * Start a module row empty.
- * @returns a blank module row.
- */
-export function emptyModuleRow(): ModuleDraft {
-  return { source: '', path: '' }
-}
-
-function segment(value: string): string {
-  return value.split('/').map(part => part.trim()).filter(part => part !== '' && part !== '.').at(-1) ?? ''
-}
-
-function slug(value: string): string {
-  return segment(value).replace(/[^A-Za-z0-9._-]+/gu, '-').replace(/^-+|-+$/gu, '').toLowerCase()
-}
-
-function uniqueId(base: string, used: Set<string>): string {
-  let candidate = base
-  let index = 2
-  while (used.has(candidate)) { candidate = `${base}-${index}`; index += 1 }
-  used.add(candidate)
-  return candidate
-}
-
-/**
- * Derive one stable repository id per row from its workspace directory.
- * Users never type these ids; versions and Locks reference them internally.
- * @param sources - Repository rows in submission order.
- * @returns ids in the same order, disambiguated by a numeric suffix.
- */
-export function sourceIds(sources: readonly SourceDraft[]): string[] {
-  const used = new Set<string>()
-  return sources.map((source) => {
-    if (source.id !== undefined && !used.has(source.id)) { used.add(source.id); return source.id }
-    return uniqueId(slug(source.path) || slug(source.repo) || 'repo', used)
-  })
-}
-
-function moduleIds(modules: readonly ModuleDraft[], ids: readonly string[]): string[] {
-  const used = new Set<string>()
-  return modules.map((module) => {
-    if (module.id !== undefined && !used.has(module.id)) { used.add(module.id); return module.id }
-    const sourceId = ids[ids.indexOf(module.source)] ?? 'module'
-    return uniqueId(slug(module.path) === '' ? `${sourceId}-root` : slug(module.path), used)
-  })
-}
-
-/**
- * Report whether repository rows cannot share one workspace layout.
- * A multi-repository project cannot claim `.` because it contains every other path.
- * @param sources - Repository rows in submission order.
- * @returns true when two non-empty workspace paths are equal, nested, or one is the root.
- */
-export function sourcePathsOverlap(sources: readonly SourceDraft[]): boolean {
-  const paths = sources.map(source => source.path.trim()).filter(path => path !== '')
-  for (let index = 0; index < paths.length; index += 1) {
-    const path = paths[index]!.toLowerCase()
-    if (path === '.' && paths.length > 1) return true
-    for (const other of paths.slice(index + 1)) {
-      const candidate = other.toLowerCase()
-      if (path === candidate || path.startsWith(`${candidate}/`) || candidate.startsWith(`${path}/`)) return true
-    }
-  }
-  return false
-}
-
-/**
- * Validate the project form and derive repository and module ids.
- * @param name - Admitted project name.
- * @param sources - Repository rows in submission order.
- * @param modules - Optional business module rows.
- * @returns detached request, or undefined while a required field is blank.
- */
-export function projectRequest(name: string, sources: readonly SourceDraft[], modules: readonly ModuleDraft[], agentPreset = ''): ProjectConfig | undefined {
-  const admittedName = name.trim()
-  if (admittedName === '' || sources.length === 0) return undefined
-  const rows = sources.map(source => ({ ...(source.id === undefined ? {} : { id: source.id }), repo: source.repo.trim(), path: source.path.trim() }))
-  if (rows.some(source => source.repo === '' || source.path === '')) return undefined
-  const ids = sourceIds(rows)
-  const admittedSources = rows.map((source, index) => ({
-    id: ids[index] as SourceConfig['id'],
-    repo: source.repo,
-    path: source.path,
-  }))
-  if (sourcePathsOverlap(admittedSources)) return undefined
-  const draftedModules = modules.filter(module => module.source !== '' || module.path.trim() !== '')
-  if (draftedModules.some(module => module.source === '' || !ids.includes(module.source) || module.path.trim() === '')) return undefined
-  const moduleIdList = moduleIds(draftedModules, ids)
-  const admittedModules = draftedModules.map((module, index) => ({
-    id: moduleIdList[index] as ModuleConfig['id'],
-    sourceId: module.source as SourceConfig['id'],
-    path: module.path.trim(),
-  }))
-  const admittedPreset = agentPreset.trim()
-  const subNames = sources.map(source => (source.subProject ?? '').trim())
-  if (!subNames.some(value => value !== '' && value.toLowerCase() !== 'default')) {
-    return { name: admittedName, sources: admittedSources, modules: admittedModules, ...(admittedPreset === '' ? {} : { agentPreset: admittedPreset }) }
-  }
-  const usedSubIds = new Set<string>()
-  const subProjectsByIndex = new Map<number, SubProjectConfig>()
-  const sourceIndexBySub = new Map<string, number>()
-  const subIdBySourceId = new Map<string, string>()
-  sources.forEach((source, index) => {
-    const display = (source.subProject ?? '').trim() === '' ? 'default' : (source.subProject ?? '').trim()
-    let subIndex = sourceIndexBySub.get(display)
-    if (subIndex === undefined) {
-      subIndex = subProjectsByIndex.size
-      sourceIndexBySub.set(display, subIndex)
-      const preferred = sources[index]?.subProjectId
-      const subId = preferred !== undefined && preferred !== '' && !usedSubIds.has(preferred)
-        ? (usedSubIds.add(preferred), preferred)
-        : uniqueId(slug(display) || 'subproject', usedSubIds)
-      subProjectsByIndex.set(subIndex, { id: subId as SubProjectConfig['id'], name: display, sources: [], modules: [] })
-    }
-    const current = subProjectsByIndex.get(subIndex)!
-    subProjectsByIndex.set(subIndex, { ...current, sources: [...current.sources, admittedSources[index]!] })
-    subIdBySourceId.set(String(admittedSources[index]!.id), String(current.id))
-  })
-  const admittedSubProjects = [...subProjectsByIndex.values()].map(sub => ({
-    ...sub,
-    modules: admittedModules.filter(module => subIdBySourceId.get(String(module.sourceId)) === String(sub.id)),
-  }))
-  return { name: admittedName, sources: admittedSources, modules: admittedModules, subProjects: admittedSubProjects, ...(admittedPreset === '' ? {} : { agentPreset: admittedPreset }) }
-}
-
-/**
- * Validate the version form against the selected project's repositories.
- * @param project - Project whose repository ids name the version sources.
- * @param name - Admitted version name.
- * @param refs - Ref text keyed by repository id.
- * @returns detached request, or undefined while an input is blank.
- */
-export function versionRequest(project: ProjectRecord, name: string, refs: Readonly<Record<string, string>>, description = '', workspaces: readonly VersionWorkspaceInput[] = [], selectedSubProjectIds?: readonly string[]): CreateVersionRequest | undefined {
-  const admittedName = name.trim()
-  if (admittedName === '') return undefined
-  if (description.length > VERSION_DESCRIPTION_MAX_CHARS) return undefined
-  const subProjects = project.config.subProjects
-  const selected = subProjects === undefined ? undefined : (selectedSubProjectIds ?? subProjects.map(sub => String(sub.id)))
-  const selectedSubs = subProjects === undefined ? undefined : subProjects.filter(sub => selected?.includes(String(sub.id)) === true)
-  const selectedSources = selectedSubs === undefined ? project.config.sources : selectedSubs.flatMap(sub => sub.sources)
-  if (selectedSources.length === 0) return undefined
-  const sources = selectedSources.map(source => ({ sourceId: source.id, ref: (refs[source.id] ?? '').trim() }))
-  if (sources.some(source => source.ref === '')) return undefined
-  const admittedDescription = description.trim()
-  const targets = selectedSubs === undefined
-    ? undefined
-    : selectedSubs.flatMap(sub => sub.sources.map(source => ({
-        subProjectId: String(sub.id),
-        sourceId: String(source.id),
-        ref: (refs[source.id] ?? '').trim(),
-      })))
-  return {
-    projectId: project.id,
-    name: admittedName,
-    sources,
-    ...(targets === undefined ? {} : { targets }),
-    ...(admittedDescription === '' ? {} : { description: admittedDescription }),
-    ...(workspaces.length === 0 ? {} : { workspaces }),
-  }
-}
-
-/** Optional task metadata admitted by the create form. */
-export interface TaskMetadataDraft {
-  readonly description: string
-  readonly priority: TaskPriority
-  readonly moduleIds: readonly string[]
-}
-
-/**
- * Validate the task form.
- * @param version - Version that owns the new task.
- * @param title - Admitted task title.
- * @param metadata - Optional description, priority and business modules.
- * @returns detached request, or undefined for a blank title.
- */
-export function taskRequest(version: VersionRecord, title: string, metadata?: TaskMetadataDraft, workspaceId?: string): CreateTaskRequest | undefined {
-  const admitted = title.trim()
-  if (admitted === '') return undefined
-  const description = metadata?.description.trim() ?? ''
-  const priority = metadata?.priority ?? 'normal'
-  const moduleIds = metadata?.moduleIds ?? []
-  return {
-    versionId: version.id,
-    ...(workspaceId === undefined || workspaceId === '' ? {} : { workspaceId }),
-    title: admitted,
-    ...(description === '' ? {} : { description }),
-    ...(priority === 'normal' ? {} : { priority }),
-    ...(moduleIds.length === 0 ? {} : { moduleIds }),
-  }
-}
-
 
 function PresetOptionLabel({ name, description }: { readonly name: string; readonly description: string }) {
   return <span style={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: 280 }}>
@@ -664,33 +414,6 @@ const VERSION_STEPS: readonly { readonly key: VersionStep; readonly label: LoomK
 ]
 
 /** One workspace draft created together with a version. */
-interface WorkspaceDraft {
-  readonly mode: 'auto' | 'linked'
-  readonly parentPath: string
-  readonly name: string
-  readonly branchPrefix: string
-  readonly rootPath: string
-  readonly targets: Readonly<Record<string, string>>
-}
-
-function isAbsolutePath(value: string): boolean {
-  return value.startsWith('/') || /^[A-Za-z]:[\\/]/u.test(value)
-}
-
-/** Validate one version workspace draft against the version repositories. */
-export function workspaceDraftInput(draft: WorkspaceDraft, sources: readonly { readonly id: string }[]): VersionWorkspaceInput | undefined {
-  if (draft.mode === 'auto') {
-    if (!isAbsolutePath(draft.parentPath) || !/^[A-Za-z0-9._-]+$/u.test(draft.name) || draft.name === '.' || draft.name === '..') return undefined
-    if (!/^(?![-.])[A-Za-z0-9._/-]+$/u.test(draft.branchPrefix)) return undefined
-    return { mode: 'auto', parentPath: draft.parentPath, name: draft.name, branchPrefix: draft.branchPrefix }
-  }
-  if (!isAbsolutePath(draft.rootPath)) return undefined
-  const repositories = sources.map(source => ({ sourceId: source.id, targetPath: (draft.targets[source.id] ?? '').trim() }))
-  if (repositories.some(repository => !isAbsolutePath(repository.targetPath))) return undefined
-  return { mode: 'linked', rootPath: draft.rootPath, repositories }
-}
-
-/** Create or edit one version with a ref per project repository; Lock generation stays separate. */
 export function VersionForm({ t, project, listBranches, pickDirectory, boundWorkspaces, otherWorkspaces, create, update, version, onCreated, addWorkspace, renameWorkspace, deleteWorkspace, cleanupWorkspace, onWorkspaceAdded, open: controlledOpen, onOpenChange, onBusyChange, onStepChange }: VersionFormProps) {
   const editing = version !== undefined
   const [internalOpen, setInternalOpen] = useState(false)
