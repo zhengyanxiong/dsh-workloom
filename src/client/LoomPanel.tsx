@@ -1,9 +1,8 @@
 /** Loom workbench shell: project tree, native conversation, context and kanban. */
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { IconCloseOutlineRegular, Button } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ReactNode } from 'react'
 import type { InjectFace, PropsLocale, PropsRenderFactories, PropsRuntime, SessionProviderComponent } from '@deepseek-ai/dsh-client-ui-slots'
-import type { SessionReference } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { fileAddressFor } from '@deepseek-ai/dsh-util-workspace-path'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
@@ -13,7 +12,7 @@ import type {
 } from 'dsh-workloom/types'
 import type { LoomPreferences } from './features/settings/LoomSettings.tsx'
 import type { ExecutionActions } from './features/task/LoomExecution.tsx'
-import { LoomBottomPanel, type LoomBottomPane } from './LoomBottomPanel.tsx'
+import { LoomBottomPanel } from './LoomBottomPanel.tsx'
 import { LoomResizeHandle } from './shell/LoomResizeHandle.tsx'
 import { LoomFilePreview } from './features/preview/LoomFilePreview.tsx'
 import { LoomReviewPreview } from './features/preview/LoomReviewPreview.tsx'
@@ -28,6 +27,8 @@ import { useLoomBoardFilters } from './shell/useLoomBoardFilters.ts'
 import { useLoomDialogState } from './shell/useLoomDialogState.ts'
 import { useLoomAgentPresets } from './shell/useLoomAgentPresets.ts'
 import { useLoomDiffCount } from './shell/useLoomDiffCount.ts'
+import { useLoomSessionHold } from './shell/useLoomSessionHold.ts'
+import { useLoomPreviewSide } from './shell/useLoomPreviewSide.ts'
 import { useLoomRoute } from './shell/useLoomRoute.ts'
 import { useLoomViewport } from './shell/useLoomViewport.ts'
 import shell from './shell/LoomShell.module.css'
@@ -52,7 +53,6 @@ import { reportLoomFailure } from './feedback.ts'
 import { NS } from './locales.ts'
 import type { LoomHostPort as LoomInjected } from '../ports/loom-host.ts'
 
-
 interface LoomSeat {
   SessionProvider: SessionProviderComponent
   renderSlot(key: 'loom.conversation', owner: object): ReactNode
@@ -64,8 +64,6 @@ type CatalogState =
   | { readonly status: 'loading' }
   | { readonly status: 'error' }
   | { readonly status: 'ready'; readonly snapshot: CatalogSnapshot }
-
-
 
 /**
  * Render the Loom shell. Every card and counter comes from the Host catalog; unwired
@@ -107,6 +105,7 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
   const [version, setVersion] = useState<VersionRecord['id']>()
   const [task, setTask] = useState<TaskRecord>()
   const [selected, setSelected] = useState<SessionId>()
+  const { held, failure, available, setPendingDraft, retry: retrySession } = useLoomSessionHold(selected, retainSession, requestDraftInitialization)
   const [executionSession, setExecutionSession] = useState<SessionId>()
   const [forking, setForking] = useState(false)
   const [forkError, setForkError] = useState<string>()
@@ -116,26 +115,15 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
   const [claiming, setClaiming] = useState(false)
   const [claimError, setClaimError] = useState<string>()
   const [pinnedProjects, setPinnedProjects] = useLoomPinnedProjects()
-  const [held, setHeld] = useState<{ id: SessionId; reference: SessionReference }>()
-  const [pendingDraft, setPendingDraft] = useState<{ sessionId: SessionId; prompt: string }>()
   const [directoryRequest, setDirectoryRequest] = useState<{ startPath?: string }>()
   const directoryResolve = useRef<((value: string | null) => void) | undefined>(undefined)
-  const [draftAttempt, setDraftAttempt] = useState(0)
-  const heldRef = useRef<{ id: SessionId; reference: SessionReference } | undefined>(undefined)
-  const [failure, setFailure] = useState<SessionId>()
-  const [sessionRetry, setSessionRetry] = useState(0)
   const [search, setSearch] = useState('')
   const [temporaryOpen, setTemporaryOpen] = useState(false)
   const agentPresets = useLoomAgentPresets(t, listAgentPresets)
   const [catalog, setCatalog] = useState<CatalogState>({ status: 'loading' })
   const [attempt, setAttempt] = useState(0)
-  const [asideOpen, setAsideOpen] = useState(preferences.contextOpen)
   const [paletteOpen, setPaletteOpen] = useState(false)
-  const [previewFullscreen, setPreviewFullscreen] = useState(false)
-  const [bottomCollapsed, setBottomCollapsed] = useState(true)
-  const [pane, setPane] = useState<LoomBottomPane>('diff')
-  const preview = useSyncExternalStore(workspacePreview.subscribe, workspacePreview.getSnapshot, workspacePreview.getSnapshot)
-  const review = useSyncExternalStore(workspaceReviewPreview.subscribe, workspaceReviewPreview.getSnapshot, workspaceReviewPreview.getSnapshot)
+  const { preview, review, asideOpen, setAsideOpen, previewFullscreen, setPreviewFullscreen, bottomCollapsed, setBottomCollapsed, pane, setPane } = useLoomPreviewSide(preferences.contextOpen, task?.id)
   const [kbMode, setKbMode] = useState<'flat' | 'grouped'>(preferences.kanbanMode)
   const { filterProject, filterVersion, filterStatus, filterPriority, filterModule, kbSearch, setFilterProject, setFilterVersion, setFilterStatus, setFilterPriority, setFilterModule, setKbSearch } = useLoomBoardFilters()
   const [expandedProjects, setExpandedProjects] = useState<ReadonlySet<string>>(new Set())
@@ -151,15 +139,6 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
     if (project !== undefined) setExpandedProjects(current => current.has(project) ? current : new Set(current).add(project))
     if (version !== undefined) setExpandedVersions(current => current.has(version) ? current : new Set(current).add(version))
   }, [project, version])
-  useEffect(() => { if (preview !== undefined || review !== undefined) setAsideOpen(true) }, [preview, review])
-  useEffect(() => { if (preview === undefined) setPreviewFullscreen(false) }, [preview])
-  useEffect(() => {
-    if (!previewFullscreen) return
-    const onKey = (event: KeyboardEvent): void => { if (event.key === 'Escape') setPreviewFullscreen(false) }
-    window.addEventListener('keydown', onKey)
-    return () => { window.removeEventListener('keydown', onKey) }
-  }, [previewFullscreen])
-  useEffect(() => { workspacePreview.close(); workspaceReviewPreview.close() }, [task?.id])
   useEffect(() => {
     let active = true
     setCatalog({ status: 'loading' })
@@ -189,22 +168,6 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
     const latest = catalog.snapshot.versions.filter(candidate => candidate.projectId === first.id).at(-1)
     if (latest !== undefined) setVersion(latest.id)
   }, [catalog, project, version, task])
-  useEffect(() => {
-    if (selected === undefined) return
-    let reference: SessionReference
-    try { reference = retainSession(selected) }
-    catch { setFailure(selected); return }
-    let active = true
-    setFailure(undefined)
-    heldRef.current = { id: selected, reference }
-    setHeld({ id: selected, reference })
-    void reference.ready.catch(() => { if (active) setFailure(selected) })
-    return () => {
-      active = false
-      if (heldRef.current?.reference === reference) heldRef.current = undefined
-      reference.release()
-    }
-  }, [selected, retainSession, sessionRetry])
   const snapshot = catalog.status === 'ready' ? catalog.snapshot : undefined
   const currentProject = snapshot?.projects.find(candidate => candidate.id === project)
   const currentVersion = snapshot?.versions.find(candidate => candidate.id === version)
@@ -421,17 +384,6 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
   const auditRows = snapshot === undefined ? [] : snapshot.audit.filter(entry => detailTask === undefined
     || entry.taskId === detailTask.id
     || (entry.workspaceId !== undefined && auditWorkspaceIds.has(entry.workspaceId))).slice(-40).reverse()
-  const available = held !== undefined && held.id === selected && failure !== selected && heldRef.current?.reference === held.reference
-  useEffect(() => {
-    if (pendingDraft === undefined || pendingDraft.sessionId !== selected || !available || held === undefined) return
-    let retry: ReturnType<typeof setTimeout> | undefined
-    try {
-      const result = requestDraftInitialization(held.reference.binding, { prompt: pendingDraft.prompt, clearPreviousDraft: true })
-      if (result === 'blocked' && draftAttempt < 20) retry = setTimeout(() => setDraftAttempt(value => value + 1), 150)
-      else setPendingDraft(undefined)
-    } catch { /* the native composer may have been replaced by a newer navigation */ setPendingDraft(undefined) }
-    return () => { if (retry !== undefined) clearTimeout(retry) }
-  }, [pendingDraft, selected, available, held, requestDraftInitialization, draftAttempt])
   function finishDirectory(value: string | null): void {
     const resolve = directoryResolve.current
     directoryResolve.current = undefined
@@ -505,7 +457,7 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
   const execution: ExecutionActions = {
     prepareWorkspace, registerWorkspace, repositoryBranches, inspectWorkspace, pickDirectory: chooseDirectory, startAttempt, commitWorkspace, attachSession, transitionTask, createSessionInWorkspace, cleanupWorkspace, acquireExecution, cancelExecution, reorderExecutionQueue, releaseExecution, takeoverExecution, loadSnapshot,
     onSession: (id, draft) => {
-      if (draft !== undefined) { setDraftAttempt(0); setPendingDraft({ sessionId: id, prompt: draft }) }
+      if (draft !== undefined) setPendingDraft({ sessionId: id, prompt: draft })
       setSelected(id); setView('workbench'); navigate('session')
     },
     onChanged: () => setAttempt(current => current + 1),
@@ -558,7 +510,7 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
   }
   /** Open one attached Session from the round list; retrying the open one re-runs retention. */
   const openAttemptSession = (id: string): void => {
-    if (id === selected) setSessionRetry(value => value + 1)
+    if (id === selected) retrySession()
     else setSelected(id as SessionId)
     setView('workbench')
   }
