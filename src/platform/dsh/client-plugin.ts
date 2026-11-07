@@ -6,7 +6,7 @@ import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import contribution from 'dsh-workloom/remote'
 import { createLoomHost } from './host-adapter.ts'
 import { installLoomSurface, installResourceRouting } from './client-surface.ts'
-import { NS, en, zh } from '../../client/locales.ts'
+import { NS, en, zh } from '../../client/shared/locales.ts'
 
 /**
  * Register an isolated Loom page without changing the current panel selection.

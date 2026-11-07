@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { readFile } from 'node:fs/promises'
 import { expect, it } from 'vitest'
-import { readSpreadsheet } from '../../../src/client/xlsx.ts'
+import { readSpreadsheet } from '../../../src/client/features/preview/xlsx.ts'
 
 it('reads Chinese text, numeric amounts and every worksheet from a real xlsx', async () => {
   const bytes = await readFile('tests/fixtures/sales-preview.xlsx')

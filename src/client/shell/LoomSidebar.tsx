@@ -2,9 +2,10 @@
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { CatalogSnapshot, ProjectRecord, TaskRecord, VersionRecord } from 'dsh-workloom/types'
 import { Button, IconPinFillRegular, IconPlusOutlineRegular } from '../ui/primitives.ts'
-import { COLORS, metaLine, select } from '../shell.ts'
-import type { LoomKey } from '../locales.ts'
-import type { ActiveSession, RecentSession } from '../projection.ts'
+import { COLORS } from '../ui/tokens.ts'
+import { metaLine, select } from '../ui/styles.ts'
+import type { LoomKey } from '../shared/locales.ts'
+import type { ActiveSession, RecentSession } from '../shared/projection.ts'
 import { ProjectItem } from './ProjectTree.tsx'
 import { SidebarSectionToggle, SidebarSessionRow } from './LoomSidebarParts.tsx'
 

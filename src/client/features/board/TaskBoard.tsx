@@ -2,7 +2,7 @@
 import { createElement, type CSSProperties } from 'react'
 import type { BoardColumn, BoardFilter, BoardTask } from './board.ts'
 import { projectBoard } from './board.ts'
-import type { LoomKey } from '../../locales.ts'
+import type { LoomKey } from '../../shared/locales.ts'
 
 const STATUS_KEY = {
   pending: 'task.status.pending',

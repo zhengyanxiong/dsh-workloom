@@ -4,9 +4,9 @@ import { Button, FileTypeIcon } from '../../ui/primitives.ts'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import type { WorkspaceFileBytes } from '@deepseek-ai/dsh-api-workspace-files/types'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import { readSpreadsheet, type SpreadsheetWorkbook } from '../../xlsx.ts'
-import { COLORS } from '../../shell.ts'
-import type { LoomKey } from '../../locales.ts'
+import { readSpreadsheet, type SpreadsheetWorkbook } from './xlsx.ts'
+import { COLORS } from '../../ui/tokens.ts'
+import type { LoomKey } from '../../shared/locales.ts'
 
 type Translate = (key: LoomKey) => string
 

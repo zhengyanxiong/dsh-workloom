@@ -2,10 +2,10 @@
 import { IconPlusOutlineRegular, Button } from '../../ui/primitives.ts'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import type { GenerateLockRequest, Lock, ProjectRecord, TaskRecord, VersionRecord } from 'dsh-workloom/types'
-import { LockButton } from '../../LoomForms.tsx'
-import { COLORS } from '../../shell.ts'
+import { LockButton } from '../version/LockButton.tsx'
+import { COLORS } from '../../ui/tokens.ts'
 import type { Translate } from '../forms/types.ts'
-import { type LoomKey } from '../../locales.ts'
+import { type LoomKey } from '../../shared/locales.ts'
 
 export function NextStepCard({ t, projects, project, versions, version, locks, tasks, onCreateProject, onCreateVersion, onCreateTask, onSelectProject, onSelectVersion, onSelectTask, generateLock, onLockChanged }: {
   t: Translate

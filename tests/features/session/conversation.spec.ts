@@ -5,7 +5,7 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, expect, it } from 'vitest'
 import type { RenderFactorySlot } from '@deepseek-ai/dsh-client-ui-slots'
 import type { ViewTab } from '@deepseek-ai/dsh-client-ui-conversation/client'
-import { ConversationEmbed } from '../../../src/client/conversation/ConversationEmbed.tsx'
+import { ConversationEmbed } from '../../../src/client/features/session/ConversationEmbed.tsx'
 
 /** Minimal native view host contract used to record which view renders. */
 interface ViewHostProps {

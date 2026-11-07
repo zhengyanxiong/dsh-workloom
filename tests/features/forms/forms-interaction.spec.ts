@@ -3,8 +3,11 @@ import { act, createElement } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, expect, it } from 'vitest'
 import { brandString } from '@deepseek-ai/dsh-brand'
-import { ProjectForm, projectRequest, sourcePathsOverlap, TaskForm, VersionForm } from '../../../src/client/LoomForms.tsx'
-import { en, type LoomKey } from '../../../src/client/locales.ts'
+import { ProjectForm } from '../../../src/client/features/project/ProjectForm.tsx'
+import { projectRequest, sourcePathsOverlap } from '../../../src/client/features/forms/drafts.ts'
+import { TaskForm } from '../../../src/client/features/task/TaskForm.tsx'
+import { VersionForm } from '../../../src/client/features/version/VersionForm.tsx'
+import { en, type LoomKey } from '../../../src/client/shared/locales.ts'
 import type { ProjectRecord, TaskRecord, VersionRecord } from 'dsh-workloom/types'
 
 const t = (key: LoomKey) => en[key]

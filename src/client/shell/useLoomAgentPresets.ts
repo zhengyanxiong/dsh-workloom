@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { BuiltInPresetCopyKey } from '@deepseek-ai/dsh-agent-preset-registry/display'
 import { presetDisplayText } from '@deepseek-ai/dsh-agent-preset-registry/display'
 import type { AgentPresetOption } from '../../api/agent.ts'
-import type { LoomKey } from '../locales.ts'
+import type { LoomKey } from '../shared/locales.ts'
 import type { LoomPanelProps } from '../LoomPanel.tsx'
 
 const PRESET_COPY: Readonly<Record<BuiltInPresetCopyKey, LoomKey>> = {

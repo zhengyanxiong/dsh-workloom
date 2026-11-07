@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
 import { brandString } from '@deepseek-ai/dsh-brand'
 import { LoomVersionGraph } from '../../../src/client/features/version/LoomVersionGraph.tsx'
-import { en, type LoomKey } from '../../../src/client/locales.ts'
+import { en, type LoomKey } from '../../../src/client/shared/locales.ts'
 import type { CatalogSnapshot, Lock, TaskRecord, VersionRecord, WorkspaceRecord } from 'dsh-workloom/types'
 
 const t = (key: LoomKey) => en[key]

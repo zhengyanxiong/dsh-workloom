@@ -1,6 +1,6 @@
 /** Shared inline style objects for Loom create/edit forms. */
 import type { CSSProperties } from 'react'
-import { COLORS } from '../../shell.ts'
+import { COLORS } from '../../ui/tokens.ts'
 
 export const formStyle: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 16, marginTop: 12 }
 export const stack: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 10 }

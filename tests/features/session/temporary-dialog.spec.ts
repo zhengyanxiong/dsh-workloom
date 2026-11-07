@@ -6,7 +6,7 @@ import { brandNumber, brandString } from '@deepseek-ai/dsh-brand'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import type { CatalogSnapshot, Lock, TaskRecord, TemporarySessionRecord, VersionRecord, WorkspaceRecord } from 'dsh-workloom/types'
 import { LoomTemporaryDialog, type LoomTemporaryActions } from '../../../src/client/features/dialogs/LoomTemporaryDialog.tsx'
-import { en, type LoomKey } from '../../../src/client/locales.ts'
+import { en, type LoomKey } from '../../../src/client/shared/locales.ts'
 
 const t = (key: LoomKey) => en[key]
 const versionId = brandString<VersionRecord['id']>('v1')

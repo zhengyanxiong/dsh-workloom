@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Button } from '../../ui/primitives.ts'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import type { GenerateLockRequest, Lock, VersionRecord } from 'dsh-workloom/types'
-import { COLORS } from '../../shell.ts'
+import { COLORS } from '../../ui/tokens.ts'
 import { FailureNotice } from '../forms/FailureNotice.tsx'
 import { Translate } from '../forms/types.ts'
 

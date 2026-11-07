@@ -4,9 +4,11 @@ import { Button, IconFolderOpenRegular, IconWarningTriangleOutlineRegular, Modal
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { CatalogSnapshot, RegisterTemporarySessionRequest, TemporarySessionRecord, VersionRecord, WorkspaceRecord } from 'dsh-workloom/types'
-import { COLORS, failureReport, thrownFailureReport, type FailureReport } from '../../shell.ts'
-import type { LoomKey } from '../../locales.ts'
-import { workspaceName } from '../../projection.ts'
+import { COLORS } from '../../ui/tokens.ts'
+import { failureReport, thrownFailureReport } from '../../ui/failure.ts'
+import type { FailureReport } from '../../ui/failure.ts'
+import type { LoomKey } from '../../shared/locales.ts'
+import { workspaceName } from '../../shared/projection.ts'
 
 type Translate = (key: LoomKey, params?: Readonly<Record<string, string>>) => string
 

@@ -5,7 +5,7 @@ import {
   IconFolderOpenRegular, IconNewChatOutlineRegular, IconSearchOutlineRegular, Modal,
 } from '../../ui/primitives.ts'
 import type { CatalogSnapshot } from 'dsh-workloom/types'
-import type { LoomKey } from '../../locales.ts'
+import type { LoomKey } from '../../shared/locales.ts'
 import { PALETTE_GROUP, PALETTE_ORDER, buildPaletteItems, filterPaletteItems, type LoomPaletteItem, type LoomPaletteKind } from './palette.ts'
 import classes from './LoomCommandPalette.module.css'
 

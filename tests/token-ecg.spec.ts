@@ -2,7 +2,7 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
 import { isGenerating, LoomTokenECG, readTokens, writeTokens } from '../src/client/ui/LoomTokenECG.tsx'
-import { en, type LoomKey } from '../src/client/locales.ts'
+import { en, type LoomKey } from '../src/client/shared/locales.ts'
 
 const t = (key: LoomKey) => en[key]
 const usage = { uncachedInputTokens: 700, outputTokens: 1800, cacheReadTokens: 12_000, cacheWriteTokens: 0 }

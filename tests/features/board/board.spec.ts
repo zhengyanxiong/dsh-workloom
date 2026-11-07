@@ -2,7 +2,7 @@ import { expect, it } from 'vitest'
 import { brandString } from '@deepseek-ai/dsh-brand'
 import type { TaskRecord } from '../../../src/host/catalog.ts'
 import { projectBoard } from '../../../src/client/features/board/board.ts'
-import { canMoveTask } from '../../../src/client/shell.ts'
+import { canMoveTask } from '../../../src/client/ui/status.ts'
 const task = (id: string, title: string, status: TaskRecord['status'], version = 'v1'): TaskRecord => ({ id: brandString<TaskRecord['id']>(id), versionId: brandString<TaskRecord['versionId']>(version), title, status, attempts: [] })
 it('keeps all five business-state columns including empty ones', () => {
   const board = projectBoard([task('t1', 'Checkout', 'running')], {})

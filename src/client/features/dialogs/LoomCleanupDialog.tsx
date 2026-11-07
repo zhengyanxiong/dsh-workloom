@@ -3,8 +3,10 @@ import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
 import { IconFullscreenOutlineRegular, Tag } from '../../ui/primitives.ts'
 import type { WorkspaceRecord } from 'dsh-workloom/types'
 import { LoomDiff, type LoadWorkspaceChanges } from '../preview/LoomDiff.tsx'
-import { COLORS, failureKey, metaLine } from '../../shell.ts'
-import type { LoomKey } from '../../locales.ts'
+import { COLORS } from '../../ui/tokens.ts'
+import { failureKey } from '../../ui/failure.ts'
+import { metaLine } from '../../ui/styles.ts'
+import type { LoomKey } from '../../shared/locales.ts'
 
 type Translate = (key: LoomKey, params?: Readonly<Record<string, string>>) => string
 

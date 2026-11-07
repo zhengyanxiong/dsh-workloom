@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { failureReport, thrownFailureReport } from '../src/client/shell.ts'
+import { failureReport, thrownFailureReport } from '../src/client/ui/failure.ts'
 
 it('prefers a declared Remote code over the diagnostic message', () => {
   expect(failureReport('loom/task_busy', 'task is running')).toEqual({ message: 'error.taskBusy' })

@@ -6,7 +6,7 @@ import { brandString } from '@deepseek-ai/dsh-brand'
 import type { ProjectRecord } from 'dsh-workloom/types'
 import { DEFAULT_PREFERENCES } from '../../../src/client/features/settings/LoomSettings.tsx'
 import { LoomSettingsPage } from '../../../src/client/features/settings/LoomSettingsPage.tsx'
-import { en, type LoomKey } from '../../../src/client/locales.ts'
+import { en, type LoomKey } from '../../../src/client/shared/locales.ts'
 
 const t = (key: LoomKey) => en[key]
 const pinned: ProjectRecord = { id: brandString<ProjectRecord['id']>('p1'), config: { name: 'Shop', sources: [], modules: [] } }

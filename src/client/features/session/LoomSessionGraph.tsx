@@ -3,8 +3,8 @@ import type { ReactNode } from 'react'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { ExecutionState } from 'dsh-workloom/types'
 import { LoomTokenECG } from '../../ui/LoomTokenECG.tsx'
-import type { TokenUsageView } from '../../projection.ts'
-import type { LoomKey } from '../../locales.ts'
+import type { TokenUsageView } from '../../shared/projection.ts'
+import type { LoomKey } from '../../shared/locales.ts'
 import classes from './LoomSessionGraph.module.css'
 
 type Translate = (key: LoomKey, params?: Readonly<Record<string, string>>) => string

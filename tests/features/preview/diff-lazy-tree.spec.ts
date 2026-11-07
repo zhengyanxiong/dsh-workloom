@@ -4,7 +4,7 @@ import { createRoot } from 'react-dom/client'
 import { afterEach, expect, it, vi } from 'vitest'
 import type { WorkspaceRepositoryChangesRecord } from 'dsh-workloom/types'
 import { LoomDiff } from '../../../src/client/features/preview/LoomDiff.tsx'
-import { en } from '../../../src/client/locales.ts'
+import { en } from '../../../src/client/shared/locales.ts'
 
 // React's act() requires the DOM test flag; Vitest does not set it for a plain jsdom file.
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true

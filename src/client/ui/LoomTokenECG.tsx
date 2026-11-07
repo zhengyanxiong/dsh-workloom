@@ -1,10 +1,10 @@
 /** Token-activity trace for the execution-gate owner card. */
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { Tag } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { TokenUsageView } from '../projection.ts'
-import { COLORS } from '../shell.ts'
+import type { TokenUsageView } from '../shared/projection.ts'
+import { COLORS } from './tokens.ts'
 import { LoomECG } from './LoomECG.tsx'
-import type { LoomKey } from '../locales.ts'
+import type { LoomKey } from '../shared/locales.ts'
 
 type Translate = (key: LoomKey) => string
 

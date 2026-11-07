@@ -1,7 +1,8 @@
 /** Modal confirmation for deleting one project, version or task. */
 import { Button, IconWarningTriangleOutlineRegular, Modal } from '../../ui/primitives.ts'
-import { COLORS, type FailureReport } from '../../shell.ts'
-import type { LoomKey } from '../../locales.ts'
+import { COLORS } from '../../ui/tokens.ts'
+import type { FailureReport } from '../../ui/failure.ts'
+import type { LoomKey } from '../../shared/locales.ts'
 
 type Translate = (key: LoomKey) => string
 

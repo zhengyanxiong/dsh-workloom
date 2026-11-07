@@ -7,10 +7,12 @@ import type {
   ReleaseExecutionRequest, StartAttemptRequest, TaskRecord, TransitionTaskRequest, WorkspaceRecord, RegisterWorkspaceRequest,
   RepositoryBranches, RepositoryBranchesRequest, InspectWorkspaceRequest, WorkspaceInspection, ReorderExecutionQueueRequest,
 } from 'dsh-workloom/types'
-import type { LoomKey } from '../../locales.ts'
+import type { LoomKey } from '../../shared/locales.ts'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import { currentExecution } from '../../projection.ts'
-import { COLORS, failureKey, failureReport, thrownFailureReport, type FailureReport } from '../../shell.ts'
+import { currentExecution } from '../../shared/projection.ts'
+import { COLORS } from '../../ui/tokens.ts'
+import { failureKey, failureReport, thrownFailureReport } from '../../ui/failure.ts'
+import type { FailureReport } from '../../ui/failure.ts'
 import { LoomCleanupDialog, type LoomCleanupFailure } from '../dialogs/LoomCleanupDialog.tsx'
 import { LoomTakeoverDialog } from '../dialogs/LoomTakeoverDialog.tsx'
 import { LoomPreparationPanel } from './LoomPreparationPanel.tsx'

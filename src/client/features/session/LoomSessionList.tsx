@@ -1,10 +1,13 @@
 /** Every execution round and its attached native Sessions, with switch/retry actions. */
 import type { CSSProperties } from 'react'
 import { Button, StateDot, Tag } from '../../ui/primitives.ts'
-import { COLORS, metaLine, shortCommit, STATUS_META } from '../../shell.ts'
-import type { LoomKey } from '../../locales.ts'
-import { absoluteTime, relativeTime } from '../../time.ts'
-import type { AttemptSessionRow, SessionUnavailableReason, TaskAttemptRow } from '../../projection.ts'
+import { COLORS } from '../../ui/tokens.ts'
+import { metaLine } from '../../ui/styles.ts'
+import { shortCommit } from '../../shared/format.ts'
+import { STATUS_META } from '../../ui/status.ts'
+import type { LoomKey } from '../../shared/locales.ts'
+import { absoluteTime, relativeTime } from '../../shared/time.ts'
+import type { AttemptSessionRow, SessionUnavailableReason, TaskAttemptRow } from '../../shared/projection.ts'
 
 type Translate = (key: LoomKey, params?: Readonly<Record<string, string>>) => string
 

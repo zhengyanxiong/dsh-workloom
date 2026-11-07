@@ -72,7 +72,7 @@ it('derives the V2 auto workspace path from sub-project and repo', async () => {
 })
 
 it('groups project form rows into sub-projects only when a non-default name is entered', async () => {
-  const { projectRequest } = await import('../../../src/client/LoomForms.tsx')
+  const { projectRequest } = await import('../../../src/client/features/forms/drafts.ts')
   const flat = projectRequest('Shop', [{ repo: '/repos/shop', path: 'shop' }], [])
   expect(flat).not.toHaveProperty('subProjects')
   const grouped = projectRequest('Product', [
@@ -84,14 +84,14 @@ it('groups project form rows into sub-projects only when a non-default name is e
 })
 
 it('preserves an existing sub-project id when its display name is edited', async () => {
-  const { projectRequest } = await import('../../../src/client/LoomForms.tsx')
+  const { projectRequest } = await import('../../../src/client/features/forms/drafts.ts')
   const grouped = projectRequest('Product', [{ repo: '/repos/shop', path: 'shop', subProject: 'Renamed', subProjectId: 'web' }], [])
   expect(grouped?.subProjects?.[0]?.id).toBe('web')
   expect(grouped?.subProjects?.[0]?.name).toBe('Renamed')
 })
 
 it('filters version sources and targets to the selected sub-projects', async () => {
-  const { versionRequest } = await import('../../../src/client/LoomForms.tsx')
+  const { versionRequest } = await import('../../../src/client/features/forms/drafts.ts')
   const project = parseProject({
     name: 'Product',
     subProjects: [

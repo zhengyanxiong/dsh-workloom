@@ -2,7 +2,7 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
 import { LoomFileRow } from '../../../src/client/features/preview/LoomFileRow.tsx'
-import { en, type LoomKey } from '../../../src/client/locales.ts'
+import { en, type LoomKey } from '../../../src/client/shared/locales.ts'
 const t = (key: LoomKey) => en[key]
 it('draws one single-line file row with Git-style counts at the end', () => {
   const html = renderToStaticMarkup(createElement(LoomFileRow, {

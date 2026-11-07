@@ -4,7 +4,7 @@ import type { CSSProperties } from 'react'
 import type { ObservableSnapshot } from '@deepseek-ai/dsh-client-store'
 import type { GlobalStandardProps, InjectFace, PropsRenderFactories, SessionStandardProps } from '@deepseek-ai/dsh-client-ui-slots'
 import type { ConversationViewsProps, ViewTab } from '@deepseek-ai/dsh-client-ui-conversation/client'
-import { COLORS } from '../shell.ts'
+import { COLORS } from '../../ui/tokens.ts'
 
 /** View roster supplied by the Loom conversation registration. */
 interface ConversationEmbedInjected {

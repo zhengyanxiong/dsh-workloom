@@ -1,6 +1,6 @@
 /** Error line shared by Loom create/edit forms. */
 import { alert, failureCode } from './styles.ts'
-import { failureKey } from '../../shell.ts'
+import { failureKey } from '../../ui/failure.ts'
 import type { Translate } from './types.ts'
 
 export function FailureNotice({ failure, t }: { failure: string; t: Translate }) {

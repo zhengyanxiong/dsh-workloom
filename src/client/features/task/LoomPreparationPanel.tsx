@@ -2,8 +2,9 @@
 import { type CSSProperties, type ReactNode } from 'react'
 import { Button, Tag } from '../../ui/primitives.ts'
 import type { WorkspacePreparation } from 'dsh-workloom/types'
-import { COLORS, metaLine } from '../../shell.ts'
-import type { LoomKey } from '../../locales.ts'
+import { COLORS } from '../../ui/tokens.ts'
+import { metaLine } from '../../ui/styles.ts'
+import type { LoomKey } from '../../shared/locales.ts'
 
 type Translate = (key: LoomKey) => string
 

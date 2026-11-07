@@ -7,13 +7,16 @@ import {
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import type { CatalogSnapshot, GenerateLockRequest, Lock, ProjectRecord, TaskRecord, VersionRecord } from 'dsh-workloom/types'
 import { renderVersionContext, type VersionContext } from '../../../shared/version-context.ts'
-import { COLORS, formatTimestamp, metaLine, PRIORITY_META, shortCommit, STATUS_META } from '../../shell.ts'
+import { COLORS } from '../../ui/tokens.ts'
+import { formatTimestamp, shortCommit } from '../../shared/format.ts'
+import { metaLine } from '../../ui/styles.ts'
+import { PRIORITY_META, STATUS_META } from '../../ui/status.ts'
 import { TaskStatusDot } from '../../ui/LoomStatusDot.tsx'
-import type { LoomKey } from '../../locales.ts'
-import { LockButton } from '../../LoomForms.tsx'
+import type { LoomKey } from '../../shared/locales.ts'
+import { LockButton } from './LockButton.tsx'
 import { LoomWorkspaceList, type LoadWorkspaceStatus } from '../workspace/LoomWorkspaceList.tsx'
-import { workspaceName } from '../../projection.ts'
-import { lockTasks, lockWorkspaces, versionLocks, versionOccupancy, versionRepositoryRows, versionWorkspaceRows } from '../../projection.ts'
+import { workspaceName } from '../../shared/projection.ts'
+import { lockTasks, lockWorkspaces, versionLocks, versionOccupancy, versionRepositoryRows, versionWorkspaceRows } from '../../shared/projection.ts'
 
 type Translate = (key: LoomKey, params?: Readonly<Record<string, string>>) => string
 

@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest'
 import { brandNumber, brandString } from '@deepseek-ai/dsh-brand'
 import type { CatalogSnapshot, Lock, ProjectRecord, TaskRecord, VersionRecord } from 'dsh-workloom/types'
-import { activeWorkspaceCount, aggregateTokenUsage, boardMetrics, boundSessions, currentLock, lockTasks, lockWorkspaces, projectLanes, taskAttemptRows, taskSessionRows, versionLocks, versionOccupancy, versionRepositoryRows, versionWorkspaceRows, workspaceName } from '../src/client/projection.ts'
+import { activeWorkspaceCount, aggregateTokenUsage, boardMetrics, boundSessions, currentLock, lockTasks, lockWorkspaces, projectLanes, taskAttemptRows, taskSessionRows, versionLocks, versionOccupancy, versionRepositoryRows, versionWorkspaceRows, workspaceName } from '../src/client/shared/projection.ts'
 const projectId = brandString<ProjectRecord['id']>('p1')
 const versionId = brandString<VersionRecord['id']>('v1')
 const lock: Lock = { id: brandString<Lock['id']>('l1'), versionId, repositories: [{ sourceId: brandString<'loom.source'>('web'), commit: 'a'.repeat(40) }] }

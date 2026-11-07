@@ -3,8 +3,8 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
 import { brandString } from '@deepseek-ai/dsh-brand'
 import { LoomSessionList } from '../../../src/client/features/session/LoomSessionList.tsx'
-import { en, type LoomKey } from '../../../src/client/locales.ts'
-import { taskAttemptRows } from '../../../src/client/projection.ts'
+import { en, type LoomKey } from '../../../src/client/shared/locales.ts'
+import { taskAttemptRows } from '../../../src/client/shared/projection.ts'
 import type { Lock, TaskRecord } from 'dsh-workloom/types'
 
 const t = (key: LoomKey, params?: Readonly<Record<string, string>>) => {

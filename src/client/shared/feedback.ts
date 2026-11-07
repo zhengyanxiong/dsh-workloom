@@ -1,6 +1,6 @@
 /** Process-wide operation notices rendered by the shell overlay. */
 import type { LoomKey } from './locales.ts'
-import { failureReport, thrownFailureReport } from './shell.ts'
+import { failureReport, thrownFailureReport } from '../ui/failure.ts'
 
 /** Visual status of one transitory operation notice. */
 export type LoomNoticeTone = 'success' | 'error'

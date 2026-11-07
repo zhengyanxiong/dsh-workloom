@@ -4,11 +4,11 @@
  */
 import { IconCheckOutlineRegular, IconNewChatOutlineRegular, IconPlusOutlineRegular } from '../../ui/primitives.ts'
 import type { CatalogSnapshot, ProjectRecord, TaskRecord } from 'dsh-workloom/types'
-import { AUDIT_LABEL } from '../../shell.ts'
-import { relativeTime } from '../../time.ts'
-import { greetingPeriod } from '../../greeting.ts'
+import { AUDIT_LABEL } from '../../ui/labels.ts'
+import { relativeTime } from '../../shared/time.ts'
+import { greetingPeriod } from './greeting.ts'
 import { LoomButton } from '../../ui/Button.tsx'
-import type { LoomKey } from '../../locales.ts'
+import type { LoomKey } from '../../shared/locales.ts'
 import classes from './LoomOverview.module.css'
 
 type Translate = (key: LoomKey, params?: Readonly<Record<string, string>>) => string

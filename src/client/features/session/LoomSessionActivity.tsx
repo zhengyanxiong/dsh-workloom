@@ -4,7 +4,7 @@ import { Button, StateDot, Tag } from '../../ui/primitives.ts'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { LoomJobsFace, LoomJobView } from '../../../ports/loom-jobs.ts'
 export type { LoomJobsFace, LoomJobView } from '../../../ports/loom-jobs.ts'
-import type { LoomKey } from '../../locales.ts'
+import type { LoomKey } from '../../shared/locales.ts'
 import classes from './LoomSessionActivity.module.css'
 
 type Translate = (key: LoomKey, params?: Readonly<Record<string, string>>) => string

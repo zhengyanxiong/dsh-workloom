@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { dismissLoomNotice, getLoomNotices, pushLoomNotice, reportLoomFailure, reportLoomThrown, subscribeLoomNotices } from '../src/client/feedback.ts'
-import type { LoomKey } from '../src/client/locales.ts'
+import { dismissLoomNotice, getLoomNotices, pushLoomNotice, reportLoomFailure, reportLoomThrown, subscribeLoomNotices } from '../src/client/shared/feedback.ts'
+import type { LoomKey } from '../src/client/shared/locales.ts'
 
 const t = (key: LoomKey): string => `t:${key}`
 

@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { greetingPeriod } from '../src/client/greeting.ts'
+import { greetingPeriod } from '../src/client/features/overview/greeting.ts'
 
 it.each([
   [0, 'evening'],

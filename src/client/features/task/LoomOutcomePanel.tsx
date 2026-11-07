@@ -4,8 +4,12 @@ import { Button, IconBranchOutlineRegular, IconCheckOutlineRegular, IconWarningT
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import type { CatalogSnapshot, TaskOutcome, TaskRecord, TransitionTaskRequest } from 'dsh-workloom/types'
 import { LoomDiff, type LoadWorkspaceChanges } from '../preview/LoomDiff.tsx'
-import { COLORS, failureReport, formatTimestamp, metaLine, thrownFailureReport, type FailureReport } from '../../shell.ts'
-import type { LoomKey } from '../../locales.ts'
+import { COLORS } from '../../ui/tokens.ts'
+import { failureReport, thrownFailureReport } from '../../ui/failure.ts'
+import type { FailureReport } from '../../ui/failure.ts'
+import { formatTimestamp } from '../../shared/format.ts'
+import { metaLine } from '../../ui/styles.ts'
+import type { LoomKey } from '../../shared/locales.ts'
 
 type Translate = (key: LoomKey) => string
 

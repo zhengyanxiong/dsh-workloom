@@ -2,7 +2,7 @@
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
-import { en, type LoomKey } from '../../../src/client/locales.ts'
+import { en, type LoomKey } from '../../../src/client/shared/locales.ts'
 import { LoomBoardFilters, type LoomBoardFiltersProps } from '../../../src/client/features/board/LoomBoardFilters.tsx'
 
 const t = (key: LoomKey) => en[key]

@@ -2,7 +2,8 @@
 import type { CSSProperties, ReactNode } from 'react'
 import { StateDot } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { TaskStatus } from '../../domain/task.ts'
-import { COLORS, STATUS_DOT } from '../shell.ts'
+import { COLORS } from './tokens.ts'
+import { STATUS_DOT } from './status.ts'
 
 const staticRunning: CSSProperties = {
   flex: 'none',

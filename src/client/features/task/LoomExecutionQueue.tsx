@@ -3,9 +3,9 @@ import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { Button } from '../../ui/primitives.ts'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { ExecutionState } from 'dsh-workloom/types'
-import { COLORS } from '../../shell.ts'
-import type { LoomKey } from '../../locales.ts'
-import type { AttemptSessionRow } from '../../projection.ts'
+import { COLORS } from '../../ui/tokens.ts'
+import type { LoomKey } from '../../shared/locales.ts'
+import type { AttemptSessionRow } from '../../shared/projection.ts'
 import type { ExecutionActions } from './LoomExecution.tsx'
 
 type Translate = (key: LoomKey, params?: Readonly<Record<string, string>>) => string

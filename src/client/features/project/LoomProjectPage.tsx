@@ -1,11 +1,13 @@
 /** Project route: one project's versions, workspaces, tasks and structure. */
 import { IconBranchOutlineRegular, IconFolderOpenRegular, IconNewChatOutlineRegular, IconPlusOutlineRegular } from '../../ui/primitives.ts'
 import type { CatalogSnapshot, ProjectRecord, TaskRecord, VersionRecord } from 'dsh-workloom/types'
-import { ACTOR_LABEL, AUDIT_LABEL, STATUS_META, shortCommit } from '../../shell.ts'
+import { ACTOR_LABEL, AUDIT_LABEL } from '../../ui/labels.ts'
+import { STATUS_META } from '../../ui/status.ts'
+import { shortCommit } from '../../shared/format.ts'
 import { LoomButton } from '../../ui/Button.tsx'
 import { LoomSelect } from '../../ui/Select.tsx'
-import { absoluteTime, relativeTime } from '../../time.ts'
-import type { LoomKey } from '../../locales.ts'
+import { absoluteTime, relativeTime } from '../../shared/time.ts'
+import type { LoomKey } from '../../shared/locales.ts'
 import classes from './LoomProjectPage.module.css'
 
 type Translate = (key: LoomKey, params?: Readonly<Record<string, string>>) => string

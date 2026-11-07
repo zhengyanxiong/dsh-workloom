@@ -2,7 +2,7 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
 import { LoomSessionGraph, type LoomTaskSessionRow } from '../../../src/client/features/session/LoomSessionGraph.tsx'
-import { en, type LoomKey } from '../../../src/client/locales.ts'
+import { en, type LoomKey } from '../../../src/client/shared/locales.ts'
 
 const t = (key: LoomKey, params?: Readonly<Record<string, string>>) => {
   const copy = en[key]

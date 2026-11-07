@@ -4,7 +4,7 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, expect, it } from 'vitest'
 import { brandString } from '@deepseek-ai/dsh-brand'
 import { LoomContextPanel } from '../src/client/features/version/LoomContextPanel.tsx'
-import { en, type LoomKey } from '../src/client/locales.ts'
+import { en, type LoomKey } from '../src/client/shared/locales.ts'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import type { CatalogSnapshot, ProjectRecord, TaskRecord, VersionRecord } from 'dsh-workloom/types'
 

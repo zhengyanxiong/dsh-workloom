@@ -14,7 +14,7 @@ import type { CatalogSnapshot, ProjectRecord, VersionRecord } from 'dsh-workloom
 import { LoomBrandMark } from '../ui/LoomMark.tsx'
 import { LoomButton } from '../ui/Button.tsx'
 import { LoomSelect } from '../ui/Select.tsx'
-import type { LoomKey } from '../locales.ts'
+import type { LoomKey } from '../shared/locales.ts'
 import { LOOM_NAV_ROUTES, type LoomRoute } from './router.ts'
 import { ROUTE_LABEL } from './route-labels.ts'
 import classes from './LoomTopbar.module.css'

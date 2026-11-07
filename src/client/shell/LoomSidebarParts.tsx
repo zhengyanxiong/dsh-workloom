@@ -10,10 +10,11 @@ import {
   IconPinOutlineRegular, Tag,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { TaskRecord } from 'dsh-workloom/types'
-import { COLORS, PRIORITY_META, STATUS_META } from '../shell.ts'
-import type { LoomKey } from '../locales.ts'
-import { workspaceName, type RecentSession } from '../projection.ts'
-import { absoluteTime, relativeTime } from '../time.ts'
+import { COLORS } from '../ui/tokens.ts'
+import { PRIORITY_META, STATUS_META } from '../ui/status.ts'
+import type { LoomKey } from '../shared/locales.ts'
+import { workspaceName, type RecentSession } from '../shared/projection.ts'
+import { absoluteTime, relativeTime } from '../shared/time.ts'
 import classes from './LoomSidebarParts.module.css'
 
 type Translate = (key: LoomKey) => string

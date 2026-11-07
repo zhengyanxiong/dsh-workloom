@@ -8,7 +8,7 @@ import { createElement } from 'react'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import type { CatalogSnapshot, Lock, TaskRecord, TransitionTaskRequest, VersionRecord, WorkspaceRecord } from 'dsh-workloom/types'
 import { LoomOutcomePanel, type LoomOutcomeActions } from '../../../src/client/features/task/LoomOutcomePanel.tsx'
-import { en, type LoomKey } from '../../../src/client/locales.ts'
+import { en, type LoomKey } from '../../../src/client/shared/locales.ts'
 
 const t = (key: LoomKey) => en[key]
 const versionId = brandString<VersionRecord['id']>('v1')

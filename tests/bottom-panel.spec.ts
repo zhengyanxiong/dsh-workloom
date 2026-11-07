@@ -2,7 +2,7 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
 import { LoomBottomPanel } from '../src/client/shell/LoomBottomPanel.tsx'
-import { en, type LoomKey } from '../src/client/locales.ts'
+import { en, type LoomKey } from '../src/client/shared/locales.ts'
 const t = (key: LoomKey) => en[key]
 const props = {
   t, collapsed: false, height: 170, pane: 'diff' as const, audit: [], diffCount: 0, usage: undefined,

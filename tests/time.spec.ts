@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { epochMillis, relativeTime } from '../src/client/time.ts'
+import { epochMillis, relativeTime } from '../src/client/shared/time.ts'
 
 const now = Date.UTC(2026, 10, 5, 12, 0, 0)
 const minutes = (value: number): number => now - value * 60_000

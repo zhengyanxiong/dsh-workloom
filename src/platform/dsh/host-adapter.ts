@@ -21,8 +21,8 @@ import type {
 } from '../../api/index.ts'
 import type { LoomHostPort } from '../../ports/loom-host.ts'
 import type { LoomJobsFace } from '../../ports/loom-jobs.ts'
-import { pushLoomNotice, reportLoomFailure } from '../../client/feedback.ts'
-import type { LoomKey } from '../../client/locales.ts'
+import { pushLoomNotice, reportLoomFailure } from '../../client/shared/feedback.ts'
+import type { LoomKey } from '../../client/shared/locales.ts'
 import type { LoomUi, Translate } from './ui.ts'
 import './dsh-types.ts'
 

@@ -2,7 +2,7 @@
 import { IconSearchOutlineRegular } from '../../ui/primitives.ts'
 import { LoomButton } from '../../ui/Button.tsx'
 import { LoomSelect, type LoomSelectOption } from '../../ui/Select.tsx'
-import type { LoomKey } from '../../locales.ts'
+import type { LoomKey } from '../../shared/locales.ts'
 import classes from './LoomKanban.module.css'
 
 type Translate = (key: LoomKey) => string

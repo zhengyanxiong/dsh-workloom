@@ -5,7 +5,7 @@
  * structured outcomes; it is never inferred from model prose.
  */
 import type { CatalogSnapshot, TaskRecord } from 'dsh-workloom/types'
-import type { LoomKey } from '../../locales.ts'
+import type { LoomKey } from '../../shared/locales.ts'
 
 /** Token tone family used by the evidence line. */
 export type BoardEvidenceTone = 'muted' | 'accent' | 'success' | 'danger' | 'warning'

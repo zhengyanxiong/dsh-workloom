@@ -5,7 +5,7 @@
  * overloaded `inject` callback signature.
  */
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
-import type { LoomKey } from '../../client/locales.ts'
+import type { LoomKey } from '../../client/shared/locales.ts'
 
 export type LoomUi = Parameters<Parameters<ClientContext['inject']>[1]>[0]
 

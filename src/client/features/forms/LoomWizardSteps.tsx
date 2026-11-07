@@ -1,8 +1,8 @@
 /** Shared creation-wizard step rail for Workloom modals. */
 import type { CSSProperties } from 'react'
 import { IconCheckOutlineRegular } from '../../ui/primitives.ts'
-import { COLORS } from '../../shell.ts'
-import type { LoomKey } from '../../locales.ts'
+import { COLORS } from '../../ui/tokens.ts'
+import type { LoomKey } from '../../shared/locales.ts'
 
 type Translate = (key: LoomKey) => string
 

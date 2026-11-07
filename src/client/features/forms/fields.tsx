@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Button, IconChevronDownOutlineRegular, Menu, type MenuEntry } from '../../ui/primitives.ts'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import type { SourceConfig, RepositoryBranches, RepositoryBranchesRequest } from 'dsh-workloom/types'
-import { COLORS } from '../../shell.ts'
+import { COLORS } from '../../ui/tokens.ts'
 import { field, fieldLabel, hint, input } from './styles.ts'
 import { Translate } from './types.ts'
 

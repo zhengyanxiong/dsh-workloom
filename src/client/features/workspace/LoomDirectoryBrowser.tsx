@@ -3,8 +3,8 @@ import { useCallback, useEffect, useState, type CSSProperties } from 'react'
 import { Button, IconChevronLeftOutlineRegular, IconFolderOpenRegular, Modal } from '../../ui/primitives.ts'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import type { DirectoryListing } from 'dsh-workloom/types'
-import { COLORS } from '../../shell.ts'
-import type { LoomKey } from '../../locales.ts'
+import { COLORS } from '../../ui/tokens.ts'
+import type { LoomKey } from '../../shared/locales.ts'
 
 type Translate = (key: LoomKey) => string
 

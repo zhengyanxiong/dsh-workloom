@@ -6,7 +6,7 @@ import type { BoardTask } from '../../../src/client/features/board/board.ts'
 import type { CatalogSnapshot, ProjectRecord, TaskRecord, VersionRecord } from 'dsh-workloom/types'
 import { LoomKanban } from '../../../src/client/features/board/LoomKanban.tsx'
 import { TaskBoard } from '../../../src/client/features/board/TaskBoard.tsx'
-import { en, type LoomKey } from '../../../src/client/locales.ts'
+import { en, type LoomKey } from '../../../src/client/shared/locales.ts'
 
 const t = (key: LoomKey) => en[key]
 const project: ProjectRecord = { id: brandString<ProjectRecord['id']>('p1'), config: { name: 'Shop', sources: [], modules: [] } }

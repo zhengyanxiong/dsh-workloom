@@ -3,8 +3,8 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
 import { brandNumber, brandString } from '@deepseek-ai/dsh-brand'
 import { ExecutionPanel, taskDraftPrompt, type ExecutionActions } from '../../../src/client/features/task/LoomExecution.tsx'
-import { en, type LoomKey } from '../../../src/client/locales.ts'
-import { failureKey } from '../../../src/client/shell.ts'
+import { en, type LoomKey } from '../../../src/client/shared/locales.ts'
+import { failureKey } from '../../../src/client/ui/failure.ts'
 import type { CatalogSnapshot, Lock, ProjectRecord, TaskRecord, VersionRecord, WorkspaceRecord } from 'dsh-workloom/types'
 const t = (key: LoomKey) => en[key]
 const versionId = brandString<VersionRecord['id']>('v1')

@@ -2,8 +2,10 @@
 import type { CSSProperties, ReactNode } from 'react'
 import { Button, IconWarningTriangleOutlineRegular, Modal } from '../../ui/primitives.ts'
 import type { ExecutionState, TaskOutcome, TaskRecord, WorkspaceRecord } from 'dsh-workloom/types'
-import { COLORS, formatTimestamp, metaLine } from '../../shell.ts'
-import type { LoomKey } from '../../locales.ts'
+import { COLORS } from '../../ui/tokens.ts'
+import { formatTimestamp } from '../../shared/format.ts'
+import { metaLine } from '../../ui/styles.ts'
+import type { LoomKey } from '../../shared/locales.ts'
 
 type Translate = (key: LoomKey) => string
 

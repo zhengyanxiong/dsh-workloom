@@ -6,7 +6,7 @@ import { afterEach, expect, it, vi } from 'vitest'
 import type { WorkspaceRepositoryChangesRecord } from 'dsh-workloom/types'
 import { LoomDiff } from '../src/client/features/preview/LoomDiff.tsx'
 import { LoomWrapToggle } from '../src/client/ui/LoomWrapToggle.tsx'
-import { en, type LoomKey } from '../src/client/locales.ts'
+import { en, type LoomKey } from '../src/client/shared/locales.ts'
 
 const t = (key: LoomKey) => en[key]
 let root: Root | undefined

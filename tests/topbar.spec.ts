@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
 import type { LoomRoute } from '../src/client/shell/router.ts'
 import { LoomTopbar } from '../src/client/shell/LoomTopbar.tsx'
-import { en, type LoomKey } from '../src/client/locales.ts'
+import { en, type LoomKey } from '../src/client/shared/locales.ts'
 
 const t = (key: LoomKey) => en[key]
 const noop = (): void => undefined

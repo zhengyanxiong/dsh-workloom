@@ -8,7 +8,7 @@ import type { Lock, TaskOutcome, TaskRecord, VersionRecord, WorkspacePreparation
 import { LoomTakeoverDialog } from '../../../src/client/features/dialogs/LoomTakeoverDialog.tsx'
 import { LoomPreparationPanel } from '../../../src/client/features/task/LoomPreparationPanel.tsx'
 import { LoomCleanupDialog } from '../../../src/client/features/dialogs/LoomCleanupDialog.tsx'
-import { en, type LoomKey } from '../../../src/client/locales.ts'
+import { en, type LoomKey } from '../../../src/client/shared/locales.ts'
 
 const t = (key: LoomKey) => en[key]
 

@@ -3,9 +3,11 @@ import { useEffect, useState, type CSSProperties } from 'react'
 import { Tag } from '../../ui/primitives.ts'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import type { WorkspaceStatusResult } from 'dsh-workloom/types'
-import { COLORS, metaLine, shortCommit } from '../../shell.ts'
-import type { LoomKey } from '../../locales.ts'
-import { workspaceName, type VersionWorkspaceRow } from '../../projection.ts'
+import { COLORS } from '../../ui/tokens.ts'
+import { metaLine } from '../../ui/styles.ts'
+import { shortCommit } from '../../shared/format.ts'
+import type { LoomKey } from '../../shared/locales.ts'
+import { workspaceName, type VersionWorkspaceRow } from '../../shared/projection.ts'
 
 type Translate = (key: LoomKey, params?: Readonly<Record<string, string>>) => string
 

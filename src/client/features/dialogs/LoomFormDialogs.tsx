@@ -9,10 +9,15 @@ import type {
   VersionWorkspaceInput, WorkspaceRecord,
 } from 'dsh-workloom/types'
 import { Button, IconCloseOutlineRegular } from '../../ui/primitives.ts'
-import { ImportProjectForm, ProjectForm, TaskForm, VersionForm, type VersionStep } from '../../LoomForms.tsx'
+import { ImportProjectForm } from '../project/ImportProjectForm.tsx'
+import { ProjectForm } from '../project/ProjectForm.tsx'
+import { TaskForm } from '../task/TaskForm.tsx'
+import { VersionForm } from '../version/VersionForm.tsx'
+import type { VersionStep } from '../version/VersionForm.tsx'
 import { LoomDirectoryBrowser } from '../workspace/LoomDirectoryBrowser.tsx'
 import { LoomDeleteDialog } from './LoomDeleteDialog.tsx'
-import { COLORS, type FailureReport } from '../../shell.ts'
+import { COLORS } from '../../ui/tokens.ts'
+import type { FailureReport } from '../../ui/failure.ts'
 import type { LoomPanelProps } from '../../LoomPanel.tsx'
 import type { LoomRoute } from '../../shell/router.ts'
 

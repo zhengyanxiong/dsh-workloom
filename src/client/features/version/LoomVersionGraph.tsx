@@ -2,8 +2,9 @@
 import type { CSSProperties, ReactNode } from 'react'
 import { Button, StateDot, Tag } from '../../ui/primitives.ts'
 import type { CatalogSnapshot, TaskRecord, VersionRecord, WorkspaceRecord } from 'dsh-workloom/types'
-import { COLORS, STATUS_DOT, STATUS_META } from '../../shell.ts'
-import type { LoomKey } from '../../locales.ts'
+import { COLORS } from '../../ui/tokens.ts'
+import { STATUS_DOT, STATUS_META } from '../../ui/status.ts'
+import type { LoomKey } from '../../shared/locales.ts'
 
 type Translate = (key: LoomKey, params?: Readonly<Record<string, string>>) => string
 

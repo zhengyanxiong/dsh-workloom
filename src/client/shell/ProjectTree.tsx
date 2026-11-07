@@ -4,8 +4,9 @@ import {
   IconTrashOutlineRegular,
 } from '../ui/primitives.ts'
 import type { ProjectRecord, TaskRecord, VersionRecord } from 'dsh-workloom/types'
-import { COLORS, metaLine } from '../shell.ts'
-import type { LoomKey } from '../locales.ts'
+import { COLORS } from '../ui/tokens.ts'
+import { metaLine } from '../ui/styles.ts'
+import type { LoomKey } from '../shared/locales.ts'
 import { PinButton, ProjectTaskRow, TreeIconAction, TreeRow, versionChip } from './LoomSidebarParts.tsx'
 
 /** One project subtree with its versions and version tasks. */

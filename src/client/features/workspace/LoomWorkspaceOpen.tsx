@@ -2,9 +2,9 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
 import { IconChevronDownOutlineRegular, IconFolderOpenRegular, Menu, type MenuEntry } from '../../ui/primitives.ts'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
-import { COLORS } from '../../shell.ts'
-import { pushLoomNotice } from '../../feedback.ts'
-import type { LoomKey } from '../../locales.ts'
+import { COLORS } from '../../ui/tokens.ts'
+import { pushLoomNotice } from '../../shared/feedback.ts'
+import type { LoomKey } from '../../shared/locales.ts'
 
 type Translate = (key: LoomKey, params?: Readonly<Record<string, string>>) => string
 
