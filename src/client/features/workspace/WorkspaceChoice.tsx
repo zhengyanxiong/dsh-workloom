@@ -43,6 +43,8 @@ export interface WorkspaceChoiceProps {
   readonly defaultName?: string | undefined
   /** Version refs used to create the worktree, shown in create mode. */
   readonly sourceRefs?: readonly { readonly name: string; readonly ref: string }[] | undefined
+  /** Sub-project groups covered by the new worktree. */
+  readonly sourceGroups?: readonly { readonly subProject: string; readonly refs: readonly { readonly name: string; readonly ref: string }[] }[] | undefined
 }
 
 const stack: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 6 }
@@ -50,6 +52,8 @@ const field: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 5,
 const inputStyle: CSSProperties = { flex: 1, minWidth: 0, padding: '6px 8px', borderRadius: 6, border: `0.5px solid ${COLORS.border}`, background: COLORS.panel, color: COLORS.text, font: 'inherit' }
 const alert: CSSProperties = { margin: 0, color: COLORS.dim, fontSize: 'var(--text-compact-size)' }
 const hint: CSSProperties = { margin: 0, color: COLORS.faint, fontSize: 'var(--text-label-size)', lineHeight: 1.5 }
+const refBox: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 4, padding: '8px 10px', border: `0.5px solid ${COLORS.border}`, borderRadius: 6, background: COLORS.panel }
+const refList: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 2, margin: 0, paddingLeft: 18, color: COLORS.dim, fontSize: 'var(--text-label-size)', lineHeight: 1.5 }
 const createBox: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 8, marginTop: 2, padding: '10px 12px', border: `0.5px dashed ${COLORS.border}`, borderRadius: 8, background: COLORS.panel2 }
 const monoText: CSSProperties = { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'ui-monospace, monospace', fontSize: 'var(--text-small-size)', color: COLORS.text }
 
@@ -58,7 +62,7 @@ const monoText: CSSProperties = { minWidth: 0, overflow: 'hidden', textOverflow:
  * @param props - options, selection, creation callback and locale.
  * @returns the picker.
  */
-export function WorkspaceChoice({ t, ariaLabel, workspaces, value, onChange, create, pickDirectory, onCreated, defaultName, sourceRefs }: WorkspaceChoiceProps): JSX.Element {
+export function WorkspaceChoice({ t, ariaLabel, workspaces, value, onChange, create, pickDirectory, onCreated, defaultName, sourceRefs, sourceGroups }: WorkspaceChoiceProps): JSX.Element {
   const [created, setCreated] = useState<readonly WorkspaceRecord[]>([])
   const options = [...workspaces, ...created.filter(workspace => !workspaces.some(candidate => candidate.id === workspace.id))]
   const [mode, setMode] = useState<'existing' | 'create'>(options.length === 0 && create !== undefined ? 'create' : 'existing')
@@ -68,6 +72,7 @@ export function WorkspaceChoice({ t, ariaLabel, workspaces, value, onChange, cre
   const [busy, setBusy] = useState(false)
   const [failure, setFailure] = useState<FailureReport>()
   const refs = sourceRefs?.map(source => `${source.name}@${source.ref}`).join(t('task.workspaceBaseRefSeparator')) ?? ''
+  const branchLabel = t('task.workspaceNewBranch').replace('{prefix}', branchPrefix === '' ? 'loom' : branchPrefix).replace('{name}', name === '' ? '…' : name)
   const createBaseHint = refs === ''
     ? t('task.workspaceBaseHintLock').replace('{prefix}', branchPrefix === '' ? 'loom' : branchPrefix).replace('{name}', name === '' ? '…' : name)
     : t('task.workspaceBaseHint').replace('{refs}', refs).replace('{prefix}', branchPrefix === '' ? 'loom' : branchPrefix).replace('{name}', name === '' ? '…' : name)
@@ -117,7 +122,16 @@ export function WorkspaceChoice({ t, ariaLabel, workspaces, value, onChange, cre
       : <div style={createBox}>
           {options.length === 0 && <p role="alert" style={alert}>{t('task.workspaceRequired')}</p>}
           <p style={hint}>{t('task.workspaceCreateHint')}</p>
-          <p style={hint}>{createBaseHint}</p>
+          {sourceGroups !== undefined && sourceGroups.length > 0
+            ? <div style={refBox}>
+                <p style={{ ...hint, margin: 0 }}>{t('task.workspaceBaseHintGroups')}</p>
+                <ul style={refList}>{sourceGroups.map(group => <li key={group.subProject}>
+                  <strong style={{ fontWeight: 500, color: COLORS.text }}>{group.subProject}</strong>
+                  <span> · {group.refs.map(reference => `${reference.name}@${reference.ref}`).join(t('task.workspaceBaseRefSeparator'))}</span>
+                </li>)}</ul>
+                <p style={{ ...hint, margin: 0 }}>{branchLabel}</p>
+              </div>
+            : <p style={hint}>{createBaseHint}</p>}
           <label style={field}><span>{t('task.workspaceParent')}</span>
             <div style={{ display: 'flex', gap: 6 }}>
               <input aria-label={t('task.workspaceParent')} value={parentPath} placeholder="/home/me/work" onChange={event => setParentPath(event.target.value)} style={inputStyle} />

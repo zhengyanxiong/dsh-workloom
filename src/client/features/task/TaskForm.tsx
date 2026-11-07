@@ -11,6 +11,7 @@ import { FailureNotice } from '../forms/FailureNotice.tsx'
 import { taskRequest } from '../forms/drafts.ts'
 import { Translate } from '../forms/types.ts'
 import { WorkspaceChoice, type WorkspaceCreateOutcome, type WorkspaceCreationInput } from '../workspace/WorkspaceChoice.tsx'
+import { workspaceSourceGroups } from '../workspace/workspace-refs.ts'
 
 interface TaskFormProps {
   t: Translate
@@ -133,7 +134,7 @@ export function TaskForm({ t, version, project, workspaces, createWorkspace, pic
           pickDirectory={pickDirectory}
           onCreated={workspace => { setCreatedWorkspace(workspace); setWorkspaceId(workspace.id) }}
           defaultName={`task-${version.name}`}
-          sourceRefs={version.sources.map(source => ({ name: project.config.sources.find(candidate => candidate.id === source.sourceId)?.path ?? String(source.sourceId), ref: source.ref }))}
+          sourceGroups={workspaceSourceGroups(version, project)}
         />
         {workspaceOptions.length === 1 && <p style={hint}>{t('task.workspaceConcurrentHint')}</p>}
       </label>}
