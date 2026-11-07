@@ -207,6 +207,6 @@ Phase 1 的 `src/ports` + `src/platform/dsh` + `src/api` 拆分。
 剩余 Phase 3 工作：
 
 - 继续迁移 feature 文件（task/session/preview/settings 之外的部分、forms 按 feature 拆分）；
-- 拆分 `LoomPanel`（23k 字符）为 shell/ProjectTree/SessionSidebar/WorkbenchLayout/Resizers；
+- 拆分 `LoomPanel` 为 shell/ProjectTree/SessionSidebar/WorkbenchLayout/Resizers：已完成 `shell/LoomSidebar.tsx` + `shell/ProjectTree.tsx`，LoomPanel 1328 → 1213 行（下一步 SessionSidebar 与 WorkbenchLayout）；
 - 拆分 `LoomForms`（1.3k 行）为 project/version/task 表单；
 - `ui/tokens.ts` 与测试目录按 feature 镜像。

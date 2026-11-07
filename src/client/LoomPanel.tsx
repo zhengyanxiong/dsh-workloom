@@ -1,9 +1,6 @@
 /** Loom workbench shell: project tree, native conversation, context and kanban. */
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
-import {
-  IconCloseOutlineRegular, IconEditOutlineRegular, IconFolderCloseRegular, IconFolderOpenRegular, IconPinFillRegular,
-  IconPlusOutlineRegular, IconTrashOutlineRegular, Button,
-} from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconCloseOutlineRegular, IconPlusOutlineRegular, Button } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { CSSProperties, ReactNode } from 'react'
 import type { InjectFace, PropsLocale, PropsRenderFactories, PropsRuntime, SessionProviderComponent } from '@deepseek-ai/dsh-client-ui-slots'
 import type { SessionReference } from '@deepseek-ai/dsh-api-session-controller/client'
@@ -31,10 +28,10 @@ import { LOOM_ROOT_CLASS, LoomThemeStyles } from './theme/LoomTheme.tsx'
 import { resolveLoomTheme } from './theme/selection.ts'
 import shell from './shell/LoomShell.module.css'
 import { parseLoomHash, type LoomRoute } from './shell/router.ts'
-import { PinButton, ProjectTaskRow, SidebarSectionToggle, SidebarSessionRow, TreeIconAction, TreeRow, versionChip } from './shell/LoomSidebarParts.tsx'
 import { openFilePreview, workspacePreview, workspaceReviewPreview } from './preview.ts'
 import { LoomContextPanel } from './LoomContextPanel.tsx'
 import { LoomDeleteDialog } from './LoomDeleteDialog.tsx'
+import { LoomSidebar } from './shell/LoomSidebar.tsx'
 import { LoomCommandPalette } from './features/palette/LoomCommandPalette.tsx'
 import { LoomKanban } from './features/board/LoomKanban.tsx'
 import { LoomTemporaryDialog, type LoomTemporaryActions } from './LoomTemporaryDialog.tsx'
@@ -48,7 +45,7 @@ import { autoWorkspaceRepositoryPath } from '../domain/workspace.ts'
 import type { LoomPaletteItem } from './features/palette/palette.ts'
 import { activeWorkspaceCount, aggregateTokenUsage, boundSessions, tokenUsageOf, currentWorkspace, taskAttemptRows, taskSessionRows, workspaceName, type ShellFilter } from './projection.ts'
 import { deriveVersionContext } from '../shared/version-context.ts'
-import { COLORS, failureReport, metaLine, select, shortCommit, thrownFailureReport, type FailureReport } from './shell.ts'
+import { COLORS, failureReport, metaLine, shortCommit, thrownFailureReport, type FailureReport } from './shell.ts'
 import { reportLoomFailure } from './feedback.ts'
 import { NS, type LoomKey } from './locales.ts'
 import { presetDisplayText, type BuiltInPresetCopyKey } from '@deepseek-ai/dsh-agent-preset-registry/display'
@@ -84,71 +81,6 @@ const modalHint: CSSProperties = { margin: '0 0 12px', color: COLORS.dim, fontSi
 const modalSub: CSSProperties = { marginTop: 7, color: COLORS.dim, fontSize: 'var(--text-compact-size)', lineHeight: 1.5 }
 const MODAL_WIDTH: Readonly<Record<CreateKind | EditKind, number>> = { project: 760, import: 640, version: 660, task: 660 }
 const note: CSSProperties = { padding: 12, borderRadius: 8, color: COLORS.dim, background: COLORS.panel2, lineHeight: 1.6, margin: 0 }
-
-function ProjectItem({ candidate, versions, tasks, activeProject, activeVersionId, activeTaskId, open, openVersions, pinned, t, onProject, onVersion, onTask, onPin, onNewVersion, onEditProject, onDeleteProject, onEditVersion, onDeleteVersion, onNewTask, onEditTask, onDeleteTask }: {
-  candidate: ProjectRecord
-  versions: VersionRecord[]
-  tasks: TaskRecord[]
-  activeProject: boolean
-  activeVersionId: VersionRecord['id'] | undefined
-  activeTaskId: TaskRecord['id'] | undefined
-  open: boolean
-  openVersions: ReadonlySet<string>
-  pinned: boolean
-  t: LoomPanelProps['t']
-  onProject: () => void
-  onVersion: (version: VersionRecord) => void
-  onTask: (task: TaskRecord) => void
-  onPin: () => void
-  onNewVersion: () => void
-  onEditProject: () => void
-  onDeleteProject: () => void
-  onEditVersion: (version: VersionRecord) => void
-  onDeleteVersion: (version: VersionRecord) => void
-  onNewTask: (version: VersionRecord) => void
-  onEditTask: (task: TaskRecord) => void
-  onDeleteTask: (task: TaskRecord) => void
-}) {
-  return <div>
-    <div className={activeProject ? 'loom-tree-row loom-tree-row-active' : 'loom-tree-row'} style={{ display: 'flex', alignItems: 'center', background: activeProject ? COLORS.panel3 : 'transparent' }}>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <TreeRow depth={0} expanded={open} icon={open ? <IconFolderOpenRegular /> : <IconFolderCloseRegular />} label={candidate.config.name} active={activeProject} count={String(versions.length)} onClick={onProject} />
-      </div>
-      <span className="loom-row-actions" style={{ display: 'flex', alignItems: 'center', gap: 0, flex: 'none', alignSelf: 'stretch' }}>
-        <TreeIconAction label={t('version.new')} icon={<IconPlusOutlineRegular size={13} />} onClick={onNewVersion} />
-        <TreeIconAction label={t('project.edit')} icon={<IconEditOutlineRegular size={13} />} onClick={onEditProject} />
-        <TreeIconAction label={t('project.delete')} icon={<IconTrashOutlineRegular size={13} />} onClick={onDeleteProject} danger />
-        <PinButton pinned={pinned} label={pinned ? t('side.unpin') : t('side.pin')} onToggle={onPin} />
-      </span>
-    </div>
-    {open && versions.map(item => {
-      const versionTasks = tasks.filter(candidateTask => candidateTask.versionId === item.id)
-      const openVersion = openVersions.has(item.id)
-      return <div key={item.id}>
-        <div className={activeVersionId === item.id ? 'loom-tree-row loom-tree-row-active' : 'loom-tree-row'} style={{ display: 'flex', alignItems: 'center', background: activeVersionId === item.id ? COLORS.panel3 : 'transparent' }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <TreeRow depth={1} expanded={openVersion} label={<span style={versionChip}>{item.name}</span>} count={String(versionTasks.length)} active={activeVersionId === item.id} onClick={() => onVersion(item)} />
-          </div>
-          <span className="loom-row-actions" style={{ display: 'flex', alignItems: 'center', gap: 0, flex: 'none', alignSelf: 'stretch' }}>
-            <TreeIconAction label={t('version.edit')} icon={<IconEditOutlineRegular size={13} />} onClick={() => onEditVersion(item)} />
-            <TreeIconAction label={t('task.new')} icon={<IconPlusOutlineRegular size={13} />} onClick={() => onNewTask(item)} />
-            <TreeIconAction label={t('version.delete')} icon={<IconTrashOutlineRegular size={13} />} onClick={() => onDeleteVersion(item)} danger />
-          </span>
-        </div>
-        {openVersion && versionTasks.map(itemTask => <div key={itemTask.id} className={activeTaskId === itemTask.id ? 'loom-tree-row loom-tree-row-active' : 'loom-tree-row'} style={{ display: 'flex', alignItems: 'center', background: activeTaskId === itemTask.id ? COLORS.panel3 : 'transparent' }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <ProjectTaskRow task={itemTask} active={activeTaskId === itemTask.id} t={t} onClick={() => onTask(itemTask)} />
-          </div>
-          <span className="loom-row-actions" style={{ display: 'flex', alignItems: 'center', gap: 0, flex: 'none', alignSelf: 'stretch' }}>
-            <TreeIconAction label={t('task.edit')} icon={<IconEditOutlineRegular size={13} />} onClick={() => onEditTask(itemTask)} />
-            <TreeIconAction label={t('task.delete')} icon={<IconTrashOutlineRegular size={13} />} onClick={() => onDeleteTask(itemTask)} danger />
-          </span>
-        </div>)}
-        {openVersion && versionTasks.length === 0 && <p style={{ ...metaLine, padding: '2px 14px 2px 40px' }}>{t('task.empty')}</p>}
-      </div>
-    })}
-  </div>
-}
 
 function NextStepCard({ t, projects, project, versions, version, locks, tasks, onCreateProject, onCreateVersion, onCreateTask, onSelectProject, onSelectVersion, onSelectTask, generateLock, onLockChanged }: {
   t: LoomPanelProps['t']
@@ -1020,94 +952,46 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
     />
     <div className={shell.body}>
       {narrow && sidebarOpen && <div aria-hidden className={shell.sidebarBackdrop} onClick={() => setSidebarOpen(false)} />}
-      {!sidebarCollapsed && <aside className={`loom-sidebar ${shell.sidebar} ${sidebarOpen && narrow ? 'loom-sidebar-open' : ''}`}>
-        <section style={{ marginBottom: 4 }}>
-          <SidebarSectionToggle label={t('side.pinned')} icon={<IconPinFillRegular size={12} />} open={!collapsedSections.has('pinned')} onToggle={() => { toggleSidebarSection('pinned') }} />
-          {!collapsedSections.has('pinned') && <>
-          {(snapshot?.projects ?? []).filter(candidate => pinnedProjects.includes(candidate.id)).length === 0 && <p style={{ ...metaLine, padding: '2px 14px 6px' }}>{t('side.pinHint')}</p>}
-          {(snapshot?.projects ?? []).filter(candidate => pinnedProjects.includes(candidate.id)).map(candidate => <ProjectItem
-            key={candidate.id}
-            candidate={candidate}
-            versions={(snapshot?.versions ?? []).filter(item => item.projectId === candidate.id)}
-            tasks={snapshot?.tasks ?? []}
-            activeProject={project === candidate.id}
-            activeVersionId={task === undefined ? version : undefined}
-            activeTaskId={task?.id}
-            open={expandedProjects.has(candidate.id)}
-            openVersions={expandedVersions}
-            pinned
-            t={t}
-            onProject={() => { setProject(candidate.id); setVersion(undefined); setTask(undefined); setSelected(undefined); toggle(expandedProjects, setExpandedProjects, candidate.id) }}
-            onVersion={item => { setProject(candidate.id); setVersion(item.id); setTask(undefined); setSelected(undefined); toggle(expandedVersions, setExpandedVersions, item.id) }}
-            onTask={selectTask}
-            onPin={() => setPinnedProjects(current => current.filter(id => id !== candidate.id))}
-            onNewVersion={() => { setProject(candidate.id); setVersion(undefined); setTask(undefined); openCreate('version') }}
-            onEditProject={() => { setProject(candidate.id); setTask(undefined); openEdit('project') }}
-            onDeleteProject={() => { setTreeDelete(candidate); setTreeDeleteFailure(undefined) }}
-            onEditVersion={item => { setProject(candidate.id); setVersion(item.id); setTask(undefined); openEdit('version') }}
-            onDeleteVersion={item => { setProject(candidate.id); setVersion(item.id); setTask(undefined); void removeVersion(item) }}
-            onNewTask={item => { setProject(candidate.id); setVersion(item.id); setTask(undefined); openCreate('task') }}
-            onEditTask={item => { setProject(candidate.id); setVersion(item.versionId); setTask(item); openEdit('task') }}
-            onDeleteTask={item => { setProject(candidate.id); setVersion(item.versionId); setTask(item); void removeTask(item) }}
-          />)}
-          </>}
-        </section>
-        <section style={{ marginBottom: 4 }}>
-          <SidebarSectionToggle label={t('side.projects')} count={String(snapshot?.projects.length ?? 0)} open={!collapsedSections.has('projects')} onToggle={() => { toggleSidebarSection('projects') }} />
-          {!collapsedSections.has('projects') && <>
-          {(snapshot?.projects ?? []).map(candidate => <ProjectItem
-            key={candidate.id}
-            candidate={candidate}
-            versions={(snapshot?.versions ?? []).filter(item => item.projectId === candidate.id)}
-            tasks={snapshot?.tasks ?? []}
-            activeProject={project === candidate.id}
-            activeVersionId={task === undefined ? version : undefined}
-            activeTaskId={task?.id}
-            open={expandedProjects.has(candidate.id)}
-            openVersions={expandedVersions}
-            pinned={pinnedProjects.includes(candidate.id)}
-            t={t}
-            onProject={() => { setProject(candidate.id); setVersion(undefined); setTask(undefined); setSelected(undefined); toggle(expandedProjects, setExpandedProjects, candidate.id) }}
-            onVersion={item => { setProject(candidate.id); setVersion(item.id); setTask(undefined); setSelected(undefined); toggle(expandedVersions, setExpandedVersions, item.id) }}
-            onTask={selectTask}
-            onPin={() => setPinnedProjects(current => current.includes(candidate.id) ? current.filter(id => id !== candidate.id) : [...current, candidate.id])}
-            onNewVersion={() => { setProject(candidate.id); setVersion(undefined); setTask(undefined); openCreate('version') }}
-            onEditProject={() => { setProject(candidate.id); setTask(undefined); openEdit('project') }}
-            onDeleteProject={() => { setTreeDelete(candidate); setTreeDeleteFailure(undefined) }}
-            onEditVersion={item => { setProject(candidate.id); setVersion(item.id); setTask(undefined); openEdit('version') }}
-            onDeleteVersion={item => { setProject(candidate.id); setVersion(item.id); setTask(undefined); void removeVersion(item) }}
-            onNewTask={item => { setProject(candidate.id); setVersion(item.id); setTask(undefined); openCreate('task') }}
-            onEditTask={item => { setProject(candidate.id); setVersion(item.versionId); setTask(item); openEdit('task') }}
-            onDeleteTask={item => { setProject(candidate.id); setVersion(item.versionId); setTask(item); void removeTask(item) }}
-          />)}
-          <Button variant="outline" icon={<IconPlusOutlineRegular />} onClick={() => openCreate('project')} style={{ margin: '6px 12px', width: 'calc(100% - 24px)', justifyContent: 'center' }}>{t('side.newProject')}</Button>
-          </>}
-        </section>
-        <section style={{ marginBottom: 4 }} aria-label={t('side.sessions')}>
-          <SidebarSectionToggle label={t('side.sessions')} count={t('side.sessionLimit').replace('{limit}', String(preferences.sessionLimit))} open={!collapsedSections.has('sessions')} onToggle={() => { toggleSidebarSection('sessions') }} />
-          {!collapsedSections.has('sessions') && <>
-          <input aria-label={t('searchSessions')} placeholder={t('searchSessions')} value={search} onChange={event => setSearch(event.target.value)} style={{ ...select, cursor: 'text', width: 'calc(100% - 24px)', margin: '4px 12px 6px', boxSizing: 'border-box' }} />
-          {taskSessionList.length === 0 && temporarySessionList.length === 0 && <p style={{ ...metaLine, padding: '2px 14px 6px' }}>{t('side.empty')}</p>}
-          {taskSessionList.length > 0 && <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, padding: '2px 12px 3px', ...metaLine }}>
-            <span>{t('side.tasks')}</span><span style={{ marginLeft: 'auto' }}>{taskSessionList.length}</span>
-          </div>}
-          {taskSessionList.map(row => {
-            const owner = boundRows.find(candidate => candidate.sessionId === row.id)?.task
-            return <SidebarSessionRow key={row.id} t={t} row={row} projectName={taskProjectBySession.get(row.id)} taskTitle={taskTitleBySession.get(row.id)} temporary={false} active={selected === row.id}
-              onSelect={() => { setSelected(row.id as SessionId); setTask(owner); setView('workbench'); navigate('session') }} />
-          })}
-          {temporarySessionList.length > 0 && <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginTop: 4, padding: '4px 12px 3px', borderTop: `0.5px solid ${COLORS.border}`, ...metaLine }}>
-            <span>{t('side.temporarySessions')}</span><span style={{ marginLeft: 'auto' }}>{temporarySessionList.length}</span>
-          </div>}
-          {temporarySessionList.map(row => <SidebarSessionRow key={row.id} t={t} row={row} projectName={temporaryProjectBySession.get(row.id)} temporary active={selected === row.id}
-            onSelect={() => { setSelected(row.id as SessionId); setTask(undefined); setView('workbench'); navigate('session') }} />)}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '6px 12px 8px' }}>
-            <Button variant="outline" icon={<IconPlusOutlineRegular />} disabled={createDisabledTask} onClick={() => openCreate('task')} style={{ width: '100%', justifyContent: 'center' }}>{t('side.newTask')}</Button>
-            <Button variant="ghost" icon={<IconPlusOutlineRegular />} title={t('temporary.title')} onClick={() => setTemporaryOpen(true)} style={{ width: '100%', justifyContent: 'center' }}>{t('side.newTemporary')}</Button>
-          </div>
-          </>}
-        </section>
-      </aside>}
+      {!sidebarCollapsed && <LoomSidebar
+        className={`${shell.sidebar} ${sidebarOpen && narrow ? 'loom-sidebar-open' : ''}`}
+        t={t}
+        snapshot={snapshot}
+        project={project}
+        version={version}
+        task={task}
+        pinnedProjects={pinnedProjects}
+        collapsedSections={collapsedSections}
+        expandedProjects={expandedProjects}
+        expandedVersions={expandedVersions}
+        search={search}
+        taskSessionList={taskSessionList}
+        temporarySessionList={temporarySessionList}
+        taskProjectBySession={taskProjectBySession}
+        taskTitleBySession={taskTitleBySession}
+        temporaryProjectBySession={temporaryProjectBySession}
+        boundRows={boundRows}
+        selected={selected}
+        sessionLimit={preferences.sessionLimit}
+        createDisabledTask={createDisabledTask}
+        onToggleSection={toggleSidebarSection}
+        onSearch={setSearch}
+        onProject={record => { setProject(record.id); setVersion(undefined); setTask(undefined); setSelected(undefined); toggle(expandedProjects, setExpandedProjects, record.id) }}
+        onVersion={(record, item) => { setProject(record.id); setVersion(item.id); setTask(undefined); setSelected(undefined); toggle(expandedVersions, setExpandedVersions, item.id) }}
+        onTask={selectTask}
+        onPin={record => setPinnedProjects(current => current.includes(record.id) ? current.filter(id => id !== record.id) : [...current, record.id])}
+        onNewVersion={record => { setProject(record.id); setVersion(undefined); setTask(undefined); openCreate('version') }}
+        onEditProject={record => { setProject(record.id); setTask(undefined); openEdit('project') }}
+        onDeleteProject={record => { setTreeDelete(record); setTreeDeleteFailure(undefined) }}
+        onEditVersion={(record, item) => { setProject(record.id); setVersion(item.id); setTask(undefined); openEdit('version') }}
+        onDeleteVersion={(record, item) => { setProject(record.id); setVersion(item.id); setTask(undefined); void removeVersion(item) }}
+        onNewTask={(record, item) => { setProject(record.id); setVersion(item.id); setTask(undefined); openCreate('task') }}
+        onEditTask={(record, item) => { setProject(record.id); setVersion(item.versionId); setTask(item); openEdit('task') }}
+        onDeleteTask={(record, item) => { setProject(record.id); setVersion(item.versionId); setTask(item); void removeTask(item) }}
+        onSelectSession={(id, owner) => { setSelected(id as SessionId); setTask(owner); setView('workbench'); navigate('session') }}
+        onCreateProject={() => openCreate('project')}
+        onCreateTask={() => openCreate('task')}
+        onOpenTemporary={() => setTemporaryOpen(true)}
+      />}
       {route === 'home'
         ? <LoomOverview
             t={t}
