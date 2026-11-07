@@ -15,7 +15,7 @@ import { LoomBrandMark } from '../LoomMark.tsx'
 import { LoomButton } from '../ui/Button.tsx'
 import { LoomSelect } from '../ui/Select.tsx'
 import type { LoomKey } from '../locales.ts'
-import { LOOM_ROUTES, type LoomRoute } from './router.ts'
+import { LOOM_NAV_ROUTES, type LoomRoute } from './router.ts'
 import classes from './LoomTopbar.module.css'
 
 type Translate = (key: LoomKey) => string
@@ -96,7 +96,7 @@ export function LoomTopbar(props: LoomTopbarProps): JSX.Element {
       />
     </label>
     <span className={classes.nav} role="tablist" aria-label={t('nav.label')}>
-      {LOOM_ROUTES.map(item => <button key={item} type="button" role="tab" aria-selected={route === item} className={`${classes.navItem} ${route === item ? classes.navItemActive : ''}`} onClick={() => onNavigate(item)}>{t(ROUTE_LABEL[item])}</button>)}
+      {LOOM_NAV_ROUTES.map(item => <button key={item} type="button" role="tab" aria-selected={route === item} className={`${classes.navItem} ${route === item ? classes.navItemActive : ''}`} onClick={() => onNavigate(item)}>{t(ROUTE_LABEL[item])}</button>)}
     </span>
     <span className={classes.spacer} />
     <span className={classes.activity} title={`${String(activeCount)} ${t('top.activeWorkspaces')}`}>
@@ -132,7 +132,7 @@ export function LoomTopbar(props: LoomTopbarProps): JSX.Element {
         <LoomButton variant="ghost" size="sm" iconOnly icon={<IconInfoOutlineRegular size={14} />} aria-label={t('top.contextPanel')} aria-pressed={asideOpen} onClick={onToggleAside} />
       </Tooltip>}
       <Tooltip label={t('top.settings')} side="bottom" delayMs={300}>
-        <LoomButton variant="ghost" size="sm" iconOnly icon={<IconSettingsOutlineRegular size={14} />} aria-label={t('top.settings')} onClick={onOpenSettings} />
+        <LoomButton variant={route === 'settings' ? 'secondary' : 'ghost'} size="sm" iconOnly icon={<IconSettingsOutlineRegular size={14} />} aria-label={t('top.settings')} aria-current={route === 'settings' ? 'page' : undefined} onClick={onOpenSettings} />
       </Tooltip>
     </div>
   </header>

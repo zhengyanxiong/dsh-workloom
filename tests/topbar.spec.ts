@@ -44,6 +44,13 @@ it('keeps the active-workspace count and settings action in the right cluster', 
   expect(html).toContain(en['top.settings'])
 })
 
+it('keeps settings out of the top tabs but reachable from the gear action', () => {
+  const board = render('board')
+  expect(board).not.toContain('>Settings</button>')
+  expect(board).toContain(`aria-label="${en['top.settings']}"`)
+  expect(render('task')).not.toContain('>Settings</button>')
+})
+
 it('only offers the context-panel toggle where the aside exists', () => {
   expect(render('board')).not.toContain(en['top.contextPanel'])
   const task = render('task')

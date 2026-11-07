@@ -9,6 +9,9 @@ export type LoomRoute = 'home' | 'board' | 'task' | 'session' | 'project' | 'set
 /** Fixed route order used by navigation and tests. */
 export const LOOM_ROUTES: readonly LoomRoute[] = ['home', 'board', 'task', 'session', 'project', 'settings']
 
+/** Routes shown as top-bar tabs; settings is reached from the gear action instead. */
+export const LOOM_NAV_ROUTES: readonly LoomRoute[] = LOOM_ROUTES.filter(item => item !== 'settings')
+
 /** One parsed hash route with optional query parameters. */
 export interface LoomRouteState {
   readonly route: LoomRoute
