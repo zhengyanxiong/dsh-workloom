@@ -50,6 +50,7 @@ import { activeWorkspaceCount, aggregateTokenUsage, boundSessions, tokenUsageOf,
 import { deriveVersionContext } from '../shared/version-context.ts'
 import { COLORS } from './ui/tokens.ts'
 import { failureReport, thrownFailureReport } from './ui/failure.ts'
+import type { WorkspaceCreateOutcome, WorkspaceCreationInput } from './features/workspace/WorkspaceChoice.tsx'
 import type { FailureReport } from './ui/failure.ts'
 import { metaLine } from './ui/styles.ts'
 import { reportLoomFailure } from './shared/feedback.ts'
@@ -409,14 +410,9 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
       return openDirectoryBrowser(startPath)
     }
   }
-  async function addVersionWorkspace(input: VersionWorkspaceInput): Promise<RemoteResult<WorkspaceRecord>> {
-    if (displayVersion === undefined || displayVersionProject === undefined || snapshot === undefined) {
-      throw new Error(t('state.error'))
-    }
-    if (input.mode !== 'auto') {
-      throw new Error(t('workspace.auto'))
-    }
-    const lock = snapshot.locks.filter(candidate => candidate.versionId === displayVersion.id).at(-1)
+  async function prepareAutoWorkspace(version: VersionRecord, project: ProjectRecord, input: { readonly parentPath: string; readonly name: string; readonly branchPrefix?: string | undefined }): Promise<RemoteResult<WorkspaceRecord>> {
+    if (snapshot === undefined) throw new Error(t('state.error'))
+    const lock = snapshot.locks.filter(candidate => candidate.versionId === version.id).at(-1)
     if (lock === undefined) throw new Error(t('lock.generateFirst'))
     const parent = input.parentPath.replace(/\/+$/u, '')
     const root = `${parent}/${input.name}`
@@ -424,14 +420,14 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
     const branch = `${prefix}/${input.name}`
     const branches: Record<string, string> = {}
     const repositories = lock.repositories.map(entry => {
-      const source = displayVersionProject.config.sources.find(candidate => candidate.id === entry.sourceId)
+      const source = project.config.sources.find(candidate => candidate.id === entry.sourceId)
       if (source === undefined) throw new Error(t('error.workspaceMismatch'))
       const subProjectId = entry.subProjectId === undefined ? 'default' : String(entry.subProjectId)
       const path = autoWorkspaceRepositoryPath(subProjectId, source)
       branches[String(source.id)] = branch
       return { sourceId: String(source.id), path, targetPath: `${root}/${path}` }
     })
-    const result = await (prepareWorkspaceSilent ?? prepareWorkspace)({ path: root, versionId: displayVersion.id, lockId: lock.id, mode: 'managed', repositories, branches, requireBranches: true })
+    const result = await (prepareWorkspaceSilent ?? prepareWorkspace)({ path: root, versionId: version.id, lockId: lock.id, mode: 'managed', repositories, branches, requireBranches: true })
     if (!result.ok) return result
     if (result.value.preparation?.status === 'failed') {
       const failed = result.value.preparation.repositories.filter(repository => repository.status === 'failed')
@@ -444,6 +440,20 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
     }
     setAttempt(current => current + 1)
     return result
+  }
+  async function addVersionWorkspace(input: VersionWorkspaceInput): Promise<RemoteResult<WorkspaceRecord>> {
+    if (displayVersion === undefined || displayVersionProject === undefined) throw new Error(t('state.error'))
+    if (input.mode !== 'auto') throw new Error(t('workspace.auto'))
+    return prepareAutoWorkspace(displayVersion, displayVersionProject, input)
+  }
+  async function createTaskWorkspace(input: WorkspaceCreationInput): Promise<WorkspaceCreateOutcome> {
+    try {
+      if (currentVersion === undefined || currentVersionProject === undefined) throw new Error(t('state.error'))
+      const result = await prepareAutoWorkspace(currentVersion, currentVersionProject, input)
+      return result.ok ? { ok: true, workspace: result.value } : { ok: false, error: failureReport(result.error.code, result.error.message) }
+    } catch (error) {
+      return { ok: false, error: failureReport('unknown', error instanceof Error ? error.message : String(error)) }
+    }
   }
   async function renameVersionWorkspace(workspaceId: string, label: string): Promise<RemoteResult<WorkspaceRecord>> {
     const result = await updateWorkspace({ workspaceId, label })
@@ -796,6 +806,6 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
       actions={temporary}
       onClose={() => setTemporaryOpen(false)}
     />
-    <LoomFormDialogs t={t} create={create} edit={edit} versionStep={versionStep} currentProject={currentProject} currentVersion={currentVersion} currentVersionProject={currentVersionProject} displayProject={displayProject} displayVersion={displayVersion} displayVersionProject={displayVersionProject} detailTask={detailTask} snapshot={snapshot} agentPresets={agentPresets} createProject={createProject} createVersion={createVersion} createTask={createTask} updateProject={updateProject} updateVersion={updateVersion} updateTask={updateTask} repositoryBranches={repositoryBranches} chooseDirectory={chooseDirectory} addVersionWorkspace={addVersionWorkspace} renameVersionWorkspace={renameVersionWorkspace} removeVersionWorkspace={removeVersionWorkspace} directoryRequest={directoryRequest} finishDirectory={finishDirectory} listDirectory={listDirectory} treeDelete={treeDelete} treeDeleting={treeDeleting} treeDeleteFailure={treeDeleteFailure} confirmTreeDelete={confirmTreeDelete} setCreate={setCreate} setEdit={setEdit} setModalBusy={setModalBusy} setVersionStep={setVersionStep} setProject={setProject} setVersion={setVersion} setTask={setTask} setSelected={setSelected} setAttempt={setAttempt} setView={setView} setTreeDelete={setTreeDelete} setTreeDeleteFailure={setTreeDeleteFailure} navigate={navigate} />
+    <LoomFormDialogs createTaskWorkspace={createTaskWorkspace} t={t} create={create} edit={edit} versionStep={versionStep} currentProject={currentProject} currentVersion={currentVersion} currentVersionProject={currentVersionProject} displayProject={displayProject} displayVersion={displayVersion} displayVersionProject={displayVersionProject} detailTask={detailTask} snapshot={snapshot} agentPresets={agentPresets} createProject={createProject} createVersion={createVersion} createTask={createTask} updateProject={updateProject} updateVersion={updateVersion} updateTask={updateTask} repositoryBranches={repositoryBranches} chooseDirectory={chooseDirectory} addVersionWorkspace={addVersionWorkspace} renameVersionWorkspace={renameVersionWorkspace} removeVersionWorkspace={removeVersionWorkspace} directoryRequest={directoryRequest} finishDirectory={finishDirectory} listDirectory={listDirectory} treeDelete={treeDelete} treeDeleting={treeDeleting} treeDeleteFailure={treeDeleteFailure} confirmTreeDelete={confirmTreeDelete} setCreate={setCreate} setEdit={setEdit} setModalBusy={setModalBusy} setVersionStep={setVersionStep} setProject={setProject} setVersion={setVersion} setTask={setTask} setSelected={setSelected} setAttempt={setAttempt} setView={setView} setTreeDelete={setTreeDelete} setTreeDeleteFailure={setTreeDeleteFailure} navigate={navigate} />
   </div>
 }

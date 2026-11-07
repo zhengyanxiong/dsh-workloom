@@ -110,9 +110,9 @@ it('creates an independent workspace from the execution panel for concurrent tas
       loadChanges: unused, wrap: false, onToggleWrap: () => {},
     }))
   })
-  const createButton = [...document.querySelectorAll('button')].find(candidate => candidate.textContent === en['task.workspaceCreate'])
-  expect(createButton).not.toBeUndefined()
-  await act(async () => { createButton?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true })) })
+  const createTab = [...document.querySelectorAll('button')].find(candidate => candidate.textContent === en['task.workspaceChoiceCreate'])
+  expect(createTab).not.toBeUndefined()
+  await act(async () => { createTab?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true })) })
   expect(container.querySelector(`input[aria-label="${en['task.workspaceParent']}"]`)).not.toBeNull()
   expect(container.querySelector(`input[aria-label="${en['task.workspaceName']}"]`)).not.toBeNull()
   expect(container.textContent).toContain(en['task.workspaceCreateHint'])

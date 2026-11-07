@@ -20,6 +20,7 @@ import { COLORS } from '../../ui/tokens.ts'
 import type { FailureReport } from '../../ui/failure.ts'
 import type { LoomPanelProps } from '../../LoomPanel.tsx'
 import type { LoomRoute } from '../../shell/router.ts'
+import type { WorkspaceCreateOutcome, WorkspaceCreationInput } from '../workspace/WorkspaceChoice.tsx'
 
 export type CreateKind = 'project' | 'import' | 'version' | 'task'
 export type EditKind = 'project' | 'version' | 'task'
@@ -40,6 +41,7 @@ export interface LoomFormDialogsProps {
   readonly detailTask: TaskRecord | undefined
   readonly snapshot: CatalogSnapshot | undefined
   readonly agentPresets: readonly AgentPresetOption[]
+  readonly createTaskWorkspace?: ((input: WorkspaceCreationInput) => Promise<WorkspaceCreateOutcome>) | undefined
   readonly createProject: (request: ProjectConfig) => Promise<RemoteResult<ProjectRecord>>
   readonly createVersion: (request: CreateVersionRequest) => Promise<RemoteResult<VersionRecord>>
   readonly createTask: (request: CreateTaskRequest) => Promise<RemoteResult<TaskRecord>>
@@ -87,7 +89,7 @@ const modalSub: CSSProperties = { marginTop: 7, color: COLORS.dim, fontSize: 'va
 const MODAL_WIDTH: Readonly<Record<CreateKind | EditKind, number>> = { project: 760, import: 640, version: 660, task: 660 }
 
 export function LoomFormDialogs(props: LoomFormDialogsProps): JSX.Element {
-  const { t, create, edit, versionStep, currentProject, currentVersion, currentVersionProject, displayProject, displayVersion, displayVersionProject, detailTask, snapshot, agentPresets, createProject, createVersion, createTask, updateProject, updateVersion, updateTask, repositoryBranches, chooseDirectory, addVersionWorkspace, renameVersionWorkspace, removeVersionWorkspace, directoryRequest, finishDirectory, listDirectory, treeDelete, treeDeleting, treeDeleteFailure, confirmTreeDelete, setCreate, setEdit, setModalBusy, setVersionStep, setProject, setVersion, setTask, setSelected, setAttempt, setView, setTreeDelete, setTreeDeleteFailure, navigate } = props
+  const { t, create, edit, versionStep, currentProject, currentVersion, currentVersionProject, displayProject, displayVersion, displayVersionProject, detailTask, snapshot, agentPresets, createTaskWorkspace, createProject, createVersion, createTask, updateProject, updateVersion, updateTask, repositoryBranches, chooseDirectory, addVersionWorkspace, renameVersionWorkspace, removeVersionWorkspace, directoryRequest, finishDirectory, listDirectory, treeDelete, treeDeleting, treeDeleteFailure, confirmTreeDelete, setCreate, setEdit, setModalBusy, setVersionStep, setProject, setVersion, setTask, setSelected, setAttempt, setView, setTreeDelete, setTreeDeleteFailure, navigate } = props
   const note: React.CSSProperties = { padding: 12, borderRadius: 8, color: COLORS.dim, background: COLORS.panel2, lineHeight: 1.6, margin: 0 }
   return <>
     {create !== undefined && <div style={modalOverlay}>
@@ -103,7 +105,7 @@ export function LoomFormDialogs(props: LoomFormDialogsProps): JSX.Element {
         {create === 'project' && <ProjectForm t={t} open onBusyChange={setModalBusy} agentPresets={agentPresets} pickDirectory={chooseDirectory} onOpenChange={value => { if (!value) setCreate(undefined) }} create={createProject} onCreated={created => { setProject(created.id); setVersion(undefined); setTask(undefined); setSelected(undefined); setCreate(undefined); setAttempt(current => current + 1) }} />}
         {create === 'import' && <ImportProjectForm t={t} open onBusyChange={setModalBusy} onOpenChange={value => { if (!value) setCreate(undefined) }} create={createProject} onCreated={created => { setProject(created.id); setVersion(undefined); setTask(undefined); setSelected(undefined); setCreate(undefined); setAttempt(current => current + 1) }} />}
         {create === 'version' && currentProject !== undefined && <VersionForm t={t} open onBusyChange={setModalBusy} onStepChange={setVersionStep} listBranches={repositoryBranches} onOpenChange={value => { if (!value) setCreate(undefined) }} project={currentProject} pickDirectory={chooseDirectory} create={createVersion} onCreated={created => { setVersion(created.id); setTask(undefined); setSelected(undefined); setCreate(undefined); setAttempt(current => current + 1) }} />}
-        {create === 'task' && currentVersion !== undefined && currentVersionProject !== undefined && <TaskForm t={t} open onBusyChange={setModalBusy} onOpenChange={value => { if (!value) setCreate(undefined) }} version={currentVersion} project={currentVersionProject} workspaces={(snapshot?.workspaces ?? []).filter(workspace => workspace.versionId === currentVersion.id && workspace.cleaned !== true && (workspace.preparation === undefined || workspace.preparation.status === 'ready'))} create={createTask} onCreated={created => { setTask(created); setSelected(undefined); setView('workbench'); navigate('task'); setCreate(undefined); setAttempt(current => current + 1) }} />}
+        {create === 'task' && currentVersion !== undefined && currentVersionProject !== undefined && <TaskForm t={t} open onBusyChange={setModalBusy} onOpenChange={value => { if (!value) setCreate(undefined) }} version={currentVersion} project={currentVersionProject} createWorkspace={createTaskWorkspace} pickDirectory={chooseDirectory} workspaces={(snapshot?.workspaces ?? []).filter(workspace => workspace.versionId === currentVersion.id && workspace.cleaned !== true && (workspace.preparation === undefined || workspace.preparation.status === 'ready'))} create={createTask} onCreated={created => { setTask(created); setSelected(undefined); setView('workbench'); navigate('task'); setCreate(undefined); setAttempt(current => current + 1) }} />}
         {create === 'version' && currentProject === undefined && <p style={note}>{t('project.select')}</p>}
         {create === 'task' && currentVersion === undefined && <p style={note}>{t('version.select')}</p>}
       </div>

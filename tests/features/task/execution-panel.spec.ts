@@ -85,7 +85,7 @@ it('does not offer workspace creation controls inside a task', () => {
 it('asks for a workspace and offers creating an independent one from the task', () => {
   const html = renderToStaticMarkup(createElement(ExecutionPanel, { t, task: pending, snapshot: { ...snapshot, workspaces: [], locks: [] }, selectedSession: undefined, actions, ...diffProps }))
   expect(html).toContain(en['task.workspaceRequired'])
-  expect(html).toContain(en['task.workspaceCreate'])
+  expect(html).toContain(en['task.workspaceCreateSubmit'])
   expect(html).toContain(en['task.workspaceConcurrentHint'])
   expect(html).not.toContain(en['workspace.mode.managed'])
 })

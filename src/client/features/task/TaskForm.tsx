@@ -10,13 +10,18 @@ import { alert, card, field, fieldLabel, footer, footerSpacer, formStyle, hint, 
 import { FailureNotice } from '../forms/FailureNotice.tsx'
 import { taskRequest } from '../forms/drafts.ts'
 import { Translate } from '../forms/types.ts'
+import { WorkspaceChoice, type WorkspaceCreateOutcome, type WorkspaceCreationInput } from '../workspace/WorkspaceChoice.tsx'
 
 interface TaskFormProps {
   t: Translate
   version: VersionRecord
   project: ProjectRecord
-  /** Ready workspaces bound to the version; required for V2 task creation. */
+  /** Ready workspaces bound to the version. */
   workspaces?: readonly { readonly id: string; readonly label?: string | undefined; readonly rootPath?: string | undefined; readonly path: string }[] | undefined
+  /** Create an independent workspace from the task form. */
+  createWorkspace?: ((input: WorkspaceCreationInput) => Promise<WorkspaceCreateOutcome>) | undefined
+  /** Native directory picker for workspace creation. */
+  pickDirectory?: ((startPath?: string) => Promise<string | null>) | undefined
   create(request: CreateTaskRequest): Promise<RemoteResult<TaskRecord>>
   update?(request: UpdateTaskRequest): Promise<RemoteResult<TaskRecord>>
   task?: TaskRecord
@@ -37,7 +42,7 @@ const TASK_STEPS: readonly { readonly key: TaskStep; readonly label: LoomKey }[]
 const PRIORITY_LABEL: Readonly<Record<TaskPriority, LoomKey>> = { low: 'task.priority.low', normal: 'task.priority.normal', high: 'task.priority.high' }
 
 /** Create or edit one task under the selected version. */
-export function TaskForm({ t, version, project, workspaces, create, update, task, onCreated, open: controlledOpen, onOpenChange, onBusyChange }: TaskFormProps) {
+export function TaskForm({ t, version, project, workspaces, createWorkspace, pickDirectory, create, update, task, onCreated, open: controlledOpen, onOpenChange, onBusyChange }: TaskFormProps) {
   const editing = task !== undefined
   const [internalOpen, setInternalOpen] = useState(false)
   const open = controlledOpen ?? internalOpen
@@ -48,6 +53,10 @@ export function TaskForm({ t, version, project, workspaces, create, update, task
   const [priority, setPriority] = useState<TaskPriority>(task?.priority ?? 'normal')
   const [moduleIds, setModuleIds] = useState<string[]>([...(task?.moduleIds ?? [])])
   const [workspaceId, setWorkspaceId] = useState<string>(workspaces?.[0]?.id ?? '')
+  const [createdWorkspace, setCreatedWorkspace] = useState<{ id: string; path: string; rootPath?: string | undefined; label?: string | undefined }>()
+  const workspaceOptions = createdWorkspace === undefined || (workspaces ?? []).some(workspace => workspace.id === createdWorkspace.id)
+    ? workspaces ?? []
+    : [...(workspaces ?? []), createdWorkspace]
   const [busy, setBusy] = useState(false)
   const reportBusy = (value: boolean): void => { setBusy(value); onBusyChange?.(value) }
   const [failure, setFailure] = useState<string>()
@@ -57,7 +66,7 @@ export function TaskForm({ t, version, project, workspaces, create, update, task
   const titleReady = title.trim() !== ''
   function canVisit(candidate: TaskStep): boolean {
     if (candidate === 'content') return true
-    if (candidate === 'scope') return titleReady && (workspaces === undefined || workspaces.length > 0)
+    if (candidate === 'scope') return titleReady && (createWorkspace !== undefined || workspaces === undefined || workspaces.length > 0)
     return request !== undefined
   }
   function goTo(candidate: TaskStep): void {
@@ -114,16 +123,18 @@ export function TaskForm({ t, version, project, workspaces, create, update, task
     {(editing || step === 'scope') && <section style={stack}>
       <p style={hint}>{t('task.draftHint')}</p>
       {!editing && <label style={field}><span style={fieldLabel}>{t('task.workspace')}</span>
-        {workspaces === undefined || workspaces.length === 0
-          ? <p role="alert" style={alert}>{t('task.workspaceRequired')}</p>
-          : <LoomSelect
-            block
-            ariaLabel={t('task.workspace')}
-            value={workspaceId}
-            options={workspaces.map(workspace => ({ value: workspace.id, label: workspace.label ?? workspace.rootPath ?? workspace.path }))}
-            onChange={value => setWorkspaceId(value)}
-          />}
-        {workspaces !== undefined && workspaces.length === 1 && <p style={hint}>{t('task.workspaceConcurrentHint')}</p>}
+        <WorkspaceChoice
+          t={t}
+          ariaLabel={t('task.workspace')}
+          workspaces={workspaceOptions}
+          value={workspaceId === '' ? undefined : workspaceId}
+          onChange={setWorkspaceId}
+          create={createWorkspace}
+          pickDirectory={pickDirectory}
+          onCreated={workspace => { setCreatedWorkspace(workspace); setWorkspaceId(workspace.id) }}
+          defaultName={`task-${version.name}`}
+        />
+        {workspaceOptions.length === 1 && <p style={hint}>{t('task.workspaceConcurrentHint')}</p>}
       </label>}
       <label style={field}><span style={fieldLabel}>{t('task.priority')}</span>
         <LoomSelect
