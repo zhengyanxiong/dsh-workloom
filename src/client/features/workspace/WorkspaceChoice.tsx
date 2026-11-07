@@ -41,6 +41,8 @@ export interface WorkspaceChoiceProps {
   readonly pickDirectory?: ((startPath?: string) => Promise<string | null>) | undefined
   readonly onCreated?: ((workspace: WorkspaceRecord) => void) | undefined
   readonly defaultName?: string | undefined
+  /** Version refs used to create the worktree, shown in create mode. */
+  readonly sourceRefs?: readonly { readonly name: string; readonly ref: string }[] | undefined
 }
 
 const stack: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 6 }
@@ -56,7 +58,7 @@ const monoText: CSSProperties = { minWidth: 0, overflow: 'hidden', textOverflow:
  * @param props - options, selection, creation callback and locale.
  * @returns the picker.
  */
-export function WorkspaceChoice({ t, ariaLabel, workspaces, value, onChange, create, pickDirectory, onCreated, defaultName }: WorkspaceChoiceProps): JSX.Element {
+export function WorkspaceChoice({ t, ariaLabel, workspaces, value, onChange, create, pickDirectory, onCreated, defaultName, sourceRefs }: WorkspaceChoiceProps): JSX.Element {
   const [created, setCreated] = useState<readonly WorkspaceRecord[]>([])
   const options = [...workspaces, ...created.filter(workspace => !workspaces.some(candidate => candidate.id === workspace.id))]
   const [mode, setMode] = useState<'existing' | 'create'>(options.length === 0 && create !== undefined ? 'create' : 'existing')
@@ -65,6 +67,10 @@ export function WorkspaceChoice({ t, ariaLabel, workspaces, value, onChange, cre
   const [branchPrefix, setBranchPrefix] = useState('loom')
   const [busy, setBusy] = useState(false)
   const [failure, setFailure] = useState<FailureReport>()
+  const refs = sourceRefs?.map(source => `${source.name}@${source.ref}`).join(t('task.workspaceBaseRefSeparator')) ?? ''
+  const createBaseHint = refs === ''
+    ? t('task.workspaceBaseHintLock').replace('{prefix}', branchPrefix === '' ? 'loom' : branchPrefix).replace('{name}', name === '' ? '…' : name)
+    : t('task.workspaceBaseHint').replace('{refs}', refs).replace('{prefix}', branchPrefix === '' ? 'loom' : branchPrefix).replace('{name}', name === '' ? '…' : name)
   const selected = options.find(workspace => workspace.id === value)
   async function browse(): Promise<void> {
     if (pickDirectory === undefined) return
@@ -94,6 +100,7 @@ export function WorkspaceChoice({ t, ariaLabel, workspaces, value, onChange, cre
       value={mode}
       options={[{ value: 'existing', label: t('task.workspaceChoiceExisting') }, { value: 'create', label: t('task.workspaceChoiceCreate') }]}
       onChange={next => setMode(next === 'create' ? 'create' : 'existing')}
+      variant="choice"
     />}
     {mode === 'existing'
       ? options.length === 0
@@ -110,6 +117,7 @@ export function WorkspaceChoice({ t, ariaLabel, workspaces, value, onChange, cre
       : <div style={createBox}>
           {options.length === 0 && <p role="alert" style={alert}>{t('task.workspaceRequired')}</p>}
           <p style={hint}>{t('task.workspaceCreateHint')}</p>
+          <p style={hint}>{createBaseHint}</p>
           <label style={field}><span>{t('task.workspaceParent')}</span>
             <div style={{ display: 'flex', gap: 6 }}>
               <input aria-label={t('task.workspaceParent')} value={parentPath} placeholder="/home/me/work" onChange={event => setParentPath(event.target.value)} style={inputStyle} />

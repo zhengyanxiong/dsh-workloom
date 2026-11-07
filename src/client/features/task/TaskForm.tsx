@@ -133,6 +133,7 @@ export function TaskForm({ t, version, project, workspaces, createWorkspace, pic
           pickDirectory={pickDirectory}
           onCreated={workspace => { setCreatedWorkspace(workspace); setWorkspaceId(workspace.id) }}
           defaultName={`task-${version.name}`}
+          sourceRefs={version.sources.map(source => ({ name: project.config.sources.find(candidate => candidate.id === source.sourceId)?.path ?? String(source.sourceId), ref: source.ref }))}
         />
         {workspaceOptions.length === 1 && <p style={hint}>{t('task.workspaceConcurrentHint')}</p>}
       </label>}

@@ -14,6 +14,8 @@ export interface LoomSegmentedProps {
   readonly options: readonly LoomSegmentOption[]
   readonly onChange: (value: string) => void
   readonly ariaLabel: string
+  /** `choice` enlarges the control and gives the selected option an accent fill. */
+  readonly variant?: 'default' | 'choice'
 }
 
 /**
@@ -22,7 +24,7 @@ export interface LoomSegmentedProps {
  * @param props - current value, options and change callback.
  * @returns the segmented control.
  */
-export function LoomSegmented({ value, options, onChange, ariaLabel }: LoomSegmentedProps): JSX.Element {
+export function LoomSegmented({ value, options, onChange, ariaLabel, variant = 'default' }: LoomSegmentedProps): JSX.Element {
   const index = options.findIndex(option => option.value === value)
   const select = (event: KeyboardEvent<HTMLButtonElement>): void => {
     if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return
@@ -32,7 +34,7 @@ export function LoomSegmented({ value, options, onChange, ariaLabel }: LoomSegme
     const next = options[((Math.max(0, index) + delta) + options.length) % options.length]
     if (next !== undefined) onChange(next.value)
   }
-  return <div role="tablist" aria-label={ariaLabel} className={classes.track}>
+  return <div role="tablist" aria-label={ariaLabel} className={`${classes.track} ${variant === 'choice' ? classes.choice : ''}`}>
     {options.map(option => <button
       key={option.value}
       type="button"

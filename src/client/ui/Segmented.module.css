@@ -34,6 +34,25 @@
   box-shadow: var(--shadow-button);
 }
 
+.choice {
+  padding: 3px;
+  border-radius: var(--radius-md);
+}
+
+.choice .segment {
+  height: 28px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-small-size);
+}
+
+.choice .active {
+  background: var(--color-accent-soft);
+  color: var(--color-accent-ink);
+  box-shadow: inset 0 0 0 1px var(--color-accent);
+  font-weight: 500;
+}
+
 .segment:focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 1px;

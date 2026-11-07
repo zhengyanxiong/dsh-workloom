@@ -378,6 +378,7 @@ function StartForm({ t, task, snapshot, versionId, actions }: StartFormProps) {
     ? ready
     : [...ready, createdWorkspace]
   const selected = available.find(workspace => workspace.id === selectedId)
+  const sourceRefs = version === undefined ? [] : version.sources.map(source => ({ name: project?.config.sources.find(candidate => candidate.id === source.sourceId)?.path ?? String(source.sourceId), ref: source.ref }))
   function report(operation: string, code: string, message: string): void { setFailure({ operation, report: failureReport(code, message) }) }
   async function createWorkspace(input: WorkspaceCreationInput): Promise<WorkspaceCreateOutcome> {
     if (project === undefined) return { ok: false, error: { message: 'state.error' } }
@@ -448,6 +449,7 @@ function StartForm({ t, task, snapshot, versionId, actions }: StartFormProps) {
         pickDirectory={actions.pickDirectory}
         onCreated={workspace => { setCreatedWorkspace(workspace); actions.onChanged() }}
         defaultName={`task-${String(task.id).slice(0, 8)}`}
+        sourceRefs={sourceRefs}
       />
     </div>
     {available.length <= 1 && <p style={{ ...hint, margin: 0 }}>{t('task.workspaceConcurrentHint')}</p>}
