@@ -620,7 +620,6 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
       project={project}
       version={version}
       snapshot={snapshot}
-      activeCount={activeCount}
       route={route}
       asideOpen={asideOpen}
       createDisabledVersion={createDisabledVersion}

@@ -38,11 +38,11 @@ function render(route: LoomRoute): string {
   }))
 }
 
-it('keeps the active-workspace count and settings action in the right cluster', () => {
+it('keeps the settings action and omits the green activity pill', () => {
   const html = render('board')
-  expect(html).toContain(en['top.activeWorkspaces'])
-  expect(html).toContain('>2<')
   expect(html).toContain(en['top.settings'])
+  expect(html).not.toContain(en['top.activeWorkspaces'])
+  expect(html).not.toContain('success-soft')
 })
 
 it('renders the New action as a labeled icon button beside the other icon actions', () => {
