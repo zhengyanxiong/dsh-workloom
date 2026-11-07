@@ -3,7 +3,7 @@ import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
 import { Button } from '../../ui/primitives.ts'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import type {
-  AttachSessionRequest, CatalogSnapshot, CleanupWorkspaceRequest, CommitWorkspaceRequest, ExecutionRequest, ExecutionState, PrepareWorkspaceRequest, WorkspaceCommitResult,
+  AttachSessionRequest, CatalogSnapshot, CleanupWorkspaceRequest, CommitWorkspaceRequest, ExecutionRequest, ExecutionState, Lock, PrepareWorkspaceRequest, ProjectRecord, WorkspaceCommitResult,
   ReleaseExecutionRequest, StartAttemptRequest, TaskRecord, TransitionTaskRequest, WorkspaceRecord, RegisterWorkspaceRequest,
   RepositoryBranches, RepositoryBranchesRequest, InspectWorkspaceRequest, WorkspaceInspection, ReorderExecutionQueueRequest,
 } from 'dsh-workloom/types'
@@ -17,6 +17,7 @@ import { LoomCleanupDialog, type LoomCleanupFailure } from '../dialogs/LoomClean
 import { LoomTakeoverDialog } from '../dialogs/LoomTakeoverDialog.tsx'
 import { LoomPreparationPanel } from './LoomPreparationPanel.tsx'
 import { LoomSelect } from '../../ui/Select.tsx'
+import { autoWorkspaceRepositoryPath } from '../../../domain/workspace.ts'
 import type { LoadWorkspaceChanges } from '../preview/LoomDiff.tsx'
 
 type Translate = (key: LoomKey) => string
@@ -34,6 +35,8 @@ const ownerMeta: CSSProperties = { margin: 0, color: COLORS.faint, fontSize: 'va
 const footer: CSSProperties = { display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginTop: 4, paddingTop: 10, borderTop: `0.5px solid ${COLORS.border}` }
 const monoText: CSSProperties = { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'ui-monospace, monospace', fontSize: 'var(--text-small-size)' }
 const alert: CSSProperties = { margin: 0, color: 'var(--dsw-alias-label-secondary)', fontSize: 'var(--text-compact-size)' }
+const inputStyle: CSSProperties = { flex: 1, minWidth: 0, padding: '6px 8px', borderRadius: 6, border: `0.5px solid ${COLORS.border}`, background: COLORS.panel, color: COLORS.text, font: 'inherit' }
+const createBox: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 8, marginTop: 6, padding: '10px 12px', border: `0.5px dashed ${COLORS.border}`, borderRadius: 8, background: COLORS.panel2 }
 
 /** One named operation failure, kept inline so the user sees which command failed and why. */
 interface OperationFailure {
@@ -362,16 +365,103 @@ export function taskDraftPrompt(t: Translate, task: TaskRecord): string {
   return description === '' ? title : `${title}\n\n${t('task.draftDescription')}\n${description}`
 }
 
+interface CreateWorkspaceFormProps {
+  readonly t: Translate
+  readonly task: TaskRecord
+  readonly versionId: TaskRecord['versionId']
+  readonly project: ProjectRecord
+  readonly lock: Lock | undefined
+  readonly actions: ExecutionActions
+  readonly onCreated: (workspace: WorkspaceRecord) => void
+  readonly onCancel: () => void
+}
+
+/** Create one independent managed workspace without leaving the task execution flow. */
+function CreateWorkspaceForm({ t, task, versionId, project, lock, actions, onCreated, onCancel }: CreateWorkspaceFormProps) {
+  const [parentPath, setParentPath] = useState('')
+  const [name, setName] = useState(`task-${String(task.id).slice(0, 8)}`)
+  const [branchPrefix, setBranchPrefix] = useState('loom')
+  const [busy, setBusy] = useState(false)
+  const [failure, setFailure] = useState<OperationFailure>()
+  async function browse(): Promise<void> {
+    try {
+      const picked = await actions.pickDirectory(parentPath === '' ? undefined : parentPath)
+      if (picked !== null) setParentPath(picked)
+    } catch { /* the text field is still editable when the host picker is unavailable */ }
+  }
+  async function create(): Promise<void> {
+    if (lock === undefined) {
+      setFailure({ operation: t('task.workspaceCreate'), report: { message: 'task.workspaceCreateLock' } })
+      return
+    }
+    setBusy(true); setFailure(undefined)
+    try {
+      const parent = parentPath.replace(/\/+$/u, '')
+      const root = `${parent}/${name.trim()}`
+      const prefix = (branchPrefix.trim() === '' ? 'loom' : branchPrefix.trim()).replace(/\/+$/u, '')
+      const branch = `${prefix}/${name.trim()}`
+      const branches: Record<string, string> = {}
+      const repositories = lock.repositories.map(entry => {
+        const source = project.config.sources.find(candidate => candidate.id === entry.sourceId)
+        if (source === undefined) throw new Error(t('error.workspaceMismatch'))
+        const subProjectId = entry.subProjectId === undefined ? 'default' : String(entry.subProjectId)
+        const path = autoWorkspaceRepositoryPath(subProjectId, source)
+        branches[String(source.id)] = branch
+        return { sourceId: String(source.id), path, targetPath: `${root}/${path}` }
+      })
+      const result = await actions.prepareWorkspace({ path: root, versionId, lockId: lock.id, mode: 'managed', repositories, branches, requireBranches: true })
+      if (!result.ok) { setFailure({ operation: t('task.workspaceCreate'), report: failureReport(result.error.code, result.error.message) }); return }
+      if (result.value.preparation?.status === 'failed') {
+        const failed = result.value.preparation.repositories.filter(repository => repository.status === 'failed')
+        const reason = failed.length > 0
+          ? failed.map(repository => `${repository.path ?? String(repository.sourceId)}: ${repository.error ?? 'failed'}`).join('; ')
+          : result.value.preparation.error ?? t('error.workspaceNotPrepared')
+        await actions.cleanupWorkspace({ workspaceId: result.value.id, discardChanges: true })
+        throw new Error(reason)
+      }
+      onCreated(result.value)
+    } catch (error) { setFailure({ operation: t('task.workspaceCreate'), report: thrownFailureReport(error) }) } finally { setBusy(false) }
+  }
+  return <div style={createBox}>
+    <p style={hint}>{t('task.workspaceCreateHint')}</p>
+    <label style={field}><span>{t('task.workspaceParent')}</span>
+      <div style={{ display: 'flex', gap: 6 }}>
+        <input aria-label={t('task.workspaceParent')} value={parentPath} placeholder="/home/me/work" onChange={event => setParentPath(event.target.value)} style={inputStyle} />
+        <Button type="button" size="sm" variant="outline" onClick={() => { void browse() }}>{t('workspace.browse')}</Button>
+      </div>
+    </label>
+    <label style={field}><span>{t('task.workspaceName')}</span>
+      <input aria-label={t('task.workspaceName')} value={name} onChange={event => setName(event.target.value)} style={inputStyle} />
+    </label>
+    <label style={field}><span>{t('task.workspaceBranchPrefix')}</span>
+      <input aria-label={t('task.workspaceBranchPrefix')} value={branchPrefix} onChange={event => setBranchPrefix(event.target.value)} style={inputStyle} />
+    </label>
+    {failure !== undefined && <InlineFailure t={t} failure={failure} />}
+    <div style={actionBar}>
+      <Button type="button" variant="primary" disabled={busy || parentPath.trim() === '' || name.trim() === ''} onClick={() => { void create() }}>
+        {busy ? t('task.workspaceCreating') : t('task.workspaceCreateSubmit')}
+      </Button>
+      <Button type="button" variant="ghost" disabled={busy} onClick={onCancel}>{t('form.cancel')}</Button>
+    </div>
+  </div>
+}
+
 /** Select one ready workspace bound to the task's version; creation belongs to the version flow. */
 function StartForm({ t, task, snapshot, versionId, actions }: StartFormProps) {
   const version = snapshot.versions.find(candidate => candidate.id === versionId)
   const project = version === undefined ? undefined : snapshot.projects.find(candidate => candidate.id === version.projectId)
+  const lock = version === undefined ? undefined : snapshot.locks.filter(candidate => candidate.versionId === version.id).at(-1)
   const ready = snapshot.workspaces.filter(workspace => workspace.versionId === versionId && workspace.cleaned !== true
     && (workspace.preparation === undefined || workspace.preparation.status === 'ready'))
+  const [createdWorkspace, setCreatedWorkspace] = useState<WorkspaceRecord>()
   const [selectedId, setSelectedId] = useState<WorkspaceRecord['id'] | undefined>(task.workspaceId ?? ready[0]?.id)
+  const [createOpen, setCreateOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const [failure, setFailure] = useState<OperationFailure>()
-  const selected = ready.find(workspace => workspace.id === selectedId)
+  const available = createdWorkspace === undefined || ready.some(workspace => workspace.id === createdWorkspace.id)
+    ? ready
+    : [...ready, createdWorkspace]
+  const selected = available.find(workspace => workspace.id === selectedId)
   function report(operation: string, code: string, message: string): void { setFailure({ operation, report: failureReport(code, message) }) }
   async function start(): Promise<void> {
     if (selected === undefined) { report(t('task.start'), 'missing_workspace', ''); return }
@@ -396,26 +486,44 @@ function StartForm({ t, task, snapshot, versionId, actions }: StartFormProps) {
       setFailure({ operation: t('task.start'), report: thrownFailureReport(error) })
     } finally { setBusy(false) }
   }
-  if (ready.length === 0) return <div style={box}>
+  const createForm = project === undefined
+    ? undefined
+    : <CreateWorkspaceForm
+        t={t}
+        task={task}
+        versionId={versionId}
+        project={project}
+        lock={lock}
+        actions={actions}
+        onCreated={workspace => { setCreatedWorkspace(workspace); setSelectedId(workspace.id); setCreateOpen(false); actions.onChanged() }}
+        onCancel={() => setCreateOpen(false)}
+      />
+  if (available.length === 0) return <div style={box}>
     <div style={formHeading}>{t('task.start')}</div>
     <p style={{ ...alert, margin: 0 }}>{t('task.workspaceRequired')}</p>
-    <p style={{ ...hint, margin: 0 }}>{t('version.workspaceEmpty')}</p>
+    <p style={{ ...hint, margin: 0 }}>{t('task.workspaceConcurrentHint')}</p>
+    {failure !== undefined && <InlineFailure t={t} failure={failure} />}
+    {createOpen ? createForm : <Button type="button" variant="outline" style={{ alignSelf: 'flex-start' }} onClick={() => setCreateOpen(true)}>{t('task.workspaceCreate')}</Button>}
   </div>
   return <form style={box} onSubmit={event => { event.preventDefault(); void start() }}>
     <div style={formHeading}>{t('task.start')}</div>
     <div style={field}>
       <span>{t('task.workspace')}</span>
-      {ready.length === 1
+      {available.length === 1
         ? <span style={{ ...monoText, color: 'var(--dsw-alias-label-primary)' }}>{selected?.rootPath ?? selected?.path}</span>
         : <LoomSelect
           block
           ariaLabel={t('task.workspace')}
           value={selectedId ?? ''}
-          options={ready.map(workspace => ({ value: workspace.id, label: workspace.rootPath ?? workspace.path }))}
+          options={available.map(workspace => ({ value: workspace.id, label: workspace.rootPath ?? workspace.path }))}
           onChange={value => setSelectedId(value as WorkspaceRecord['id'])}
         />}
     </div>
-    <p style={{ ...hint, margin: 0 }}>{selected?.preparation === undefined ? t('workspace.boundReady') : t('workspace.boundReady')}</p>
+    {available.length <= 1 && <p style={{ ...hint, margin: 0 }}>{t('task.workspaceConcurrentHint')}</p>}
+    <div style={actionBar}>
+      <Button type="button" size="sm" variant="outline" onClick={() => setCreateOpen(value => !value)}>{t('task.workspaceCreate')}</Button>
+    </div>
+    {createOpen && createForm}
     {failure !== undefined && <InlineFailure t={t} failure={failure} />}
     <Button type="submit" variant="primary" className="loom-primary" disabled={busy || selected === undefined} style={{ alignSelf: 'flex-start' }}>
       {busy ? t('form.submitPending') : t('task.start')}

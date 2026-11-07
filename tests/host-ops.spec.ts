@@ -388,3 +388,19 @@ it('registers a takeover tool that runs only the Host-provided takeover callback
   expect(called).toBe('session-agent')
   expect(result).toMatchObject({ workspaceId: 'w1', owner: 'session-agent' })
 })
+
+it('lets a pending task start on another ready workspace of the same version', async () => {
+  const { dir, catalog } = await fixture()
+  const project = await catalog.createProject({ name: 'Shop', sources: [{ id: 'web', repo: join(dir, 'repo'), path: 'web' }], modules: [] })
+  const version = await catalog.createVersion(project.id, 'v', [{ sourceId: project.config.sources[0]!.id, ref: 'main' }])
+  const lock = await catalog.generateLock(version.id)
+  const first = await catalog.registerPreparedWorkspace({ path: join(dir, 'ws-a'), versionId: version.id, lockId: lock.id })
+  const second = await catalog.registerPreparedWorkspace({ path: join(dir, 'ws-b'), versionId: version.id, lockId: lock.id })
+  const task = await catalog.createTask(version.id, 'Concurrent', { workspaceId: first.id })
+  expect(task.workspaceId).toBe(first.id)
+  const started = await catalog.startAttempt(task.id, second.id)
+  expect(started).toMatchObject({ status: 'running', workspaceId: second.id })
+  expect(catalog.snapshot().tasks.find(candidate => candidate.id === task.id)?.workspaceId).toBe(second.id)
+  // A running round is bound to its workspace; rebinding waits for the next round.
+  await expect(catalog.startAttempt(task.id, first.id)).rejects.toThrow(/workspace_mismatch|task_not_startable/u)
+})

@@ -35,10 +35,14 @@ export interface TaskRuntime {
 
 export async function startAttempt(runtime: TaskRuntime, taskId: TaskRecord['id'], workspaceId: WorkspaceRecord['id'], options?: { readonly allowBusy?: boolean }): Promise<TaskRecord> {
   return runtime.transaction(async draft => {
-    const requestedTask = draft.tasks.find(candidate => candidate.id === taskId)
-    if (requestedTask?.workspaceId !== undefined && requestedTask.workspaceId !== workspaceId) throw new CatalogError('workspace_mismatch')
     const task = taskIn(draft, taskId)
     const workspace = workspaceIn(draft, workspaceId)
+    // A task owns its workspace per round, not for its whole life. Pending and
+    // failed tasks may start on another ready workspace of the same project so
+    // concurrent tasks can keep independent checkouts.
+    if (task.workspaceId !== undefined && task.workspaceId !== workspaceId && task.status !== 'pending' && task.status !== 'failed') {
+      throw new CatalogError('workspace_mismatch')
+    }
     if (workspace.cleaned === true) throw new CatalogError('workspace_cleaned')
     if (workspace.preparation !== undefined && workspace.preparation.status !== 'ready') throw new CatalogError('workspace_not_prepared', `preparation is ${workspace.preparation.status}`)
     const taskProject = projectOf(draft, task.versionId)
@@ -65,7 +69,8 @@ export async function startAttempt(runtime: TaskRuntime, taskId: TaskRecord['id'
       ? currentLock
       : { id: brandString<Lock['id']>(randomUUID()), versionId: task.versionId, repositories: baseline, createdAt: nowIso() }
     if (!sameAsCurrent) draft.locks.push(lock)
-    const updated = { ...task, ...startTaskAttempt(task, brandString<Branded<'loom.attempt'>>(randomUUID()), lock, { ...workspace, versionId: task.versionId, lockId: lock.id }), updatedAt: nowIso() }
+    const boundTask = task.workspaceId === workspaceId ? task : { ...task, workspaceId }
+    const updated = { ...boundTask, ...startTaskAttempt(boundTask, brandString<Branded<'loom.attempt'>>(randomUUID()), lock, { ...workspace, versionId: task.versionId, lockId: lock.id }), updatedAt: nowIso() }
     draft.tasks[draft.tasks.indexOf(task)] = updated
     runtime.recordAudit(draft, 'attempt.started', 'human', { taskId, workspaceId, detail: lock.id })
     return updated

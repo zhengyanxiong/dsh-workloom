@@ -82,10 +82,11 @@ it('does not offer workspace creation controls inside a task', () => {
   expect(html).not.toContain(en['workspace.new'])
   expect(html).not.toContain('Create independent workspace')
 })
-it('asks for a version workspace instead of creating one in the task', () => {
+it('asks for a workspace and offers creating an independent one from the task', () => {
   const html = renderToStaticMarkup(createElement(ExecutionPanel, { t, task: pending, snapshot: { ...snapshot, workspaces: [], locks: [] }, selectedSession: undefined, actions, ...diffProps }))
   expect(html).toContain(en['task.workspaceRequired'])
-  expect(html).toContain(en['version.workspaceEmpty'])
+  expect(html).toContain(en['task.workspaceCreate'])
+  expect(html).toContain(en['task.workspaceConcurrentHint'])
   expect(html).not.toContain(en['workspace.mode.managed'])
 })
 it('shows the running round and session controls without duplicating task transitions', () => {

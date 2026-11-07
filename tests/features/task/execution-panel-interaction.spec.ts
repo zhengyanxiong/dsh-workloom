@@ -90,3 +90,31 @@ it('selects an existing version workspace instead of opening creation controls',
   expect(container.querySelector(`input[aria-label="${en['workspace.directRoot']}"]`)).toBeNull()
   expect(container.querySelector(`input[aria-label="${en['workspace.linkRoot']}"]`)).toBeNull()
 })
+
+it('creates an independent workspace from the execution panel for concurrent tasks', async () => {
+  ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
+  const pendingTask: TaskRecord = { ...task, status: 'pending', attempts: [] }
+  const pendingSnapshot: CatalogSnapshot = {
+    ...snapshot,
+    projects: [{ id: brandString<'loom.project'>('p1'), config: { name: 'Shop', modules: [], sources: [{ id: lock.repositories[0]!.sourceId, repo: '/tmp/web', path: 'web' }] } }],
+    tasks: [pendingTask],
+    workspaces: [workspace],
+    executions: [],
+  }
+  container = document.createElement('div')
+  document.body.append(container)
+  root = createRoot(container)
+  await act(async () => {
+    root?.render(createElement(ExecutionPanel, {
+      t, task: pendingTask, snapshot: pendingSnapshot, selectedSession: undefined, actions,
+      loadChanges: unused, wrap: false, onToggleWrap: () => {},
+    }))
+  })
+  const createButton = [...document.querySelectorAll('button')].find(candidate => candidate.textContent === en['task.workspaceCreate'])
+  expect(createButton).not.toBeUndefined()
+  await act(async () => { createButton?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true })) })
+  expect(container.querySelector(`input[aria-label="${en['task.workspaceParent']}"]`)).not.toBeNull()
+  expect(container.querySelector(`input[aria-label="${en['task.workspaceName']}"]`)).not.toBeNull()
+  expect(container.textContent).toContain(en['task.workspaceCreateHint'])
+  expect(container.textContent).toContain(en['task.workspaceConcurrentHint'])
+})

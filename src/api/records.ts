@@ -42,7 +42,7 @@ export type TaskPriority = 'low' | 'normal' | 'high'
 export interface TaskRecord extends Task {
   title: string
   /**
-   * Version-bound workspace selected when the task was created.
+   * Version-bound workspace selected at task creation; a pending or failed task may start on another ready workspace of the same version.
    */
   workspaceId?: WorkspaceRecord['id'] | undefined
   description?: string | undefined

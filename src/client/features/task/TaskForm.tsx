@@ -123,6 +123,7 @@ export function TaskForm({ t, version, project, workspaces, create, update, task
             options={workspaces.map(workspace => ({ value: workspace.id, label: workspace.label ?? workspace.rootPath ?? workspace.path }))}
             onChange={value => setWorkspaceId(value)}
           />}
+        {workspaces !== undefined && workspaces.length === 1 && <p style={hint}>{t('task.workspaceConcurrentHint')}</p>}
       </label>}
       <label style={field}><span style={fieldLabel}>{t('task.priority')}</span>
         <LoomSelect
