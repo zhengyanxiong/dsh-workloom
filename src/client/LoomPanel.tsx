@@ -8,11 +8,10 @@ import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { fileAddressFor } from '@deepseek-ai/dsh-util-workspace-path'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import type {
-  CatalogSnapshot, ProjectRecord, TaskPriority, TaskRecord, VersionRecord,
+  CatalogSnapshot, ProjectRecord, TaskRecord, VersionRecord,
   WorkspaceChangesRequest, WorkspaceRecord, VersionWorkspaceInput,
 } from 'dsh-workloom/types'
-import { type AgentPresetOption, type VersionStep } from './LoomForms.tsx'
-import { readPreferences, writePreferences, type LoomPreferences } from './features/settings/LoomSettings.tsx'
+import type { LoomPreferences } from './features/settings/LoomSettings.tsx'
 import type { ExecutionActions } from './features/task/LoomExecution.tsx'
 import { LoomBottomPanel, type LoomBottomPane } from './LoomBottomPanel.tsx'
 import { LoomResizeHandle } from './shell/LoomResizeHandle.tsx'
@@ -22,6 +21,13 @@ import { LoomTopbar } from './shell/LoomTopbar.tsx'
 import { LOOM_ROOT_CLASS, LoomThemeStyles } from './theme/LoomTheme.tsx'
 import { resolveLoomTheme } from './theme/selection.ts'
 import { useHostTheme } from './theme/useHostTheme.ts'
+import { useLoomPreferences } from './shell/useLoomPreferences.ts'
+import { useLoomPinnedProjects } from './shell/useLoomPinnedProjects.ts'
+import { useLoomMenu } from './shell/useLoomMenu.ts'
+import { useLoomBoardFilters } from './shell/useLoomBoardFilters.ts'
+import { useLoomDialogState } from './shell/useLoomDialogState.ts'
+import { useLoomAgentPresets } from './shell/useLoomAgentPresets.ts'
+import { useLoomDiffCount } from './shell/useLoomDiffCount.ts'
 import { useLoomRoute } from './shell/useLoomRoute.ts'
 import { useLoomViewport } from './shell/useLoomViewport.ts'
 import shell from './shell/LoomShell.module.css'
@@ -43,16 +49,9 @@ import { activeWorkspaceCount, aggregateTokenUsage, boundSessions, tokenUsageOf,
 import { deriveVersionContext } from '../shared/version-context.ts'
 import { COLORS, failureReport, metaLine, thrownFailureReport, type FailureReport } from './shell.ts'
 import { reportLoomFailure } from './feedback.ts'
-import { NS, type LoomKey } from './locales.ts'
-import { presetDisplayText, type BuiltInPresetCopyKey } from '@deepseek-ai/dsh-agent-preset-registry/display'
+import { NS } from './locales.ts'
 import type { LoomHostPort as LoomInjected } from '../ports/loom-host.ts'
 
-const PRESET_COPY: Readonly<Record<BuiltInPresetCopyKey, LoomKey>> = {
-  presetStandardName: 'preset.standardName', presetStandardDescription: 'preset.standardDescription',
-  presetPtcName: 'preset.ptcName', presetPtcDescription: 'preset.ptcDescription',
-  presetMinimalName: 'preset.minimalName', presetMinimalDescription: 'preset.minimalDescription',
-  presetCordisName: 'preset.cordisName', presetCordisDescription: 'preset.cordisDescription',
-}
 
 interface LoomSeat {
   SessionProvider: SessionProviderComponent
@@ -67,13 +66,6 @@ type CatalogState =
   | { readonly status: 'ready'; readonly snapshot: CatalogSnapshot }
 
 
-function readPinnedProjects(): ProjectRecord['id'][] {
-  if (typeof localStorage === 'undefined') return []
-  try {
-    const value: unknown = JSON.parse(localStorage.getItem('loom.pinnedProjects') ?? '[]')
-    return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') as ProjectRecord['id'][] : []
-  } catch { return [] }
-}
 
 /**
  * Render the Loom shell. Every card and counter comes from the Host catalog; unwired
@@ -83,7 +75,7 @@ function readPinnedProjects(): ProjectRecord['id'][] {
  */
 export function LoomPanel({ t, useSessions, retainSession, openResource, loadSnapshot, createProject, updateProject, deleteProject, createVersion, updateVersion, deleteVersion, createTask, updateTask, deleteTask, generateLock, prepareWorkspace, prepareWorkspaceSilent, registerWorkspace, repositoryBranches, inspectWorkspace, pickDirectory, listDirectory, requestDraftInitialization, startAttempt, attachSession, registerTemporarySession, listAgentPresets, transitionTask, createSessionInWorkspace, openPath, openPathApplications, openPathWith, workspaceChanges, workspaceChangeCount, workspaceStatus, readFile, readBytes, commitWorkspace, updateWorkspace, deleteWorkspace, cleanupWorkspace, cleanupWorkspaceSilent, acquireExecution, cancelExecution, reorderExecutionQueue, releaseExecution, takeoverExecution, forkSession, jobs, SessionProvider, renderSlot }: LoomPanelProps) {
   const sessions = useSessions(state => state)
-  const [preferences, setPreferences] = useState<LoomPreferences>(readPreferences)
+  const [preferences, setPreferences] = useLoomPreferences()
   const { route, setRoute, view, setView } = useLoomRoute(preferences.view)
   const darkTheme = useHostTheme(preferences.theme)
   const { rootRef, loomWidth, viewport } = useLoomViewport()
@@ -123,7 +115,7 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
   const [releasingAll, setReleasingAll] = useState(false)
   const [claiming, setClaiming] = useState(false)
   const [claimError, setClaimError] = useState<string>()
-  const [pinnedProjects, setPinnedProjects] = useState<ProjectRecord['id'][]>(readPinnedProjects)
+  const [pinnedProjects, setPinnedProjects] = useLoomPinnedProjects()
   const [held, setHeld] = useState<{ id: SessionId; reference: SessionReference }>()
   const [pendingDraft, setPendingDraft] = useState<{ sessionId: SessionId; prompt: string }>()
   const [directoryRequest, setDirectoryRequest] = useState<{ startPath?: string }>()
@@ -134,8 +126,7 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
   const [sessionRetry, setSessionRetry] = useState(0)
   const [search, setSearch] = useState('')
   const [temporaryOpen, setTemporaryOpen] = useState(false)
-  const [agentPresets, setAgentPresets] = useState<readonly AgentPresetOption[]>([])
-  const presetsLoaded = useRef(false)
+  const agentPresets = useLoomAgentPresets(t, listAgentPresets)
   const [catalog, setCatalog] = useState<CatalogState>({ status: 'loading' })
   const [attempt, setAttempt] = useState(0)
   const [asideOpen, setAsideOpen] = useState(preferences.contextOpen)
@@ -143,66 +134,18 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
   const [previewFullscreen, setPreviewFullscreen] = useState(false)
   const [bottomCollapsed, setBottomCollapsed] = useState(true)
   const [pane, setPane] = useState<LoomBottomPane>('diff')
-  const [diffCount, setDiffCount] = useState(0)
   const preview = useSyncExternalStore(workspacePreview.subscribe, workspacePreview.getSnapshot, workspacePreview.getSnapshot)
   const review = useSyncExternalStore(workspaceReviewPreview.subscribe, workspaceReviewPreview.getSnapshot, workspaceReviewPreview.getSnapshot)
   const [kbMode, setKbMode] = useState<'flat' | 'grouped'>(preferences.kanbanMode)
-  const [filterProject, setFilterProject] = useState('')
-  const [filterVersion, setFilterVersion] = useState('')
-  const [filterStatus, setFilterStatus] = useState<TaskRecord['status'] | ''>('')
-  const [filterPriority, setFilterPriority] = useState<TaskPriority | ''>('')
-  const [filterModule, setFilterModule] = useState('')
-  const [kbSearch, setKbSearch] = useState('')
+  const { filterProject, filterVersion, filterStatus, filterPriority, filterModule, kbSearch, setFilterProject, setFilterVersion, setFilterStatus, setFilterPriority, setFilterModule, setKbSearch } = useLoomBoardFilters()
   const [expandedProjects, setExpandedProjects] = useState<ReadonlySet<string>>(new Set())
   const [expandedVersions, setExpandedVersions] = useState<ReadonlySet<string>>(new Set())
   const [collapsedSections, setCollapsedSections] = useState<ReadonlySet<'pinned' | 'projects' | 'sessions'>>(new Set())
-  const [create, setCreate] = useState<CreateKind>()
-  const [edit, setEdit] = useState<EditKind>()
-  const [versionStep, setVersionStep] = useState<VersionStep>('name')
-  const [modalBusy, setModalBusy] = useState(false)
-  const [menuOpen, setMenuOpen] = useState(false)
-  const newMenuRef = useRef<HTMLDivElement>(null)
+  const { create, setCreate, edit, setEdit, versionStep, setVersionStep, setModalBusy } = useLoomDialogState()
+  const { menuOpen, setMenuOpen, newMenuRef } = useLoomMenu()
   const [treeDelete, setTreeDelete] = useState<ProjectRecord>()
   const [treeDeleting, setTreeDeleting] = useState(false)
   const [treeDeleteFailure, setTreeDeleteFailure] = useState<FailureReport>()
-  useEffect(() => {
-    if (!menuOpen) return
-    const closeOnOutside = (event: PointerEvent): void => {
-      if (event.target instanceof Node && newMenuRef.current?.contains(event.target) === true) return
-      setMenuOpen(false)
-    }
-    const closeOnEscape = (event: KeyboardEvent): void => { if (event.key === 'Escape') setMenuOpen(false) }
-    document.addEventListener('pointerdown', closeOnOutside, true)
-    document.addEventListener('keydown', closeOnEscape)
-    return () => {
-      document.removeEventListener('pointerdown', closeOnOutside, true)
-      document.removeEventListener('keydown', closeOnEscape)
-    }
-  }, [menuOpen])
-  useEffect(() => {
-    const timeout = setTimeout(() => writePreferences(preferences), 120)
-    return () => clearTimeout(timeout)
-  }, [preferences])
-  useEffect(() => {
-    if (presetsLoaded.current) return
-    presetsLoaded.current = true
-    let active = true
-    listAgentPresets().then((result) => {
-      if (!active || !result.ok) return
-      setAgentPresets(result.value.presets.map((preset) => {
-        const copy = presetDisplayText(preset, key => t(PRESET_COPY[key]))
-        return { ...preset, name: copy.name, ...(copy.description === undefined ? {} : { description: copy.description }) }
-      }))
-    }, () => { /* the project picker keeps the deployment default */ })
-    return () => { active = false }
-  }, [listAgentPresets, t])
-  useEffect(() => { setModalBusy(false) }, [create, edit])
-  useEffect(() => {
-    if (create === undefined && edit === undefined) return
-    const close = (event: KeyboardEvent): void => { if (event.key === 'Escape' && !modalBusy) { setCreate(undefined); setEdit(undefined) } }
-    window.addEventListener('keydown', close)
-    return () => window.removeEventListener('keydown', close)
-  }, [create, edit, modalBusy])
   useEffect(() => { setSidebarOpen(false) }, [project, version, task])
   useEffect(() => {
     if (project !== undefined) setExpandedProjects(current => current.has(project) ? current : new Set(current).add(project))
@@ -217,10 +160,6 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
     return () => { window.removeEventListener('keydown', onKey) }
   }, [previewFullscreen])
   useEffect(() => { workspacePreview.close(); workspaceReviewPreview.close() }, [task?.id])
-  useEffect(() => {
-    if (typeof localStorage === 'undefined') return
-    try { localStorage.setItem('loom.pinnedProjects', JSON.stringify(pinnedProjects)) } catch { /* Storage can be unavailable in private browsing; pins remain in memory. */ }
-  }, [pinnedProjects])
   useEffect(() => {
     let active = true
     setCatalog({ status: 'loading' })
@@ -476,14 +415,7 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
   const selectedUsage = selected === undefined
     ? tokenUsage
     : aggregateTokenUsage([sessions.projectionsBySession[selected]?.values])
-  useEffect(() => {
-    if (detailWorkspace?.id === undefined || detailWorkspace.cleaned === true) { setDiffCount(0); return }
-    let active = true
-    workspaceChangeCount({ workspaceId: detailWorkspace.id, ...(detailAttemptId === undefined ? {} : { attemptId: detailAttemptId }) }).then((result) => {
-      if (active) setDiffCount(result.ok ? result.value : 0)
-    }, () => { if (active) setDiffCount(0) })
-    return () => { active = false }
-  }, [detailWorkspace?.id, detailWorkspace?.cleaned, detailAttemptId, attempt, workspaceChangeCount])
+  const [diffCount, setDiffCount] = useLoomDiffCount(detailWorkspace?.id, detailWorkspace?.cleaned, detailAttemptId, attempt, workspaceChangeCount)
   const activeCount = snapshot === undefined ? 0 : activeWorkspaceCount(snapshot)
   const auditWorkspaceIds = new Set<string>((detailTask?.attempts ?? []).map(candidate => candidate.workspaceId))
   const auditRows = snapshot === undefined ? [] : snapshot.audit.filter(entry => detailTask === undefined
