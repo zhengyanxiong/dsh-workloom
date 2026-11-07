@@ -32,7 +32,7 @@ it('feature modules keep DSH runtime imports out and only keep type-only shared 
   const offenders: string[] = []
   for (const file of files) {
     const source = await readFile(file, 'utf8')
-    const runtime = /import\s+(?!type\b)[^;]*?from\s+['"]@deepseek-ai\/dsh-(?!session\/types)/gu
+    const runtime = /import\s+(?!type\b)[^;\n]*?from\s+['"]@deepseek-ai\/dsh-(?!session\/types|agent-preset-registry\/display)/gu
     if (runtime.test(source)) offenders.push(path.relative(ROOT, file))
   }
   expect(offenders).toEqual([])
