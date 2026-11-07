@@ -3,9 +3,9 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   IconBranchOutlineRegular, IconBrowseOutlineRegular, IconChecklistOutlineRegular,
   IconFolderOpenRegular, IconNewChatOutlineRegular, IconSearchOutlineRegular, Modal,
-} from '@deepseek-ai/dsh-client-ui-primitives'
+} from '../../ui/primitives.ts'
 import type { CatalogSnapshot } from 'dsh-workloom/types'
-import type { LoomKey } from './locales.ts'
+import type { LoomKey } from '../../locales.ts'
 import { PALETTE_GROUP, PALETTE_ORDER, buildPaletteItems, filterPaletteItems, type LoomPaletteItem, type LoomPaletteKind } from './palette.ts'
 import classes from './LoomCommandPalette.module.css'
 

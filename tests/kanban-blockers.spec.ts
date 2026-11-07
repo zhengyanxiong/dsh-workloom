@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
 import { brandString } from '@deepseek-ai/dsh-brand'
 import type { CatalogSnapshot, Lock, ProjectRecord, TaskRecord, VersionRecord, WorkspaceRecord } from 'dsh-workloom/types'
-import { LoomKanban } from '../src/client/LoomKanban.tsx'
+import { LoomKanban } from '../src/client/features/board/LoomKanban.tsx'
 import { en, type LoomKey } from '../src/client/locales.ts'
 
 const t = (key: LoomKey) => en[key]

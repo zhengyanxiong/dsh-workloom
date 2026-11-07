@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
 import { brandString, brandNumber } from '@deepseek-ai/dsh-brand'
 import type { CatalogSnapshot, ExecutionState, Lock, TaskRecord, VersionRecord, WorkspaceRecord } from 'dsh-workloom/types'
-import { boardEvidence } from '../src/client/board-evidence.ts'
+import { boardEvidence } from '../src/client/features/board/board-evidence.ts'
 
 const version: VersionRecord = { id: brandString<VersionRecord['id']>('v1'), projectId: brandString<'loom.project'>('p1'), name: 'v1', description: '', sources: [] }
 const lock: Lock = { id: brandString<Lock['id']>('lock1'), versionId: version.id, repositories: [] }

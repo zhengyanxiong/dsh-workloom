@@ -5,8 +5,8 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, expect, it } from 'vitest'
 import { brandString } from '@deepseek-ai/dsh-brand'
 import type { CatalogSnapshot, ProjectRecord, TaskRecord, VersionRecord } from 'dsh-workloom/types'
-import { LoomCommandPalette } from '../src/client/LoomCommandPalette.tsx'
-import { LoomProjectPage } from '../src/client/shell/LoomProjectPage.tsx'
+import { LoomCommandPalette } from '../src/client/features/palette/LoomCommandPalette.tsx'
+import { LoomProjectPage } from '../src/client/features/project/LoomProjectPage.tsx'
 import { en, type LoomKey } from '../src/client/locales.ts'
 
 const t = (key: LoomKey) => en[key]

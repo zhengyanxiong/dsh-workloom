@@ -193,3 +193,20 @@ src/client/ui/*
 Phase 1 的 `src/ports` + `src/platform/dsh` + `src/api` 拆分。
 
 完成后，再决定是否拆 `LoomPanel`；不要先拆 UI。
+
+## Phase 3 进度（2026-11-07）
+
+已完成的第一批客户端拆分：
+
+- 新增 `src/client/features/`，首批迁移 5 个功能域：`settings/`、`palette/`、`overview/`、`project/`、`board/`（含 board 投影与证据纯函数）；
+- 新增 `src/client/ui/primitives.ts` 作为 feature 层访问 DSH UI primitives 的唯一入口；ui 与 features 已切换到该入口；
+- 新增 `tests/layers.spec.ts`：阻止 feature 直接 import `@deepseek-ai/dsh-client-ui-primitives`，以及除 `dsh-session/types` 外的 DSH 运行时导入；
+- 迁移为纯移动 + 导入解析，行为不变：全量 77 files / 448 tests 通过，截图与基线自比 0.00%，lint 零裸值；
+- `src/client` 中直接 import DSH 包的文件从 45 降到 37。
+
+剩余 Phase 3 工作：
+
+- 继续迁移 feature 文件（task/session/preview/settings 之外的部分、forms 按 feature 拆分）；
+- 拆分 `LoomPanel`（23k 字符）为 shell/ProjectTree/SessionSidebar/WorkbenchLayout/Resizers；
+- 拆分 `LoomForms`（1.3k 行）为 project/version/task 表单；
+- `ui/tokens.ts` 与测试目录按 feature 镜像。

@@ -4,8 +4,8 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
 import { brandString } from '@deepseek-ai/dsh-brand'
 import type { CatalogSnapshot, ProjectRecord, TaskRecord, VersionRecord } from 'dsh-workloom/types'
-import type { BoardColumn } from '../src/client/board.ts'
-import { LoomBoardList } from '../src/client/LoomBoardList.tsx'
+import type { BoardColumn } from '../src/client/features/board/board.ts'
+import { LoomBoardList } from '../src/client/features/board/LoomBoardList.tsx'
 import { en, type LoomKey } from '../src/client/locales.ts'
 
 const t = (key: LoomKey) => en[key]

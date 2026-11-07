@@ -1,13 +1,13 @@
 /** Draggable board column and task card used by the kanban surface. */
 import { useRef, useState } from 'react'
-import { IconBranchOutlineRegular, IconClockOutlineRegular, IconPlusOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconBranchOutlineRegular, IconClockOutlineRegular, IconPlusOutlineRegular } from '../../ui/primitives.ts'
 import type { ProjectRecord, TaskRecord } from 'dsh-workloom/types'
 import type { BoardColumn } from './board.ts'
-import type { LoomKey } from './locales.ts'
-import { TaskStatusDot } from './LoomStatusDot.tsx'
-import { PRIORITY_META, STATUS_META } from './shell.ts'
-import { relativeTime } from './time.ts'
-import { LoomEmptyState } from './ui/EmptyState.tsx'
+import type { LoomKey } from '../../locales.ts'
+import { TaskStatusDot } from '../../LoomStatusDot.tsx'
+import { PRIORITY_META, STATUS_META } from '../../shell.ts'
+import { relativeTime } from '../../time.ts'
+import { LoomEmptyState } from '../../ui/EmptyState.tsx'
 import classes from './LoomKanban.module.css'
 
 type Translate = (key: LoomKey) => string

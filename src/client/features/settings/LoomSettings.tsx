@@ -1,7 +1,7 @@
 /** Loom-local preferences and the shared setting-row controls. */
 import type { ReactNode } from 'react'
-import type { LoomThemePreference } from './theme/selection.ts'
-import { LoomSelect, type LoomSelectOption } from './ui/Select.tsx'
+import type { LoomThemePreference } from '../../theme/selection.ts'
+import { LoomSelect, type LoomSelectOption } from '../../ui/Select.tsx'
 import classes from './LoomSettings.module.css'
 
 /** Browser-persisted workbench defaults. */

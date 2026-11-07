@@ -1,12 +1,12 @@
 /** Dense status-grouped list view for the board. */
-import { IconPlusOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconPlusOutlineRegular } from '../../ui/primitives.ts'
 import type { CatalogSnapshot, ProjectRecord, TaskRecord } from 'dsh-workloom/types'
 import type { BoardColumn } from './board.ts'
 import { boardEvidence, evidenceLabel, type BoardEvidenceTone } from './board-evidence.ts'
-import type { LoomKey } from './locales.ts'
-import { PRIORITY_META, STATUS_META } from './shell.ts'
-import { relativeTime } from './time.ts'
-import { LoomEmptyState } from './ui/EmptyState.tsx'
+import type { LoomKey } from '../../locales.ts'
+import { PRIORITY_META, STATUS_META } from '../../shell.ts'
+import { relativeTime } from '../../time.ts'
+import { LoomEmptyState } from '../../ui/EmptyState.tsx'
 import classes from './LoomBoardList.module.css'
 
 type Translate = (key: LoomKey) => string

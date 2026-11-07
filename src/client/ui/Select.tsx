@@ -1,6 +1,6 @@
 /** Token-styled single-select combobox with a custom option panel. */
 import { useEffect, useRef, useState } from 'react'
-import { IconCheckOutlineRegular, IconChevronDownOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconCheckOutlineRegular, IconChevronDownOutlineRegular } from './primitives.ts'
 import classes from './Select.module.css'
 
 /** One option rendered by LoomSelect. */

@@ -1,12 +1,12 @@
 /** Settings route: appearance themes and the browser-local workbench defaults. */
 import { useEffect, useRef, useState } from 'react'
-import { IconCheckOutlineRegular, IconChevronLeftOutlineRegular, Switch } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconCheckOutlineRegular, IconChevronLeftOutlineRegular, Switch } from '../../ui/primitives.ts'
 import type { ProjectRecord } from 'dsh-workloom/types'
 import { SESSION_LIMITS, SelectField, SettingRow, WIP_LIMITS, type LoomPreferences } from './LoomSettings.tsx'
-import type { LoomKey } from './locales.ts'
-import { resolveLoomTheme, type LoomThemeAttribute, type LoomThemePreference } from './theme/selection.ts'
-import { LoomButton } from './ui/Button.tsx'
-import { LoomSegmented } from './ui/Segmented.tsx'
+import type { LoomKey } from '../../locales.ts'
+import { resolveLoomTheme, type LoomThemeAttribute, type LoomThemePreference } from '../../theme/selection.ts'
+import { LoomButton } from '../../ui/Button.tsx'
+import { LoomSegmented } from '../../ui/Segmented.tsx'
 import classes from './LoomSettingsPage.module.css'
 
 type Translate = (key: LoomKey) => string

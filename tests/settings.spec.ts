@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from 'vitest'
-import { DEFAULT_PREFERENCES, readPreferences, writePreferences } from '../src/client/LoomSettings.tsx'
+import { DEFAULT_PREFERENCES, readPreferences, writePreferences } from '../src/client/features/settings/LoomSettings.tsx'
 
 const storage = new Map<string, string>()
 afterEach(() => { vi.unstubAllGlobals(); storage.clear() })

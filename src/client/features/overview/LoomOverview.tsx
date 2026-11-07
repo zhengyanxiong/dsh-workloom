@@ -2,13 +2,13 @@
  * Overview route: answer what is running, what needs review and what happened
  * recently using only committed catalog data.
  */
-import { IconCheckOutlineRegular, IconNewChatOutlineRegular, IconPlusOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconCheckOutlineRegular, IconNewChatOutlineRegular, IconPlusOutlineRegular } from '../../ui/primitives.ts'
 import type { CatalogSnapshot, ProjectRecord, TaskRecord } from 'dsh-workloom/types'
-import { AUDIT_LABEL } from '../shell.ts'
-import { relativeTime } from '../time.ts'
-import { greetingPeriod } from '../greeting.ts'
-import { LoomButton } from '../ui/Button.tsx'
-import type { LoomKey } from '../locales.ts'
+import { AUDIT_LABEL } from '../../shell.ts'
+import { relativeTime } from '../../time.ts'
+import { greetingPeriod } from '../../greeting.ts'
+import { LoomButton } from '../../ui/Button.tsx'
+import type { LoomKey } from '../../locales.ts'
 import classes from './LoomOverview.module.css'
 
 type Translate = (key: LoomKey, params?: Readonly<Record<string, string>>) => string

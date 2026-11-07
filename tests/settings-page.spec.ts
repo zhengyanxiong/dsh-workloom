@@ -4,8 +4,8 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
 import { brandString } from '@deepseek-ai/dsh-brand'
 import type { ProjectRecord } from 'dsh-workloom/types'
-import { DEFAULT_PREFERENCES } from '../src/client/LoomSettings.tsx'
-import { LoomSettingsPage } from '../src/client/LoomSettingsPage.tsx'
+import { DEFAULT_PREFERENCES } from '../src/client/features/settings/LoomSettings.tsx'
+import { LoomSettingsPage } from '../src/client/features/settings/LoomSettingsPage.tsx'
 import { en, type LoomKey } from '../src/client/locales.ts'
 
 const t = (key: LoomKey) => en[key]

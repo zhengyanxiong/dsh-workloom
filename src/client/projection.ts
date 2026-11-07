@@ -2,8 +2,8 @@
 import type { CatalogSnapshot, ExecutionState, Lock, ProjectRecord, TaskPriority, TaskRecord, VersionRecord, WorkspaceRecord } from 'dsh-workloom/types'
 import type { TaskStatus } from '../domain/task.ts'
 import type { LoomKey } from './locales.ts'
-import type { BoardColumn, BoardTask } from './board.ts'
-import { projectBoard } from './board.ts'
+import type { BoardColumn, BoardTask } from './features/board/board.ts'
+import { projectBoard } from './features/board/board.ts'
 
 /** Board filter over task title, project, version, status, priority and module. */
 export interface ShellFilter {

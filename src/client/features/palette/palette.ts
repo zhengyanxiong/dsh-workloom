@@ -1,10 +1,10 @@
 /** Command palette items built from the committed catalog snapshot. */
 import type { CatalogSnapshot, ProjectRecord, TaskRecord, VersionRecord } from 'dsh-workloom/types'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import type { LoomKey } from './locales.ts'
-import { LOOM_ROUTES, type LoomRoute } from './shell/router.ts'
-import { ROUTE_LABEL } from './shell/route-labels.ts'
-import { STATUS_META } from './shell.ts'
+import type { LoomKey } from '../../locales.ts'
+import { LOOM_ROUTES, type LoomRoute } from '../../shell/router.ts'
+import { ROUTE_LABEL } from '../../shell/route-labels.ts'
+import { STATUS_META } from '../../shell.ts'
 
 /** Item families shown in the palette. */
 export type LoomPaletteKind = 'page' | 'project' | 'version' | 'task' | 'session'

@@ -1,5 +1,5 @@
 /** Pure board projection; native Session activity never changes task business status. */
-import type { Task, TaskStatus } from '../domain/task.ts'
+import type { Task, TaskStatus } from '../../../domain/task.ts'
 
 /** Task metadata displayed by the board without importing Host runtime modules. */
 export interface BoardTask extends Task { readonly title: string }
