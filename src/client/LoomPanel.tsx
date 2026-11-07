@@ -1,7 +1,7 @@
 /** Loom workbench shell: project tree, native conversation, context and kanban. */
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { IconCloseOutlineRegular, Button } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { CSSProperties, ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import type { InjectFace, PropsLocale, PropsRenderFactories, PropsRuntime, SessionProviderComponent } from '@deepseek-ai/dsh-client-ui-slots'
 import type { SessionReference } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
@@ -13,16 +13,12 @@ import type {
 } from 'dsh-workloom/types'
 import { type AgentPresetOption, type VersionStep } from './LoomForms.tsx'
 import { readPreferences, writePreferences, type LoomPreferences } from './features/settings/LoomSettings.tsx'
-import { LoomSettingsPage } from './features/settings/LoomSettingsPage.tsx'
 import type { ExecutionActions } from './features/task/LoomExecution.tsx'
 import { LoomBottomPanel, type LoomBottomPane } from './LoomBottomPanel.tsx'
 import { LoomResizeHandle } from './shell/LoomResizeHandle.tsx'
 import { LoomFilePreview } from './features/preview/LoomFilePreview.tsx'
 import { LoomReviewPreview } from './features/preview/LoomReviewPreview.tsx'
 import { LoomTopbar } from './shell/LoomTopbar.tsx'
-import { LoomSessionHeader } from './features/session/LoomSessionHeader.tsx'
-import { LoomOverview } from './features/overview/LoomOverview.tsx'
-import { LoomProjectPage } from './features/project/LoomProjectPage.tsx'
 import { LOOM_ROOT_CLASS, LoomThemeStyles } from './theme/LoomTheme.tsx'
 import { resolveLoomTheme } from './theme/selection.ts'
 import shell from './shell/LoomShell.module.css'
@@ -31,22 +27,18 @@ import { openFilePreview, workspacePreview, workspaceReviewPreview } from './fea
 import { LoomContextPanel } from './LoomContextPanel.tsx'
 import { LoomSidebar } from './shell/LoomSidebar.tsx'
 import { LoomFormDialogs, type CreateKind, type EditKind } from './features/dialogs/LoomFormDialogs.tsx'
+import { LoomRouteContent } from './shell/LoomRouteContent.tsx'
 import { LoomGlobalStyles } from './shell/LoomGlobalStyles.tsx'
-import { NextStepCard } from './features/workbench/NextStepCard.tsx'
 import { LoomCommandPalette } from './features/palette/LoomCommandPalette.tsx'
-import { LoomKanban } from './features/board/LoomKanban.tsx'
 import { LoomTemporaryDialog, type LoomTemporaryActions } from './features/dialogs/LoomTemporaryDialog.tsx'
-import { LoomTaskWorkbench } from './features/task/LoomTaskWorkbench.tsx'
-import { LoomVersionDetail } from './features/version/LoomVersionDetail.tsx'
 import { LoomSessionActivity, type LoomSubagentRow } from './features/session/LoomSessionActivity.tsx'
 import { LoomVersionGraph } from './features/version/LoomVersionGraph.tsx'
 import { LoomSessionGraph, type LoomTaskSessionRow } from './features/session/LoomSessionGraph.tsx'
-import { LoomSessionList } from './features/session/LoomSessionList.tsx'
 import { autoWorkspaceRepositoryPath } from '../domain/workspace.ts'
 import type { LoomPaletteItem } from './features/palette/palette.ts'
 import { activeWorkspaceCount, aggregateTokenUsage, boundSessions, tokenUsageOf, currentWorkspace, taskAttemptRows, taskSessionRows, workspaceName, type ShellFilter } from './projection.ts'
 import { deriveVersionContext } from '../shared/version-context.ts'
-import { COLORS, failureReport, metaLine, shortCommit, thrownFailureReport, type FailureReport } from './shell.ts'
+import { COLORS, failureReport, metaLine, thrownFailureReport, type FailureReport } from './shell.ts'
 import { reportLoomFailure } from './feedback.ts'
 import { NS, type LoomKey } from './locales.ts'
 import { presetDisplayText, type BuiltInPresetCopyKey } from '@deepseek-ai/dsh-agent-preset-registry/display'
@@ -72,7 +64,6 @@ type CatalogState =
   | { readonly status: 'ready'; readonly snapshot: CatalogSnapshot }
 type View = 'workbench' | 'kanban'
 
-const note: CSSProperties = { padding: 12, borderRadius: 8, color: COLORS.dim, background: COLORS.panel2, lineHeight: 1.6, margin: 0 }
 
 function readPinnedProjects(): ProjectRecord['id'][] {
   if (typeof localStorage === 'undefined') return []
@@ -863,139 +854,74 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
         onCreateTask={() => openCreate('task')}
         onOpenTemporary={() => setTemporaryOpen(true)}
       />}
-      {route === 'home'
-        ? <LoomOverview
-            t={t}
-            snapshot={snapshot ?? { projects: [], versions: [], locks: [], tasks: [], workspaces: [], temporarySessions: [], audit: [], executions: [] }}
-            activeWorkspaceCount={activeCount}
-            onTask={(record) => { selectTask(record); navigate('task') }}
-            onProject={(record) => { setProject(record.id); setVersion(undefined); setTask(undefined); setSelected(undefined); navigate('project') }}
-            onSession={(id) => { selectSession(id as SessionId); navigate('session') }}
-            onBoard={() => navigate('board')}
-            onNewTask={() => openCreate('task')}
-          />
-        : route === 'project'
-        ? <LoomProjectPage t={t} snapshot={snapshot ?? { projects: [], versions: [], locks: [], tasks: [], workspaces: [], temporarySessions: [], audit: [], executions: [] }} project={displayProject} version={displayVersion} onProject={(record) => { setProject(record.id); setVersion(undefined); setTask(undefined); setSelected(undefined); navigate('project') }} onVersion={(record) => { setVersion(record.id); setTask(undefined); setSelected(undefined) }} onTask={(record) => { selectTask(record); navigate('task') }} onBoard={() => navigate('board')} onNewTask={() => { if (displayProject !== undefined) setProject(displayProject.id); if (displayVersion !== undefined) setVersion(displayVersion.id); openCreate('task') }} onNewVersion={() => { if (displayProject !== undefined) setProject(displayProject.id); openCreate('version') }} onEditProject={() => openEdit('project')} onEditVersion={() => openEdit('version')} onSession={(id) => { selectSession(id as SessionId); navigate('session') }} />
-        : route === 'settings'
-        ? <LoomSettingsPage
-            t={t}
-            preferences={preferences}
-            pinned={(snapshot?.projects ?? []).filter(candidate => pinnedProjects.includes(candidate.id))}
-            onChange={updatePreferences}
-            onUnpin={id => setPinnedProjects(current => current.filter(candidate => candidate !== id))}
-            onBack={() => navigate('board')}
-          />
-        : route === 'session' && selected === undefined
-        ? <main className={shell.center}><div style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {detailTask === undefined
-              ? <p style={{ ...note, margin: 0 }}>{t('chooseSession')}</p>
-              : <LoomSessionList t={t} rows={detailAttemptRows} selectedSessionId={selected} onOpenSession={openAttemptSession} />}
-          </div></main>
-        : view === 'kanban'
-        ? <LoomKanban
-            t={t}
-            snapshot={snapshot ?? { projects: [], versions: [], locks: [], tasks: [], workspaces: [], temporarySessions: [], audit: [], executions: [] }}
-            liveTaskIds={liveTaskIds}
-            filter={filter}
-            mode={kbMode}
-            boardView={preferences.boardView}
-            onBoardView={view => setPreferences(current => ({ ...current, boardView: view }))}
-            projectValue={filterProject}
-            versionValue={filterVersion}
-            statusValue={filterStatus}
-            priorityValue={filterPriority}
-            moduleValue={filterModule}
-            searchValue={kbSearch}
-            wipLimit={preferences.wipLimit}
-            onMode={mode => { setKbMode(mode); setPreferences(current => ({ ...current, kanbanMode: mode })) }}
-            onProject={(value) => { setFilterProject(value); setFilterVersion(''); setFilterModule('') }}
-            onVersion={(value) => { setFilterVersion(value); setFilterModule('') }}
-            onStatus={(value) => setFilterStatus(value === '' ? '' : value as TaskRecord['status'])}
-            onPriority={(value) => setFilterPriority(value === '' ? '' : value as TaskPriority)}
-            onModule={setFilterModule}
-            onSearch={setKbSearch}
-            onClearFilters={() => { setFilterProject(''); setFilterVersion(''); setFilterStatus(''); setFilterPriority(''); setFilterModule(''); setKbSearch('') }}
-            onSelect={selectTask}
-            onMove={(record, target) => { void moveTask(record, target) }}
-            onNewTask={() => { if (currentProject !== undefined) setProject(currentProject.id); if (currentVersion !== undefined) setVersion(currentVersion.id); openCreate('task') }}
-            onNewCard={(projectRecord) => {
-              const latest = createVersionFor(projectRecord)
-              setProject(projectRecord.id)
-              if (latest !== undefined) { setVersion(latest.id); setCreate('task') }
-            }}
-          />
-        : <main className={shell.center}>
-            {selected !== undefined && <LoomSessionHeader
-              t={t}
-              title={headerTitle}
-              projectName={displayProject?.config.name}
-              versionName={displayVersion?.name}
-              priority={detailPriority}
-              modules={detailModules}
-              lock={shortCommit(detailTask?.attempts.at(-1)?.lock)}
-              taskStatus={detailTask?.status}
-              onDetails={detailTask === undefined ? undefined : () => setSelected(undefined)}
-              onClose={() => setSelected(undefined)}
-            />}
-            {selected !== undefined
-              ? (available
-                  ? <SessionProvider key={held.id} session={held.reference}>{renderSlot('loom.conversation', {})}</SessionProvider>
-                  : failure === selected
-                    ? <p role="alert" style={{ ...note, margin: 20 }}>{t('session.unavailable')}</p>
-                    : <p style={{ ...note, margin: 20 }}>{t('session.loading')}</p>)
-              : detailTask !== undefined && snapshot !== undefined
-                ? <LoomTaskWorkbench
-                    t={t}
-                    task={detailTask}
-                    project={displayProject}
-                    version={displayVersion}
-                    snapshot={snapshot}
-                    audit={auditRows}
-                    actions={execution}
-                    loadChanges={loadTaskChanges}
-                    wrap={preferences.previewWrap}
-                    onToggleWrap={togglePreviewWrap}
-                    attemptRows={detailAttemptRows}
-                    selectedSessionId={executionSession}
-                    onSelectSession={id => setExecutionSession(id as SessionId)}
-                    onOpenSession={openAttemptSession}
-                    onBack={() => navigate('board')}
-                  />
-                : displayVersion !== undefined && snapshot !== undefined
-                  ? <LoomVersionDetail
-                      t={t}
-                      snapshot={snapshot}
-                      project={displayVersionProject}
-                      version={displayVersion}
-                      context={versionContext}
-                      generateLock={generateLock}
-                      onLockChanged={() => setAttempt(current => current + 1)}
-                      onCreateTask={createTaskForVersion}
-                      onEditVersion={() => openEdit('version')}
-                      onSelectTask={selectTask}
-                      loadWorkspaceStatus={workspaceStatus}
-                      liveTaskIds={liveTaskIds}
-                    />
-                : <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-                    <NextStepCard
-                      t={t}
-                      projects={snapshot?.projects ?? []}
-                      project={displayProject}
-                      versions={displayProject === undefined ? [] : (snapshot?.versions ?? []).filter(candidate => candidate.projectId === displayProject.id)}
-                      version={displayVersion}
-                      locks={displayVersion === undefined ? [] : (snapshot?.locks ?? []).filter(lock => lock.versionId === displayVersion.id)}
-                      tasks={displayVersion === undefined ? [] : (snapshot?.tasks ?? []).filter(candidate => candidate.versionId === displayVersion.id)}
-                      onCreateProject={() => openCreate('project')}
-                      onCreateVersion={() => { if (displayProject !== undefined) setProject(displayProject.id); openCreate('version') }}
-                      onCreateTask={() => { if (displayVersionProject !== undefined) setProject(displayVersionProject.id); if (displayVersion !== undefined) setVersion(displayVersion.id); openCreate('task') }}
-                      onSelectProject={record => { setProject(record.id); setVersion(undefined); setTask(undefined) }}
-                      onSelectVersion={record => { setVersion(record.id); setTask(undefined); setSelected(undefined) }}
-                      onSelectTask={selectTask}
-                      generateLock={generateLock}
-                      onLockChanged={() => setAttempt(current => current + 1)}
-                    />
-                  </div>}
-          </main>}
+      <LoomRouteContent
+        t={t}
+        route={route}
+        view={view}
+        snapshot={snapshot}
+        preferences={preferences}
+        setPreferences={setPreferences}
+        activeCount={activeCount}
+        pinnedProjects={pinnedProjects}
+        updatePreferences={updatePreferences}
+        displayProject={displayProject}
+        displayVersion={displayVersion}
+        displayVersionProject={displayVersionProject}
+        detailTask={detailTask}
+        detailAttemptRows={detailAttemptRows}
+        detailModules={detailModules}
+        headerTitle={headerTitle}
+        detailPriority={detailPriority}
+        selected={selected}
+        available={available}
+        failure={failure}
+        held={held}
+        executionSession={executionSession}
+        liveTaskIds={liveTaskIds}
+        filter={filter}
+        filterProject={filterProject}
+        filterVersion={filterVersion}
+        filterStatus={filterStatus}
+        filterPriority={filterPriority}
+        filterModule={filterModule}
+        kbSearch={kbSearch}
+        kbMode={kbMode}
+        currentProject={currentProject}
+        currentVersion={currentVersion}
+        auditRows={auditRows}
+        execution={execution}
+        loadTaskChanges={loadTaskChanges}
+        generateLock={generateLock}
+        workspaceStatus={workspaceStatus}
+        versionContext={versionContext}
+        SessionProvider={SessionProvider}
+        renderSlot={renderSlot}
+        setProject={setProject}
+        setVersion={setVersion}
+        setTask={setTask}
+        setSelected={setSelected}
+        setExecutionSession={setExecutionSession}
+        setPinnedProjects={setPinnedProjects}
+        setFilterProject={setFilterProject}
+        setFilterVersion={setFilterVersion}
+        setFilterStatus={setFilterStatus}
+        setFilterPriority={setFilterPriority}
+        setFilterModule={setFilterModule}
+        setKbSearch={setKbSearch}
+        setKbMode={setKbMode}
+        setAttempt={setAttempt}
+        setCreate={setCreate}
+        selectTask={selectTask}
+        selectSession={selectSession}
+        openAttemptSession={openAttemptSession}
+        openCreate={openCreate}
+        openEdit={openEdit}
+        navigate={navigate}
+        moveTask={moveTask}
+        createVersionFor={createVersionFor}
+        createTaskForVersion={createTaskForVersion}
+        togglePreviewWrap={togglePreviewWrap}
+      />
       {asideOpen && !previewFullscreen && <LoomResizeHandle label={t('layout.resizeAside')} orientation="vertical" value={asideWidth} min={asideMin} max={asideMax} invert onChange={setAsideWidth} className={view === 'kanban' ? 'loom-aside-handle loom-aside-handle-kanban' : 'loom-aside-handle'} />}
       {asideOpen && route !== 'home' && route !== 'project' && route !== 'board' && route !== 'settings' && <aside className={`${shell.aside} ${preview === undefined && review === undefined ? 'loom-aside' : 'loom-aside loom-aside-preview'}${view === 'kanban' ? ' loom-aside-kanban' : ''}`} data-loom-preview-fullscreen={previewFullscreen ? 'true' : undefined} style={previewFullscreen && preview !== undefined ? { position: 'fixed', inset: 0, width: '100vw', maxWidth: 'none', zIndex: 90, borderLeft: 'none' } : { width: asideWidth }}>
         {review !== undefined
