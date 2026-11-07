@@ -105,7 +105,9 @@ export function LoomTopbar(props: LoomTopbarProps): JSX.Element {
     <span aria-hidden className={classes.divider} />
     <div className={classes.actions}>
       <div className={classes.newWrap} ref={newMenuRef}>
-        <LoomButton className="loom-top-new" variant="secondary" size="md" icon={<IconPlusOutlineRegular size={14} />} aria-haspopup="menu" aria-expanded={menuOpen} onClick={onToggleMenu}>{t('top.new')}</LoomButton>
+        <Tooltip label={t('top.new')} side="bottom" delayMs={300}>
+          <LoomButton className="loom-top-new" variant="ghost" size="sm" iconOnly icon={<IconPlusOutlineRegular size={14} />} aria-label={t('top.new')} aria-haspopup="menu" aria-expanded={menuOpen} onClick={onToggleMenu} />
+        </Tooltip>
         {menuOpen && <div role="menu" aria-label={t('top.new')} className={classes.menu}>
           <button type="button" role="menuitem" className={classes.menuItem} onClick={() => onOpenCreate('project')}>
             <span className={classes.menuIcon}><IconProjectAddOutlineRegular size={15} /></span>

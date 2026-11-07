@@ -45,6 +45,14 @@ it('keeps the active-workspace count and settings action in the right cluster', 
   expect(html).toContain(en['top.settings'])
 })
 
+it('renders the New action as a labeled icon button beside the other icon actions', () => {
+  const html = render('board')
+  expect(html).toContain('loom-top-new')
+  expect(html).toContain(`aria-label="${en['top.new']}"`)
+  expect(html).toContain('aria-haspopup="menu"')
+  expect(html).not.toContain(`>${en['top.new']}<`)
+})
+
 it('exposes the Ctrl K search trigger in the action cluster', () => {
   const html = render('board')
   expect(html).toContain(`aria-label="${en['top.search']} Ctrl K"`)
