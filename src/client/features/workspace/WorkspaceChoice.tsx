@@ -41,6 +41,8 @@ export interface WorkspaceChoiceProps {
   readonly value: string | undefined
   readonly onChange: (workspaceId: string) => void
   readonly create?: ((input: WorkspaceCreationInput) => Promise<WorkspaceCreateOutcome>) | undefined
+  /** Register an existing user directory as a direct workspace. */
+  readonly useDirectory?: ((path: string) => Promise<WorkspaceCreateOutcome>) | undefined
   readonly pickDirectory?: ((startPath?: string) => Promise<string | null>) | undefined
   readonly onCreated?: ((workspace: WorkspaceRecord) => void) | undefined
   readonly defaultName?: string | undefined
@@ -65,10 +67,12 @@ const monoText: CSSProperties = { minWidth: 0, overflow: 'hidden', textOverflow:
  * @param props - options, selection, creation callback and locale.
  * @returns the picker.
  */
-export function WorkspaceChoice({ t, ariaLabel, workspaces, value, onChange, create, pickDirectory, onCreated, defaultName, sourceRefs, sourceGroups }: WorkspaceChoiceProps): JSX.Element {
+export function WorkspaceChoice({ t, ariaLabel, workspaces, value, onChange, create, useDirectory, pickDirectory, onCreated, defaultName, sourceRefs, sourceGroups }: WorkspaceChoiceProps): JSX.Element {
   const [created, setCreated] = useState<readonly WorkspaceRecord[]>([])
   const options = [...workspaces, ...created.filter(workspace => !workspaces.some(candidate => candidate.id === workspace.id))]
-  const [mode, setMode] = useState<'existing' | 'create'>(options.length === 0 && create !== undefined ? 'create' : 'existing')
+  const [mode, setMode] = useState<'existing' | 'directory' | 'create'>(options.length === 0 && create !== undefined ? 'create' : options.length === 0 && useDirectory !== undefined ? 'directory' : 'existing')
+  const [directoryPath, setDirectoryPath] = useState('')
+  const [directoryFailure, setDirectoryFailure] = useState<FailureReport>()
   const [parentPath, setParentPath] = useState('')
   const [name, setName] = useState(defaultName ?? '')
   const [branchPrefix, setBranchPrefix] = useState('loom')
@@ -82,12 +86,32 @@ export function WorkspaceChoice({ t, ariaLabel, workspaces, value, onChange, cre
     ? t('task.workspaceBaseHintLock').replace('{prefix}', branchPrefix === '' ? 'loom' : branchPrefix).replace('{name}', name === '' ? '…' : name)
     : t('task.workspaceBaseHint').replace('{refs}', refs).replace('{prefix}', branchPrefix === '' ? 'loom' : branchPrefix).replace('{name}', name === '' ? '…' : name)
   const selected = options.find(workspace => workspace.id === value)
+  const modes = [
+    ...(options.length > 0 ? [{ value: 'existing' as const, label: t('task.workspaceChoiceExisting') }] : []),
+    ...(useDirectory === undefined ? [] : [{ value: 'directory' as const, label: t('task.workspaceChoiceDirectory') }]),
+    ...(create === undefined ? [] : [{ value: 'create' as const, label: t('task.workspaceChoiceCreate') }]),
+  ]
+  const activeMode = modes.some(entry => entry.value === mode) ? mode : modes[0]?.value
   async function browse(): Promise<void> {
     if (pickDirectory === undefined) return
     try {
       const picked = await pickDirectory(parentPath === '' ? undefined : parentPath)
       if (picked !== null) setParentPath(picked)
     } catch { /* the text field stays editable when the picker is unavailable */ }
+  }
+  async function submitDirectory(): Promise<void> {
+    if (useDirectory === undefined || directoryPath.trim() === '') return
+    setBusy(true); setDirectoryFailure(undefined)
+    try {
+      const outcome = await useDirectory(directoryPath.trim())
+      if (!outcome.ok) { setDirectoryFailure(outcome.error); return }
+      setCreated(current => [...current, outcome.workspace])
+      onCreated?.(outcome.workspace)
+      onChange(outcome.workspace.id)
+      setMode('existing')
+    } catch (error) {
+      setDirectoryFailure(failureReport('unknown', error instanceof Error ? error.message : String(error)))
+    } finally { setBusy(false) }
   }
   async function submit(): Promise<void> {
     if (create === undefined) return
@@ -103,16 +127,16 @@ export function WorkspaceChoice({ t, ariaLabel, workspaces, value, onChange, cre
       setFailure(failureReport('unknown', error instanceof Error ? error.message : String(error)))
     } finally { setBusy(false) }
   }
-  if (options.length === 0 && create === undefined) return <p style={alert}>{t('task.workspaceRequired')}</p>
+  if (options.length === 0 && create === undefined && useDirectory === undefined) return <p style={alert}>{t('task.workspaceRequired')}</p>
   return <div style={stack}>
-    {create !== undefined && options.length > 0 && <LoomSegmented
+    {modes.length > 1 && activeMode !== undefined && <LoomSegmented
       ariaLabel={ariaLabel}
-      value={mode}
-      options={[{ value: 'existing', label: t('task.workspaceChoiceExisting') }, { value: 'create', label: t('task.workspaceChoiceCreate') }]}
-      onChange={next => setMode(next === 'create' ? 'create' : 'existing')}
+      value={activeMode}
+      options={modes}
+      onChange={next => { if (next === 'existing' || next === 'directory' || next === 'create') setMode(next) }}
       variant="choice"
     />}
-    {mode === 'existing'
+    {activeMode === 'existing'
       ? options.length === 0
         ? <p style={alert}>{t('task.workspaceRequired')}</p>
         : options.length === 1
@@ -124,7 +148,22 @@ export function WorkspaceChoice({ t, ariaLabel, workspaces, value, onChange, cre
               options={options.map(workspace => ({ value: workspace.id, label: workspace.label ?? workspace.rootPath ?? workspace.path }))}
               onChange={onChange}
             />
-      : <div style={createBox}>
+      : activeMode === 'directory'
+        ? <div style={createBox}>
+            <p style={hint}>{t('task.workspaceDirectoryHint')}</p>
+            <label style={field}><span>{t('task.workspaceDirectoryPath')}</span>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <input aria-label={t('task.workspaceDirectoryPath')} value={directoryPath} placeholder="/home/me/repo" onChange={event => setDirectoryPath(event.target.value)} style={inputStyle} />
+                {pickDirectory !== undefined && <Button type="button" size="sm" variant="outline" onClick={() => { void (async () => { const picked = await pickDirectory(directoryPath === '' ? undefined : directoryPath); if (picked !== null) setDirectoryPath(picked) })() }}>{t('workspace.browse')}</Button>}
+              </div>
+            </label>
+            {directoryFailure !== undefined && <p role="alert" style={alert}>{t(directoryFailure.message)}{directoryFailure.detail === undefined ? '' : ` · ${directoryFailure.detail}`}</p>}
+            <div style={{ display: 'flex', gap: 8 }}>
+              <Button type="button" variant="primary" disabled={busy || directoryPath.trim() === ''} onClick={() => { void submitDirectory() }}>{busy ? t('task.workspaceCreating') : t('task.workspaceDirectorySubmit')}</Button>
+              {options.length > 0 && <Button type="button" variant="ghost" disabled={busy} onClick={() => setMode('existing')}>{t('form.cancel')}</Button>}
+            </div>
+          </div>
+        : <div style={createBox}>
           {options.length === 0 && <p role="alert" style={alert}>{t('task.workspaceRequired')}</p>}
           <p style={hint}>{t('task.workspaceCreateHint')}</p>
           {sourceGroups !== undefined && sourceGroups.length > 0

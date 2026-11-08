@@ -22,6 +22,8 @@ interface TaskFormProps {
   workspaces?: readonly { readonly id: string; readonly label?: string | undefined; readonly rootPath?: string | undefined; readonly path: string }[] | undefined
   /** Create an independent workspace from the task form. */
   createWorkspace?: ((input: WorkspaceCreationInput) => Promise<WorkspaceCreateOutcome>) | undefined
+  /** Register an existing directory as a direct workspace. */
+  useWorkspaceDirectory?: ((path: string) => Promise<WorkspaceCreateOutcome>) | undefined
   /** Native directory picker for workspace creation. */
   pickDirectory?: ((startPath?: string) => Promise<string | null>) | undefined
   /** Preset catalog for the per-task Agent preset override. */
@@ -46,7 +48,7 @@ const TASK_STEPS: readonly { readonly key: TaskStep; readonly label: LoomKey }[]
 const PRIORITY_LABEL: Readonly<Record<TaskPriority, LoomKey>> = { low: 'task.priority.low', normal: 'task.priority.normal', high: 'task.priority.high' }
 
 /** Create or edit one task under the selected version. */
-export function TaskForm({ t, version, project, workspaces, createWorkspace, pickDirectory, agentPresets = [], create, update, task, onCreated, open: controlledOpen, onOpenChange, onBusyChange }: TaskFormProps) {
+export function TaskForm({ t, version, project, workspaces, createWorkspace, useWorkspaceDirectory, pickDirectory, agentPresets = [], create, update, task, onCreated, open: controlledOpen, onOpenChange, onBusyChange }: TaskFormProps) {
   const editing = task !== undefined
   const [internalOpen, setInternalOpen] = useState(false)
   const open = controlledOpen ?? internalOpen
@@ -73,7 +75,7 @@ export function TaskForm({ t, version, project, workspaces, createWorkspace, pic
   const titleReady = title.trim() !== ''
   function canVisit(candidate: TaskStep): boolean {
     if (candidate === 'content') return true
-    if (candidate === 'scope') return titleReady && (createWorkspace !== undefined || workspaces === undefined || workspaces.length > 0)
+    if (candidate === 'scope') return titleReady && (createWorkspace !== undefined || useWorkspaceDirectory !== undefined || workspaces === undefined || workspaces.length > 0)
     return request !== undefined
   }
   function goTo(candidate: TaskStep): void {
@@ -137,6 +139,7 @@ export function TaskForm({ t, version, project, workspaces, createWorkspace, pic
           value={workspaceId === '' ? undefined : workspaceId}
           onChange={setWorkspaceId}
           create={createWorkspace}
+          useDirectory={useWorkspaceDirectory}
           pickDirectory={pickDirectory}
           onCreated={workspace => { setCreatedWorkspace(workspace); setWorkspaceId(workspace.id) }}
           defaultName={`task-${version.name}`}

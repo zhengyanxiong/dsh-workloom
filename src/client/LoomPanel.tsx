@@ -52,6 +52,7 @@ import { COLORS } from './ui/tokens.ts'
 import { failureReport, thrownFailureReport } from './ui/failure.ts'
 import type { WorkspaceCreateOutcome, WorkspaceCreationInput } from './features/workspace/WorkspaceChoice.tsx'
 import { workspaceBranch } from './features/workspace/workspace-refs.ts'
+import { registerDirectoryWorkspace } from './features/workspace/register-directory.ts'
 import type { FailureReport } from './ui/failure.ts'
 import { metaLine } from './ui/styles.ts'
 import { reportLoomFailure } from './shared/feedback.ts'
@@ -146,7 +147,9 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
   }, [project, version])
   useEffect(() => {
     let active = true
-    setCatalog({ status: 'loading' })
+    // Keep the current snapshot visible while a refresh runs; clearing it
+    // unmounts the open task form and loses its in-progress state.
+    setCatalog(current => current.status === 'ready' ? current : { status: 'loading' })
     loadSnapshot().then((result) => {
       if (!active) return
       setCatalog(result.ok ? { status: 'ready', snapshot: result.value } : { status: 'error' })
@@ -488,6 +491,22 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
       if (currentVersion === undefined || currentVersionProject === undefined) throw new Error(t('state.error'))
       const result = await prepareAutoWorkspace(currentVersion, currentVersionProject, input)
       return result.ok ? { ok: true, workspace: result.value } : { ok: false, error: failureReport(result.error.code, result.error.message) }
+    } catch (error) {
+      return { ok: false, error: failureReport('unknown', error instanceof Error ? error.message : String(error)) }
+    }
+  }
+  async function registerTaskDirectory(path: string): Promise<WorkspaceCreateOutcome> {
+    try {
+      if (currentVersion === undefined || currentVersionProject === undefined) throw new Error(t('state.error'))
+      const lock = snapshot?.locks.filter(candidate => candidate.versionId === currentVersion.id).at(-1)
+      if (lock === undefined) throw new Error(t('lock.generateFirst'))
+      const outcome = await registerDirectoryWorkspace({
+        inspectWorkspace,
+        registerWorkspace,
+        repositoryBranches,
+      }, { path, versionId: currentVersion.id, lockId: lock.id, project: currentVersionProject })
+      if (outcome.ok) setAttempt(current => current + 1)
+      return outcome
     } catch (error) {
       return { ok: false, error: failureReport('unknown', error instanceof Error ? error.message : String(error)) }
     }
@@ -844,6 +863,6 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
       actions={temporary}
       onClose={() => setTemporaryOpen(false)}
     />
-    <LoomFormDialogs createTaskWorkspace={createTaskWorkspace} t={t} create={create} edit={edit} versionStep={versionStep} currentProject={currentProject} currentVersion={currentVersion} currentVersionProject={currentVersionProject} displayProject={displayProject} displayVersion={displayVersion} displayVersionProject={displayVersionProject} detailTask={detailTask} snapshot={snapshot} agentPresets={agentPresets} createProject={createProject} createVersion={createVersion} createTask={createTask} updateProject={updateProject} updateVersion={updateVersion} updateTask={updateTask} repositoryBranches={repositoryBranches} chooseDirectory={chooseDirectory} addVersionWorkspace={addVersionWorkspace} renameVersionWorkspace={renameVersionWorkspace} removeVersionWorkspace={removeVersionWorkspace} directoryRequest={directoryRequest} finishDirectory={finishDirectory} listDirectory={listDirectory} treeDelete={treeDelete} treeDeleting={treeDeleting} treeDeleteFailure={treeDeleteFailure} confirmTreeDelete={confirmTreeDelete} setCreate={setCreate} setEdit={setEdit} setModalBusy={setModalBusy} setVersionStep={setVersionStep} setProject={setProject} setVersion={setVersion} setTask={setTask} setSelected={setSelected} setAttempt={setAttempt} setView={setView} setTreeDelete={setTreeDelete} setTreeDeleteFailure={setTreeDeleteFailure} navigate={navigate} />
+    <LoomFormDialogs createTaskWorkspace={createTaskWorkspace} registerTaskDirectory={registerTaskDirectory} t={t} create={create} edit={edit} versionStep={versionStep} currentProject={currentProject} currentVersion={currentVersion} currentVersionProject={currentVersionProject} displayProject={displayProject} displayVersion={displayVersion} displayVersionProject={displayVersionProject} detailTask={detailTask} snapshot={snapshot} agentPresets={agentPresets} createProject={createProject} createVersion={createVersion} createTask={createTask} updateProject={updateProject} updateVersion={updateVersion} updateTask={updateTask} repositoryBranches={repositoryBranches} chooseDirectory={chooseDirectory} addVersionWorkspace={addVersionWorkspace} renameVersionWorkspace={renameVersionWorkspace} removeVersionWorkspace={removeVersionWorkspace} directoryRequest={directoryRequest} finishDirectory={finishDirectory} listDirectory={listDirectory} treeDelete={treeDelete} treeDeleting={treeDeleting} treeDeleteFailure={treeDeleteFailure} confirmTreeDelete={confirmTreeDelete} setCreate={setCreate} setEdit={setEdit} setModalBusy={setModalBusy} setVersionStep={setVersionStep} setProject={setProject} setVersion={setVersion} setTask={setTask} setSelected={setSelected} setAttempt={setAttempt} setView={setView} setTreeDelete={setTreeDelete} setTreeDeleteFailure={setTreeDeleteFailure} navigate={navigate} />
   </div>
 }

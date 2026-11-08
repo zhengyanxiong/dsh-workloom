@@ -21,6 +21,7 @@ import { autoWorkspaceRepositoryPath } from '../../../domain/workspace.ts'
 import type { WorkspaceCreateOutcome, WorkspaceCreationInput } from '../workspace/WorkspaceChoice.tsx'
 import type { AgentPresetOption } from '../../../api/agent.ts'
 import { WorkspaceChoice } from '../workspace/WorkspaceChoice.tsx'
+import { registerDirectoryWorkspace } from '../workspace/register-directory.ts'
 import { workspaceBranch, workspaceSourceGroups } from '../workspace/workspace-refs.ts'
 import type { LoadWorkspaceChanges } from '../preview/LoomDiff.tsx'
 
@@ -454,6 +455,18 @@ function StartForm({ t, task, snapshot, versionId, agentPresets = [], actions }:
       setFailure({ operation: t('task.start'), report: thrownFailureReport(error) })
     } finally { setBusy(false) }
   }
+  async function useDirectory(path: string): Promise<WorkspaceCreateOutcome> {
+    if (version === undefined || project === undefined || lock === undefined) {
+      return { ok: false, error: failureReport('missing_lock', '') }
+    }
+    const outcome = await registerDirectoryWorkspace({
+      inspectWorkspace: actions.inspectWorkspace,
+      registerWorkspace: actions.registerWorkspace,
+      repositoryBranches: actions.repositoryBranches,
+    }, { path, versionId: version.id, lockId: lock.id, project })
+    if (outcome.ok) actions.onChanged()
+    return outcome
+  }
   return <form style={box} onSubmit={event => { event.preventDefault(); void start() }}>
     <div style={formHeading}>{t('task.start')}</div>
     <div style={field}>
@@ -465,6 +478,7 @@ function StartForm({ t, task, snapshot, versionId, agentPresets = [], actions }:
         value={selectedId}
         onChange={id => setSelectedId(id as WorkspaceRecord['id'])}
         create={createWorkspace}
+        useDirectory={useDirectory}
         pickDirectory={actions.pickDirectory}
         onCreated={workspace => { setCreatedWorkspace(workspace); actions.onChanged() }}
         defaultName={`task-${String(task.id).slice(0, 8)}`}
