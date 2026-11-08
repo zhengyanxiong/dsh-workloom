@@ -1,5 +1,5 @@
 /** Execution controls for the selected task: workspaces, sessions and business status. */
-import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { Button } from '../../ui/primitives.ts'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import type {
@@ -388,6 +388,8 @@ function StartForm({ t, task, snapshot, versionId, agentPresets = [], actions }:
     && (workspace.preparation === undefined || workspace.preparation.status === 'ready'))
   const [createdWorkspace, setCreatedWorkspace] = useState<WorkspaceRecord>()
   const [selectedId, setSelectedId] = useState<WorkspaceRecord['id'] | undefined>(task.workspaceId ?? ready[0]?.id)
+  const [selectionTouched, setSelectionTouched] = useState(false)
+  const selectedTaskId = useRef(task.id)
   const [preset, setPreset] = useState(task.agentPreset ?? '')
   const [busy, setBusy] = useState(false)
   const [failure, setFailure] = useState<OperationFailure>()
@@ -397,6 +399,16 @@ function StartForm({ t, task, snapshot, versionId, agentPresets = [], actions }:
   const available = createdWorkspace === undefined || ready.some(workspace => workspace.id === createdWorkspace.id)
     ? ready
     : [...ready, createdWorkspace]
+  useEffect(() => {
+    if (selectedTaskId.current === task.id) return
+    selectedTaskId.current = task.id
+    setSelectionTouched(false)
+    setSelectedId(task.workspaceId ?? ready[0]?.id)
+  }, [task.id, task.workspaceId, ready])
+  useEffect(() => {
+    if (selectionTouched || task.workspaceId === undefined) return
+    if (ready.some(workspace => workspace.id === task.workspaceId)) setSelectedId(task.workspaceId)
+  }, [task.workspaceId, ready, selectionTouched])
   const selected = available.find(workspace => workspace.id === selectedId)
   const sourceGroups = version === undefined || project === undefined ? [] : workspaceSourceGroups(version, project)
   function report(operation: string, code: string, message: string): void { setFailure({ operation, report: failureReport(code, message) }) }
@@ -476,7 +488,7 @@ function StartForm({ t, task, snapshot, versionId, agentPresets = [], actions }:
         ariaLabel={t('task.workspace')}
         workspaces={available}
         value={selectedId}
-        onChange={id => setSelectedId(id as WorkspaceRecord['id'])}
+        onChange={id => { setSelectionTouched(true); setSelectedId(id as WorkspaceRecord['id']) }}
         create={createWorkspace}
         useDirectory={useDirectory}
         pickDirectory={actions.pickDirectory}

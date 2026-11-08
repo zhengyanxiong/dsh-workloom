@@ -119,3 +119,28 @@ it('creates an independent workspace from the execution panel for concurrent tas
   expect(container.textContent).toContain(en['task.workspaceCreateHint'])
   expect(container.textContent).toContain(en['task.workspaceConcurrentHint'])
 })
+
+it('adopts the task workspace once the created task record carries it', async () => {
+  ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
+  const other: WorkspaceRecord = { id: brandString<WorkspaceRecord['id']>('w0'), versionId, lockId: lock.id, path: '/tmp/loom/other' }
+  const pendingTask: TaskRecord = { ...task, status: 'pending', attempts: [] }
+  const pendingSnapshot: CatalogSnapshot = { ...snapshot, tasks: [pendingTask], workspaces: [other, workspace], executions: [] }
+  container = document.createElement('div')
+  document.body.append(container)
+  root = createRoot(container)
+  await act(async () => {
+    root?.render(createElement(ExecutionPanel, {
+      t, task: pendingTask, snapshot: pendingSnapshot, selectedSession: undefined, actions,
+      loadChanges: unused, wrap: false, onToggleWrap: () => {},
+    }))
+  })
+  const selectLabel = (): string | null => container?.querySelector('button[aria-haspopup="listbox"]')?.getAttribute('aria-label') ?? null
+  expect(selectLabel()).toContain('/tmp/loom/other')
+  await act(async () => {
+    root?.render(createElement(ExecutionPanel, {
+      t, task: { ...pendingTask, workspaceId: workspace.id }, snapshot: { ...pendingSnapshot, tasks: [{ ...pendingTask, workspaceId: workspace.id }] }, selectedSession: undefined, actions,
+      loadChanges: unused, wrap: false, onToggleWrap: () => {},
+    }))
+  })
+  expect(selectLabel()).toContain('/tmp/loom/workspace')
+})
