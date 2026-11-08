@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest'
 import { brandString } from '@deepseek-ai/dsh-brand'
 import type { ProjectRecord, VersionRecord } from 'dsh-workloom/types'
-import { workspaceSourceGroups } from '../../../src/client/features/workspace/workspace-refs.ts'
+import { workspaceBranch, workspaceSourceGroups } from '../../../src/client/features/workspace/workspace-refs.ts'
 
 const project: ProjectRecord = {
   id: brandString<'loom.project'>('p1'),
@@ -55,4 +55,13 @@ it('infers sub-project membership for pre-V2 versions without targets', () => {
     { subProject: 'Storefront', refs: [{ name: 'web', ref: 'main' }] },
     { subProject: 'Backend', refs: [{ name: 'api', ref: 'release' }] },
   ])
+})
+
+
+it('derives an ASCII Git branch from a non-ASCII workspace name', () => {
+  const branch = workspaceBranch('loom_test', '测试工作区')
+  expect(branch).toMatch(/^loom_test\/ws-[a-z0-9]+$/u)
+  expect(workspaceBranch('loom_test', '测试工作区')).toBe(branch)
+  expect(workspaceBranch('loom', 'race-condition')).toBe('loom/race-condition')
+  expect(workspaceBranch('bad prefix', 'feature')).toBe('bad-prefix/feature')
 })

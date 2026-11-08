@@ -51,6 +51,7 @@ import { deriveVersionContext } from '../shared/version-context.ts'
 import { COLORS } from './ui/tokens.ts'
 import { failureReport, thrownFailureReport } from './ui/failure.ts'
 import type { WorkspaceCreateOutcome, WorkspaceCreationInput } from './features/workspace/WorkspaceChoice.tsx'
+import { workspaceBranch } from './features/workspace/workspace-refs.ts'
 import type { FailureReport } from './ui/failure.ts'
 import { metaLine } from './ui/styles.ts'
 import { reportLoomFailure } from './shared/feedback.ts'
@@ -453,8 +454,7 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
     if (lock === undefined) throw new Error(t('lock.generateFirst'))
     const parent = input.parentPath.replace(/\/+$/u, '')
     const root = `${parent}/${input.name}`
-    const prefix = (input.branchPrefix === undefined || input.branchPrefix === '' ? 'loom' : input.branchPrefix).replace(/\/+$/u, '')
-    const branch = `${prefix}/${input.name}`
+    const branch = workspaceBranch(input.branchPrefix, input.name)
     const branches: Record<string, string> = {}
     const repositories = lock.repositories.map(entry => {
       const source = project.config.sources.find(candidate => candidate.id === entry.sourceId)

@@ -5,6 +5,7 @@ import type { LoomKey } from '../../shared/locales.ts'
 import { Button } from '../../ui/primitives.ts'
 import { COLORS } from '../../ui/tokens.ts'
 import { failureReport, type FailureReport } from '../../ui/failure.ts'
+import { workspaceBranch } from './workspace-refs.ts'
 import { LoomSelect } from '../../ui/Select.tsx'
 import { LoomSegmented } from '../../ui/Segmented.tsx'
 
@@ -72,7 +73,7 @@ export function WorkspaceChoice({ t, ariaLabel, workspaces, value, onChange, cre
   const [busy, setBusy] = useState(false)
   const [failure, setFailure] = useState<FailureReport>()
   const refs = sourceRefs?.map(source => `${source.name}@${source.ref}`).join(t('task.workspaceBaseRefSeparator')) ?? ''
-  const branchLabel = t('task.workspaceNewBranch').replace('{prefix}', branchPrefix === '' ? 'loom' : branchPrefix).replace('{name}', name === '' ? '…' : name)
+  const branchLabel = t('task.workspaceNewBranch').replace('{branch}', workspaceBranch(branchPrefix, name === '' ? 'workspace' : name))
   const createBaseHint = refs === ''
     ? t('task.workspaceBaseHintLock').replace('{prefix}', branchPrefix === '' ? 'loom' : branchPrefix).replace('{name}', name === '' ? '…' : name)
     : t('task.workspaceBaseHint').replace('{refs}', refs).replace('{prefix}', branchPrefix === '' ? 'loom' : branchPrefix).replace('{name}', name === '' ? '…' : name)

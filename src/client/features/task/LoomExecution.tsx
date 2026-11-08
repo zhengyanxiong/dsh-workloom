@@ -21,7 +21,7 @@ import { autoWorkspaceRepositoryPath } from '../../../domain/workspace.ts'
 import type { WorkspaceCreateOutcome, WorkspaceCreationInput } from '../workspace/WorkspaceChoice.tsx'
 import type { AgentPresetOption } from '../../../api/agent.ts'
 import { WorkspaceChoice } from '../workspace/WorkspaceChoice.tsx'
-import { workspaceSourceGroups } from '../workspace/workspace-refs.ts'
+import { workspaceBranch, workspaceSourceGroups } from '../workspace/workspace-refs.ts'
 import type { LoadWorkspaceChanges } from '../preview/LoomDiff.tsx'
 
 type Translate = (key: LoomKey) => string
@@ -405,8 +405,7 @@ function StartForm({ t, task, snapshot, versionId, agentPresets = [], actions }:
     try {
       const parent = input.parentPath.replace(/\/+$/u, '')
       const root = `${parent}/${input.name.trim()}`
-      const prefix = (input.branchPrefix.trim() === '' ? 'loom' : input.branchPrefix.trim()).replace(/\/+$/u, '')
-      const branch = `${prefix}/${input.name.trim()}`
+      const branch = workspaceBranch(input.branchPrefix, input.name)
       const branches: Record<string, string> = {}
       const repositories = lock.repositories.map(entry => {
         const source = project.config.sources.find(candidate => candidate.id === entry.sourceId)

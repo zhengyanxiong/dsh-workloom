@@ -34,3 +34,32 @@ export function workspaceSourceGroups(version: VersionRecord, project: ProjectRe
   }
   return [...groups.values()].map(group => ({ subProject: group.name, refs: group.refs }))
 }
+
+/** Convert a workspace label into one ASCII Git branch segment. */
+function branchSlug(value: string): string {
+  return value.normalize('NFKD')
+    .replace(/[\u0300-\u036f]/gu, '')
+    .replace(/[^A-Za-z0-9._-]+/gu, '-')
+    .replace(/-+/gu, '-')
+    .replace(/^[-.]+|[-.]+$/gu, '')
+}
+
+/** Stable short hash used when a name has no ASCII characters. */
+function labelHash(value: string): string {
+  let hash = 2166136261
+  for (const character of value) hash = Math.imul(hash ^ (character.codePointAt(0) ?? 0), 16777619)
+  return (hash >>> 0).toString(36)
+}
+
+/**
+ * Build a valid Git branch name from a human-readable workspace label.
+ * @param prefix - user branch prefix; defaults to `loom`.
+ * @param name - workspace display name, possibly non-ASCII.
+ * @returns an ASCII `prefix/name` branch that the Host accepts.
+ */
+export function workspaceBranch(prefix: string | undefined, name: string): string {
+  const scope = branchSlug(prefix ?? 'loom') || 'loom'
+  const raw = name.trim()
+  const segment = branchSlug(raw) || `ws-${labelHash(raw)}`
+  return `${scope}/${segment}`
+}
