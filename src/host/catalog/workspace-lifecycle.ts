@@ -10,8 +10,8 @@ import type { Branded } from '@deepseek-ai/dsh-brand'
 import type { AuditEntry, AuditEvent } from '../../domain/audit.ts'
 import type { CatalogSnapshot, WorkspaceCleanupRepository, WorkspaceCleanupRepositoryStatus, WorkspaceRecord } from '../../api/records.ts'
 import {
-  commitsSince, removeLinkedWorkspaceLink, removeLinkedWorkspaceRoot, removeWorkspaceRoot, removeWorkspaceSkills,
-  removeWorkspaceWorktree, workingTreeChanges,
+  commitsSince, latestCommitTimestamp, removeLinkedWorkspaceLink, removeLinkedWorkspaceRoot, removeWorkspaceRoot, removeWorkspaceSkills,
+  removeWorkspaceWorktree, workingTreeDirty,
 } from '../../git/workspace.ts'
 import { CatalogError } from './errors.ts'
 import { nowIso, workspaceBindings } from './schema.ts'
@@ -107,7 +107,14 @@ export async function cleanupWorkspace(runtime: WorkspaceLifecycleRuntime, works
     // workspaces keep the real repositories, so uncommitted work must not
     // block unregistering them; those checks also fail for legacy records
     // whose target points at a parent directory rather than a Git root.
-    const worktrees = mode === 'managed' ? workspaceWorktrees(state, workspaceId) : []
+    const worktrees = mode === 'managed'
+      ? workspaceWorktrees(state, workspaceId).map(worktree => {
+        // Cleanup compares against the commit the worktree was materialized
+        // from, not a Lock that may have advanced since preparation.
+        const binding = bindings.find(item => item.sourceId === worktree.sourceId)
+        return binding?.commit === undefined ? worktree : { ...worktree, commit: binding.commit }
+      })
+      : []
     const prior = workspace.cleanup
     const priorStatus = (sourceId: Branded<'loom.source'>): WorkspaceCleanupRepositoryStatus | undefined =>
       prior?.repositories.find(entry => entry.sourceId === sourceId)?.status
@@ -118,9 +125,25 @@ export async function cleanupWorkspace(runtime: WorkspaceLifecycleRuntime, works
         : []
     const pendingWorktrees = worktrees.filter(worktree => priorStatus(worktree.sourceId) !== 'removed')
     if (!discardChanges && mode === 'managed') {
-      for (const worktree of pendingWorktrees) if (await commitsSince(worktree.directory, worktree.commit) > 0) throw new CatalogError('workspace_unpushed', worktree.directory)
-      const changes = await workingTreeChanges(pendingWorktrees)
-      if (changes.some(repository => repository.files.length > 0)) throw new CatalogError('workspace_changes', changes.filter(repository => repository.files.length > 0).map(repository => repository.directory).join(', '))
+      const startedAt = workspace.preparation?.startedAt === undefined ? undefined : Date.parse(workspace.preparation.startedAt)
+      for (const worktree of pendingWorktrees) {
+        if (await commitsSince(worktree.directory, worktree.commit) === 0) continue
+        // Regenerating a Lock advances workspace.lockId without moving the
+        // existing worktrees. Commits between the old and new Lock baselines
+        // therefore look "ahead" of HEAD even though they predate the
+        // workspace; only commits created after preparation are workspace work.
+        const latest = await latestCommitTimestamp(worktree.directory, worktree.commit)
+        // Git records commit times in whole seconds; allow a small margin so a
+        // commit made moments after preparation is still treated as work.
+        if (latest !== undefined && startedAt !== undefined && Number.isFinite(startedAt) && latest * 1000 + 5000 <= startedAt) continue
+        throw new CatalogError('workspace_unpushed', worktree.directory)
+      }
+      // Compare the actual worktree state, not the Diff baseline: regenerating a
+      // Lock advances that baseline, so a diff against it would misreport the
+      // old baseline's committed files as uncommitted workspace changes.
+      if (await workingTreeDirty(pendingWorktrees.map(worktree => worktree.directory))) {
+        throw new CatalogError('workspace_changes', pendingWorktrees.map(worktree => worktree.directory).join(', '))
+      }
     }
     // Publish per-repository progress before the first deletion so the client
     // can poll a partial attempt instead of a single opaque busy state.

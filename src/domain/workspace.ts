@@ -18,6 +18,8 @@ export interface WorkspaceRepositoryBinding {
   readonly targetPath: string
   readonly kind: WorkspaceRepositoryKind
   readonly branch?: string | undefined
+  /** Commit the worktree was materialized from; survives later Lock advances. */
+  readonly commit?: string | undefined
 }
 
 /** Complete workspace layout before it is persisted. */

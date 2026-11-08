@@ -119,6 +119,7 @@ const workspaceRepositorySchema = z.strictObject({
   targetPath: z.string().refine(catalogPath),
   kind: z.enum(['worktree', 'direct', 'link']),
   branch: text.optional(),
+  commit: z.string().regex(/^[0-9a-f]{40}(?:[0-9a-f]{24})?$/u).optional(),
 })
 const workspaceSchema = z.strictObject({
   id: id<'loom.workspace'>(),

@@ -860,6 +860,15 @@ export async function commitsSince(directory: string, baseline: string): Promise
   } catch (error) { throw new WorkspacePreparationError('diff_failed', [], error) }
 }
 
+/** Latest committer timestamp (seconds) in `baseline..HEAD`; undefined on failure. */
+export async function latestCommitTimestamp(directory: string, baseline: string): Promise<number | undefined> {
+  try {
+    const result = await execFile('git', ['-C', directory, 'log', '-1', '--format=%ct', `${baseline}..HEAD`], { windowsHide: true })
+    const seconds = Number.parseInt(result.stdout.trim(), 10)
+    return Number.isFinite(seconds) ? seconds : undefined
+  } catch { return undefined }
+}
+
 /**
  * Count commits HEAD has that its configured upstream does not.
  * @param directory - prepared worktree or repository directory.

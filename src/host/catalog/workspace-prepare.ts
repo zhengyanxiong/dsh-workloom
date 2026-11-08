@@ -138,6 +138,7 @@ export async function prepareWorkspace(runtime: WorkspacePrepareRuntime, input: 
               targetPath: resolve(input.path, path),
               kind: 'worktree' as const,
               ...(branch === undefined || branch === '' ? {} : { branch }),
+              ...(pinned === undefined ? {} : { commit: pinned.commit }),
             }
           })
           if (input.repositories !== undefined) {

@@ -718,3 +718,27 @@ it('requires approval before the Agent takeover tool reaches the Host', async ()
   expect(decision.kind).toBe('ask')
   expect(decision.displayReason?.en).toContain('take over')
 })
+
+it('cleans a workspace after its Lock advances past the preparation baseline', async () => {
+  const { call, dir } = await setup()
+  const repo = join(dir, 'repo'); await mkdir(repo)
+  const exec = promisify(execFile)
+  await exec('git', ['init', '--quiet', '--initial-branch=main', repo])
+  await writeFile(join(repo, 'file'), 'main\n')
+  await exec('git', ['-C', repo, 'add', 'file'])
+  await exec('git', ['-C', repo, '-c', 'user.name=Loom Test', '-c', 'user.email=loom@example.invalid', 'commit', '-qm', 'main'])
+  await exec('git', ['-C', repo, 'checkout', '-q', '-b', 'feature'])
+  await writeFile(join(repo, 'file'), 'feature\n')
+  await exec('git', ['-C', repo, 'commit', '-qam', 'feature'])
+  await exec('git', ['-C', repo, 'checkout', '-q', 'main'])
+  const project = await call('createProject', { request: { name: 'Git', sources: [{ id: 'web', repo, path: 'web' }], modules: [] } }) as { id: string }
+  const version = await call('createVersion', { request: { projectId: project.id, name: 'v', sources: [{ sourceId: 'web', ref: 'feature' }] } }) as { id: string }
+  const firstLock = await call('generateLock', { request: { versionId: version.id } }) as { id: string }
+  const root = join(dir, 'workspace')
+  const workspace = await call('prepareWorkspace', { request: { path: root, versionId: version.id, lockId: firstLock.id } }) as { id: string }
+  await call('updateVersion', { request: { versionId: version.id, name: 'v', sources: [{ sourceId: 'web', ref: 'main' }] } })
+  await call('generateLock', { request: { versionId: version.id } })
+  await expect(call('cleanupWorkspace', { request: { workspaceId: workspace.id } })).resolves.toBeUndefined()
+  expect(await call('snapshot')).toMatchObject({ workspaces: [] })
+  await expect(readFile(join(root, 'web', 'file'), 'utf8')).rejects.toThrow()
+})
