@@ -78,3 +78,35 @@ it('keeps rounds selectable when a Session list entry has no native state yet', 
   const html = renderToStaticMarkup(createElement(LoomSessionList, { t, rows, onOpenSession: () => undefined }))
   expect(html).toContain(en['sessionList.unavailableMissing'])
 })
+
+it('hides archived Sessions by default and reveals them from the archived toggle', () => {
+  const rows = taskAttemptRows(task, lookup, new Set())
+  const archived = new Set(['s1', 's3'])
+  const hidden = renderToStaticMarkup(createElement(LoomSessionList, {
+    t, rows, onOpenSession: () => undefined, archivedSessionIds: archived, showArchived: false,
+    onToggleArchived: () => undefined, onArchiveSession: () => undefined, onUnarchiveSession: () => undefined,
+  }))
+  expect(hidden).not.toContain('First round')
+  expect(hidden).not.toContain('>s3<')
+  expect(hidden).toContain(en['session.archivedShow'].replace('{count}', '2'))
+  expect(hidden).toContain(en['session.hiddenArchived'].replace('{count}', '1'))
+  const shown = renderToStaticMarkup(createElement(LoomSessionList, {
+    t, rows, onOpenSession: () => undefined, archivedSessionIds: archived, showArchived: true,
+    onToggleArchived: () => undefined, onArchiveSession: () => undefined, onUnarchiveSession: () => undefined,
+  }))
+  expect(shown).toContain('First round')
+  expect(shown).toContain('>s3<')
+  expect(shown).toContain(en['session.archivedHide'])
+  expect(shown).toContain(en['session.archived'])
+  expect(shown).toContain(`aria-label="${en['session.unarchive']}"`)
+})
+
+it('disables archiving for Sessions that hold or wait for execution access', () => {
+  const rows = taskAttemptRows(task, lookup, new Set())
+  const html = renderToStaticMarkup(createElement(LoomSessionList, {
+    t, rows, onOpenSession: () => undefined, archivedSessionIds: new Set<string>(),
+    blockedSessionIds: new Set(['s1']), onArchiveSession: () => undefined,
+  }))
+  expect(html).toContain(`title="${en['session.archiveBlocked']}"`)
+  expect(html.match(/aria-label="Archive session" title="Release[^"]*" disabled=""/gu)).toHaveLength(1)
+})

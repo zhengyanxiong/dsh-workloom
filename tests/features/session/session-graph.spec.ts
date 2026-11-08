@@ -62,3 +62,53 @@ it('offers release, queue and leave-queue actions from per-session execution sta
   expect(html).toContain(en['bottom.sessionReleaseAccess'])
   expect(html).toContain(en['bottom.sessionLeaveQueue'])
 })
+
+const archivedRows: LoomTaskSessionRow[] = [
+  ...rows,
+  { id: 'gone', label: 'Archived session', running: false, updatedAt: Date.UTC(2026, 9, 30, 9, 0), archived: true },
+]
+
+it('hides archived Sessions until the archived toggle reveals them', () => {
+  const hidden = renderToStaticMarkup(createElement(LoomSessionGraph, {
+    t, taskTitle: 'Task A', rows: archivedRows, execution, currentSessionId: 'root', onOpenSession: () => {},
+    archivedSessionIds: new Set(['gone']), showArchived: false, onToggleArchived: () => {},
+  }))
+  expect(hidden).not.toContain('Archived session')
+  expect(hidden).toContain(en['session.archivedShow'].replace('{count}', '1'))
+  expect(hidden).not.toContain(en['session.archivedHide'])
+  const shown = renderToStaticMarkup(createElement(LoomSessionGraph, {
+    t, taskTitle: 'Task A', rows: archivedRows, execution, currentSessionId: 'root', onOpenSession: () => {},
+    archivedSessionIds: new Set(['gone']), showArchived: true, onToggleArchived: () => {},
+  }))
+  expect(shown).toContain('Archived session')
+  expect(shown).toContain(en['session.archived'])
+  expect(shown).toContain(en['session.archivedHide'])
+})
+
+it('renders the archive action on live rows and the restore action on archived rows', () => {
+  const live = renderToStaticMarkup(createElement(LoomSessionGraph, {
+    t, taskTitle: 'Task A', rows, execution, currentSessionId: 'root', onOpenSession: () => {},
+    archivedSessionIds: new Set<string>(), onArchiveSession: () => {}, onUnarchiveSession: () => {},
+  }))
+  expect(live).toContain(`aria-label="${en['session.archive']}"`)
+  expect(live).not.toContain(`aria-label="${en['session.unarchive']}"`)
+  const archived = renderToStaticMarkup(createElement(LoomSessionGraph, {
+    t, taskTitle: 'Task A', rows: archivedRows, execution, currentSessionId: 'root', onOpenSession: () => {},
+    archivedSessionIds: new Set(['gone']), showArchived: true, onToggleArchived: () => {},
+    onArchiveSession: () => {}, onUnarchiveSession: () => {},
+  }))
+  expect(archived).toContain(`aria-label="${en['session.unarchive']}"`)
+})
+
+it('blocks archiving the execution owner and queued Sessions', () => {
+  const html = renderToStaticMarkup(createElement(LoomSessionGraph, {
+    t, taskTitle: 'Task A', rows, execution, currentSessionId: 'root', onOpenSession: () => {},
+    sessionStates: {
+      root: { isOwner: true, waiting: false, queueIndex: -1, hasOwner: true },
+      child: { isOwner: false, waiting: true, queueIndex: 0, hasOwner: true },
+    },
+    archivedSessionIds: new Set<string>(), onArchiveSession: () => {},
+  }))
+  expect(html.match(/aria-label="Archive session" title="[^"]*" disabled=""/gu)).toHaveLength(2)
+  expect(html).toContain(en['session.archiveBlocked'])
+})

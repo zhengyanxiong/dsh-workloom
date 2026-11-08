@@ -93,6 +93,15 @@ export interface LoomRouteContentProps {
   readonly createVersionFor: (project: ProjectRecord) => VersionRecord | undefined
   readonly createTaskForVersion: () => void
   readonly togglePreviewWrap: () => void
+  /** Whether archived Sessions are listed in the round list. */
+  readonly showArchivedSessions?: boolean | undefined
+  readonly archivedSessionIds?: ReadonlySet<string> | undefined
+  /** Sessions that hold or wait for execution access; they cannot be archived. */
+  readonly archiveBlockedIds?: ReadonlySet<string> | undefined
+  readonly archiveBusySessionId?: string | undefined
+  readonly onToggleArchivedSessions?: (() => void) | undefined
+  readonly onArchiveSession?: ((sessionId: string) => void) | undefined
+  readonly onUnarchiveSession?: ((sessionId: string) => void) | undefined
 }
 
 /**
@@ -101,7 +110,7 @@ export interface LoomRouteContentProps {
  * @returns the route content.
  */
 export function LoomRouteContent(props: LoomRouteContentProps): JSX.Element {
-  const { t, agentPresets, route, view, snapshot, preferences, setPreferences, activeCount, pinnedProjects, updatePreferences, displayProject, displayVersion, displayVersionProject, detailTask, detailAttemptRows, detailModules, headerTitle, detailPriority, selected, available, failure, held, executionSession, liveTaskIds, filter, filterProject, filterVersion, filterStatus, filterPriority, filterModule, kbSearch, kbMode, currentProject, currentVersion, auditRows, execution, loadTaskChanges, generateLock, workspaceStatus, versionContext, SessionProvider, renderSlot, setProject, setVersion, setTask, setSelected, setExecutionSession, setPinnedProjects, setFilterProject, setFilterVersion, setFilterStatus, setFilterPriority, setFilterModule, setKbSearch, setKbMode, setAttempt, setCreate, selectTask, selectSession, openAttemptSession, openCreate, openEdit, navigate, moveTask, createVersionFor, createTaskForVersion, togglePreviewWrap } = props
+  const { t, agentPresets, route, view, snapshot, preferences, setPreferences, activeCount, pinnedProjects, updatePreferences, displayProject, displayVersion, displayVersionProject, detailTask, detailAttemptRows, detailModules, headerTitle, detailPriority, selected, available, failure, held, executionSession, liveTaskIds, filter, filterProject, filterVersion, filterStatus, filterPriority, filterModule, kbSearch, kbMode, currentProject, currentVersion, auditRows, execution, loadTaskChanges, generateLock, workspaceStatus, versionContext, SessionProvider, renderSlot, setProject, setVersion, setTask, setSelected, setExecutionSession, setPinnedProjects, setFilterProject, setFilterVersion, setFilterStatus, setFilterPriority, setFilterModule, setKbSearch, setKbMode, setAttempt, setCreate, selectTask, selectSession, openAttemptSession, openCreate, openEdit, navigate, moveTask, createVersionFor, createTaskForVersion, togglePreviewWrap, showArchivedSessions, archivedSessionIds, archiveBlockedIds, archiveBusySessionId, onToggleArchivedSessions, onArchiveSession, onUnarchiveSession } = props
   const note: CSSProperties = { padding: 12, borderRadius: 8, color: 'var(--loom-text)', background: 'var(--loom-surface-2)', lineHeight: 1.6, margin: 0 }
   return <>
       {route === 'home'
@@ -109,6 +118,7 @@ export function LoomRouteContent(props: LoomRouteContentProps): JSX.Element {
             t={t}
             snapshot={snapshot ?? { projects: [], versions: [], locks: [], tasks: [], workspaces: [], temporarySessions: [], audit: [], executions: [] }}
             activeWorkspaceCount={activeCount}
+            archivedSessionIds={archivedSessionIds}
             onTask={(record) => { selectTask(record); navigate('task') }}
             onProject={(record) => { setProject(record.id); setVersion(undefined); setTask(undefined); setSelected(undefined); navigate('project') }}
             onSession={(id) => { selectSession(id as SessionId); navigate('session') }}
@@ -116,7 +126,7 @@ export function LoomRouteContent(props: LoomRouteContentProps): JSX.Element {
             onNewTask={() => openCreate('task')}
           />
         : route === 'project'
-        ? <LoomProjectPage t={t} snapshot={snapshot ?? { projects: [], versions: [], locks: [], tasks: [], workspaces: [], temporarySessions: [], audit: [], executions: [] }} project={displayProject} version={displayVersion} onProject={(record) => { setProject(record.id); setVersion(undefined); setTask(undefined); setSelected(undefined); navigate('project') }} onVersion={(record) => { setVersion(record.id); setTask(undefined); setSelected(undefined) }} onTask={(record) => { selectTask(record); navigate('task') }} onBoard={() => navigate('board')} onNewTask={() => { if (displayProject !== undefined) setProject(displayProject.id); if (displayVersion !== undefined) setVersion(displayVersion.id); openCreate('task') }} onNewVersion={() => { if (displayProject !== undefined) setProject(displayProject.id); openCreate('version') }} onEditProject={() => openEdit('project')} onEditVersion={() => openEdit('version')} onSession={(id) => { selectSession(id as SessionId); navigate('session') }} />
+        ? <LoomProjectPage t={t} snapshot={snapshot ?? { projects: [], versions: [], locks: [], tasks: [], workspaces: [], temporarySessions: [], audit: [], executions: [] }} project={displayProject} version={displayVersion} onProject={(record) => { setProject(record.id); setVersion(undefined); setTask(undefined); setSelected(undefined); navigate('project') }} onVersion={(record) => { setVersion(record.id); setTask(undefined); setSelected(undefined) }} onTask={(record) => { selectTask(record); navigate('task') }} onBoard={() => navigate('board')} onNewTask={() => { if (displayProject !== undefined) setProject(displayProject.id); if (displayVersion !== undefined) setVersion(displayVersion.id); openCreate('task') }} onNewVersion={() => { if (displayProject !== undefined) setProject(displayProject.id); openCreate('version') }} onEditProject={() => openEdit('project')} onEditVersion={() => openEdit('version')} onSession={(id) => { selectSession(id as SessionId); navigate('session') }} archivedSessionIds={archivedSessionIds} />
         : route === 'settings'
         ? <LoomSettingsPage
             t={t}
@@ -130,7 +140,7 @@ export function LoomRouteContent(props: LoomRouteContentProps): JSX.Element {
         ? <main className={shell.center}><div style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
             {detailTask === undefined
               ? <p style={{ ...note, margin: 0 }}>{t('chooseSession')}</p>
-              : <LoomSessionList t={t} rows={detailAttemptRows} selectedSessionId={selected} onOpenSession={openAttemptSession} />}
+              : <LoomSessionList t={t} rows={detailAttemptRows} selectedSessionId={selected} onOpenSession={openAttemptSession} showArchived={showArchivedSessions} archivedSessionIds={archivedSessionIds} blockedSessionIds={archiveBlockedIds} busySessionId={archiveBusySessionId} onToggleArchived={onToggleArchivedSessions} onArchiveSession={onArchiveSession} onUnarchiveSession={onUnarchiveSession} />}
           </div></main>
         : view === 'kanban'
         ? <LoomKanban

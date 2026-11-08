@@ -19,7 +19,7 @@ import type {
   UpdateTaskRequest, UpdateVersionRequest, UpdateWorkspaceRequest, WorkspaceChangesRequest, WorkspaceStatusResult,
   DeleteWorkspaceRequest,
 } from '../../api/index.ts'
-import type { LoomHostPort } from '../../ports/loom-host.ts'
+import type { LoomHostPort, LoomSessionArchiveOutcome } from '../../ports/loom-host.ts'
 import type { LoomJobsFace } from '../../ports/loom-jobs.ts'
 import { pushLoomNotice, reportLoomFailure } from '../../client/shared/feedback.ts'
 import type { LoomKey } from '../../client/shared/locales.ts'
@@ -108,6 +108,23 @@ export function createLoomHost(ui: LoomUi, t: Translate): LoomHostPort {
     },
     commitWorkspace: (request: CommitWorkspaceRequest) => ui.remote.loom.commitWorkspace(request),
     forkSession: async request => ui.sessions.fork(request),
+    archivedSessionIds: () => ui.workspaces.list.getSnapshot().archivedSessionIds,
+    archiveSession: async (sessionId, options): Promise<LoomSessionArchiveOutcome> => {
+      try {
+        await ui.workspaces.archiveSession(sessionId, { stopActivity: options.stopActivity })
+        return { ok: true }
+      } catch (error) {
+        return archiveOutcome(error)
+      }
+    },
+    unarchiveSession: async (sessionId): Promise<LoomSessionArchiveOutcome> => {
+      try {
+        await ui.workspaces.unarchiveSession(sessionId)
+        return { ok: true }
+      } catch (error) {
+        return archiveOutcome(error)
+      }
+    },
     get jobs(): LoomJobsFace | undefined {
       return ui.get('jobs') as LoomJobsFace | undefined
     },
@@ -129,4 +146,31 @@ export function createLoomHost(ui: LoomUi, t: Translate): LoomHostPort {
       return result.ok
     },
   }
+}
+
+/** The Remote carrier failure a native Workspace archive error wraps. */
+interface ArchiveFailureCarrier {
+  readonly rpcError: { readonly code: string; readonly message: string }
+}
+
+/**
+ * Recognize the native Workspace archive error without importing its class.
+ * @param value - caught rejection.
+ * @returns whether it carries a Remote failure with a usable code and message.
+ */
+function isArchiveFailureCarrier(value: unknown): value is ArchiveFailureCarrier {
+  if (typeof value !== 'object' || value === null || !('rpcError' in value)) return false
+  const rpc: unknown = value.rpcError
+  if (typeof rpc !== 'object' || rpc === null) return false
+  return 'code' in rpc && typeof rpc.code === 'string' && 'message' in rpc && typeof rpc.message === 'string'
+}
+
+/**
+ * Normalize a native Workspace archive rejection into the client port outcome.
+ * @param error - caught rejection.
+ * @returns the Host refusal code when present, otherwise an unknown failure.
+ */
+function archiveOutcome(error: unknown): LoomSessionArchiveOutcome {
+  if (isArchiveFailureCarrier(error)) return { ok: false, code: error.rpcError.code, message: error.rpcError.message }
+  return { ok: false, code: 'unknown', message: error instanceof Error ? error.message : String(error) }
 }

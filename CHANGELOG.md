@@ -8,6 +8,13 @@ Releases start at 0.1.8 in this repository.
 
 ## [Unreleased]
 
+### Added
+
+- Session archive and restore for every Loom Session list: rows hide by default
+  once archived, a per-list toggle reveals them with their count, and archiving
+  a running Session asks before stopping its work. Execution owners and queued
+  Sessions must release access first.
+
 ## [0.3.0] - 2026-11-08
 
 ### Added

@@ -26,6 +26,7 @@ Workloom 复用 DSH 原生的会话、Diff、输入框、模型选择、审批�
 - **版本与 Lock**：版本记录每个仓库的分支、标签或提交；生成 Lock 时固定到精确 commit，之后所有任务都基于同一份不可变基线。
 - **任务与工作区**：项目拥有可复用的工作区池；任务可以从 Lock 新建 managed / direct / linked 工作区，也可以复用池中已有目录，并支持跨版本显式接管。
 - **原生 Agent 会话**：在任务工作区内启动 DSH 原生会话，继续使用原生工具、审批、模型选择和上下文压缩。
+- **会话归档**：任务会话可以归档并默认从 Loom 列表收起；归档运行中的会话前会确认停止它的工作，之后可随时还原。
 - **原生预览**：Markdown、图片和代码在面板内按原生渲染，Diff 树按目录逐层展开，不再一次性读入全部改动。
 - **Diff 与验收**：对照 Lock 查看工作区改动、未跟踪文件、未推送提交，并按任务状态流转。
 - **执行权**：同一工作区同时只允许一个 Agent 执行；只有实际占用工作区的 Session 会阻止开始，任务状态本身不会；支持等待、显式接管和释放。
@@ -127,6 +128,7 @@ Highlights:
 - A version pins refs per repository; a Lock resolves them to exact commits.
 - A project owns a reusable workspace pool; tasks create managed, direct or linked workspaces or reuse an existing one, with explicit cross-version takeover.
 - Native DSH Sessions run inside a task workspace with the usual tools and approvals; linked workspaces run with full file access because their links target real repositories outside the container.
+- Task Sessions can be archived out of every Loom list; archiving a running Session asks before stopping its work, and restore is one click.
 - Native file previews (Markdown, images, code) and a diff tree that reads one directory level at a time.
 - Workspace ownership allows one Agent at a time, with waiting, takeover and release.
 - Durable audit history and native token usage reporting.

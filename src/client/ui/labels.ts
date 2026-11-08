@@ -96,5 +96,7 @@ export const ERROR_LABEL: Readonly<Record<string, LoomKey>> = {
   generation_exhausted: 'error.generationExhausted',
   workspace_cleaned: 'error.workspaceCleaned',
   workspace_cleanup_failed: 'error.workspaceCleanupFailed',
+  'session-active': 'error.sessionActive',
+  'not-found': 'error.sessionNotFound',
 }
 

@@ -120,6 +120,10 @@
   background: var(--color-accent-soft);
 }
 
+.rowWrap.rowArchived .name {
+  color: var(--color-muted);
+}
+
 .rowWrap .sessionRow {
   flex: 1;
   width: auto;
@@ -150,6 +154,62 @@
 .rowAction:disabled {
   opacity: .55;
   cursor: default;
+}
+
+.rowIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 22px;
+  height: 20px;
+  margin-right: var(--space-2);
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--color-ink-3);
+  cursor: pointer;
+}
+
+.rowIcon:hover:not(:disabled) {
+  border-color: var(--color-line);
+  background: var(--color-surface);
+  color: var(--color-ink);
+}
+
+.rowIcon:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+.rowIcon:disabled {
+  opacity: .45;
+  cursor: default;
+}
+
+.archiveToggle {
+  flex: none;
+  padding: 1px var(--space-2);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-pill);
+  background: var(--color-panel);
+  color: var(--color-ink-3);
+  font: inherit;
+  font-size: var(--text-nano-size);
+  line-height: 16px;
+  cursor: pointer;
+}
+
+.archiveToggle:hover {
+  border-color: var(--color-line-strong);
+  color: var(--color-ink);
+}
+
+.archiveToggle[aria-pressed='true'] {
+  border-color: var(--color-line-strong);
+  background: var(--color-surface);
+  color: var(--color-ink);
 }
 
 .sessionRow {

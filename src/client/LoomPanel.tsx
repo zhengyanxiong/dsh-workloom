@@ -41,6 +41,8 @@ import { LoomRouteContent } from './shell/LoomRouteContent.tsx'
 import { LoomGlobalStyles } from './shell/LoomGlobalStyles.tsx'
 import { LoomCommandPalette } from './features/palette/LoomCommandPalette.tsx'
 import { LoomTemporaryDialog, type LoomTemporaryActions } from './features/dialogs/LoomTemporaryDialog.tsx'
+import { LoomArchiveDialog } from './features/dialogs/LoomArchiveDialog.tsx'
+import { useLoomSessionArchive } from './shell/useLoomSessionArchive.ts'
 import { LoomSessionActivity, type LoomSubagentRow } from './features/session/LoomSessionActivity.tsx'
 import { LoomVersionGraph } from './features/version/LoomVersionGraph.tsx'
 import { LoomSessionGraph, type LoomTaskSessionRow } from './features/session/LoomSessionGraph.tsx'
@@ -77,7 +79,7 @@ type CatalogState =
  * @param props - locale, native catalog, session acquisition, catalog actions, and renderer seats.
  * @returns the whole Loom page.
  */
-export function LoomPanel({ t, useSessions, retainSession, openResource, loadSnapshot, createProject, updateProject, deleteProject, createVersion, updateVersion, deleteVersion, createTask, updateTask, deleteTask, generateLock, prepareWorkspace, prepareWorkspaceSilent, registerWorkspace, repositoryBranches, inspectWorkspace, pickDirectory, listDirectory, requestDraftInitialization, startAttempt, attachSession, registerTemporarySession, listAgentPresets, transitionTask, createSessionInWorkspace, openPath, openPathApplications, openPathWith, workspaceChanges, workspaceChangeCount, workspaceStatus, readFile, readBytes, commitWorkspace, updateWorkspace, deleteWorkspace, cleanupWorkspace, cleanupWorkspaceSilent, acquireExecution, cancelExecution, reorderExecutionQueue, releaseExecution, takeoverExecution, forkSession, jobs, SessionProvider, renderSlot }: LoomPanelProps) {
+export function LoomPanel({ t, useSessions, retainSession, openResource, loadSnapshot, createProject, updateProject, deleteProject, createVersion, updateVersion, deleteVersion, createTask, updateTask, deleteTask, generateLock, prepareWorkspace, prepareWorkspaceSilent, registerWorkspace, repositoryBranches, inspectWorkspace, pickDirectory, listDirectory, requestDraftInitialization, startAttempt, attachSession, registerTemporarySession, listAgentPresets, transitionTask, createSessionInWorkspace, openPath, openPathApplications, openPathWith, workspaceChanges, workspaceChangeCount, workspaceStatus, readFile, readBytes, commitWorkspace, updateWorkspace, deleteWorkspace, cleanupWorkspace, cleanupWorkspaceSilent, acquireExecution, cancelExecution, reorderExecutionQueue, releaseExecution, takeoverExecution, forkSession, archivedSessionIds: readArchivedSessionIds, archiveSession, unarchiveSession, jobs, SessionProvider, renderSlot }: LoomPanelProps) {
   const sessions = useSessions(state => state)
   const [preferences, setPreferences] = useLoomPreferences()
   const { route, setRoute, view, setView } = useLoomRoute(preferences.view)
@@ -177,6 +179,9 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
     if (latest !== undefined) setVersion(latest.id)
   }, [catalog, project, version, task])
   const snapshot = catalog.status === 'ready' ? catalog.snapshot : undefined
+  // The native archive set is registry-global and durable; Loom filters its
+  // own Session lists from it instead of keeping a second catalog flag.
+  const archivedSessionIds = new Set<SessionId>(readArchivedSessionIds())
   const currentProject = snapshot?.projects.find(candidate => candidate.id === project)
   const currentVersion = snapshot?.versions.find(candidate => candidate.id === version)
   const currentVersionProject = snapshot?.projects.find(candidate => candidate.id === currentVersion?.projectId)
@@ -187,6 +192,7 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
   const taskSessionCandidates = [...boundIds]
     .map(id => sessions.byId[id as SessionId])
     .filter(row => row !== undefined)
+    .filter(row => !archivedSessionIds.has(row.id))
   const taskSessionList = snapshot === undefined ? [] : taskSessionRows(taskSessionCandidates, boundIds, search, preferences.sessionLimit)
   const taskTitleBySession = new Map(boundRows.map(row => [row.sessionId, row.task.title]))
   const projectNameById = new Map((snapshot?.projects ?? []).map(candidate => [candidate.id, candidate.config.name] as const))
@@ -206,6 +212,7 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
   const temporarySessionCandidates = [...temporaryIds]
     .map(id => sessions.byId[id as SessionId])
     .filter(row => row !== undefined)
+    .filter(row => !archivedSessionIds.has(row.id))
   const temporarySessionList = snapshot === undefined ? [] : taskSessionRows(temporarySessionCandidates, temporaryIds, search, preferences.sessionLimit)
   const detailTask = task === undefined ? undefined : snapshot?.tasks.find(candidate => candidate.id === task.id) ?? task
   const taskVersion = detailTask === undefined || snapshot === undefined ? undefined : snapshot.versions.find(candidate => candidate.id === detailTask.versionId)
@@ -247,6 +254,7 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
       label: summary?.displayTitle ?? row.task.title,
       running: summary?.running === true,
       updatedAt: summary?.updatedAt ?? 0,
+      archived: archivedSessionIds.has(row.sessionId as SessionId),
     }
   })
   const sessionStates = Object.fromEntries(taskSessions.map(row => {
@@ -260,6 +268,8 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
       hasOwner: owner !== null && owner !== undefined,
     }]
   }))
+  // Execution owners and queued Sessions must release access before archiving.
+  const archiveBlockedIds = new Set(Object.entries(sessionStates).filter(([, state]) => state.isOwner || state.waiting).map(([id]) => id))
   // Poll faster while a bound Session is running: the Host catalog carries the
   // execution owner, and a 5s poll would show that owner well after the turn
   // starts. Native session status is immediate, so it drives the cadence.
@@ -296,6 +306,15 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
   })()
   const runtimeExecution = runtimeWorkspace === undefined ? undefined : snapshot?.executions.find(candidate => candidate.workspaceId === runtimeWorkspace.id)
   const sessionLabel = (id: string): string => boundRows.find(row => row.sessionId === id)?.task.title ?? sessions.byId[id as SessionId]?.displayTitle ?? id.slice(0, 12)
+  const sessionArchive = useLoomSessionArchive({
+    archiveSession,
+    unarchiveSession,
+    isSessionRunning: (id: string) => sessions.byId[id as SessionId]?.running === true,
+    sessionLabel,
+    t,
+    onArchived: (id: string) => { if (selected === id) setSelected(undefined) },
+    refresh: () => setAttempt(current => current + 1),
+  })
   const workspaceAccess = runtimeWorkspace === undefined ? undefined : {
     workspaceLabel: workspaceName(runtimeWorkspace.rootPath ?? runtimeWorkspace.path) ?? runtimeWorkspace.path,
     ...(runtimeExecution?.owner === null || runtimeExecution?.owner === undefined ? {} : { owner: { id: runtimeExecution.owner.sessionId, label: sessionLabel(runtimeExecution.owner.sessionId), running: sessions.byId[runtimeExecution.owner.sessionId]?.running === true } }),
@@ -763,6 +782,13 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
         displayVersionProject={displayVersionProject}
         detailTask={detailTask}
         detailAttemptRows={detailAttemptRows}
+        showArchivedSessions={sessionArchive.showArchived}
+        archivedSessionIds={archivedSessionIds}
+        archiveBlockedIds={archiveBlockedIds}
+        archiveBusySessionId={sessionArchive.busySessionId}
+        onToggleArchivedSessions={sessionArchive.toggleArchived}
+        onArchiveSession={sessionArchive.archive}
+        onUnarchiveSession={sessionArchive.restore}
         detailModules={detailModules}
         headerTitle={headerTitle}
         detailPriority={detailPriority}
@@ -839,10 +865,10 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
       collapsed={bottomCollapsed}
       pane={pane}
       audit={auditRows}
-      sessionsContent={<LoomSessionGraph t={t} taskTitle={detailTask?.title} workspaceLabel={workspaceDisplay} rows={activeSessionRows} execution={runtimeExecution} usageBySession={usageBySession} currentSessionId={runtimeSessionId} sessionStates={sessionStates} busySessionId={sessionBusy} onReleaseSession={id => { void releaseSessionExecution(id) }} onQueueSession={id => { void queueSessionExecution(id) }} onLeaveQueue={id => { void leaveSessionQueue(id) }} onOpenSession={id => { selectSession(id) }} />}
+      sessionsContent={<LoomSessionGraph t={t} taskTitle={detailTask?.title} workspaceLabel={workspaceDisplay} rows={activeSessionRows} execution={runtimeExecution} usageBySession={usageBySession} currentSessionId={runtimeSessionId} sessionStates={sessionStates} busySessionId={sessionArchive.busySessionId ?? sessionBusy} showArchived={sessionArchive.showArchived} archivedSessionIds={archivedSessionIds} onToggleArchived={sessionArchive.toggleArchived} onArchiveSession={sessionArchive.archive} onUnarchiveSession={sessionArchive.restore} onReleaseSession={id => { void releaseSessionExecution(id) }} onQueueSession={id => { void queueSessionExecution(id) }} onLeaveQueue={id => { void leaveSessionQueue(id) }} onOpenSession={id => { selectSession(id) }} />}
       runtimeContent={<LoomSessionActivity t={t} sessionId={runtimeSessionId} subagents={subagentRows} jobs={jobs} workspaceAccess={workspaceAccess} openSession={id => { selectSession(id) }} forkSession={() => { void forkSessionAction() }} forking={forking} forkError={forkError} canFork={runtimeSessionId !== undefined && detailTask !== undefined && detailWorkspace !== undefined} onClaim={() => { void claimWorkspace() }} claiming={claiming} claimError={claimError} />}
       graphContent={snapshot !== undefined && taskVersion !== undefined ? <LoomVersionGraph t={t} snapshot={snapshot} version={taskVersion} sessionLabel={sessionLabel} runningSessionIds={runningSessionIds} onSelectTask={selectTask} onRelease={(workspaceId, owner) => { void releaseOwner(workspaceId, owner) }} releasingWorkspaceId={releasingWorkspace} releaseError={releaseError} onReleaseAll={() => { void releaseAllStale() }} releasingAll={releasingAll} /> : undefined}
-      sessionCount={activeSessionRows.length}
+      sessionCount={activeSessionRows.filter(row => row.archived !== true).length}
       runningCount={activeSessionRows.filter(row => row.running).length}
       diffCount={diffCount}
       usage={selectedUsage}
@@ -862,6 +888,14 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
       snapshot={snapshot}
       actions={temporary}
       onClose={() => setTemporaryOpen(false)}
+    />
+    <LoomArchiveDialog
+      t={t}
+      subject={sessionArchive.confirm?.title}
+      busy={sessionArchive.confirmBusy}
+      failure={sessionArchive.confirmFailure}
+      onCancel={sessionArchive.cancelConfirm}
+      onConfirm={sessionArchive.confirmArchive}
     />
     <LoomFormDialogs createTaskWorkspace={createTaskWorkspace} registerTaskDirectory={registerTaskDirectory} t={t} create={create} edit={edit} versionStep={versionStep} currentProject={currentProject} currentVersion={currentVersion} currentVersionProject={currentVersionProject} displayProject={displayProject} displayVersion={displayVersion} displayVersionProject={displayVersionProject} detailTask={detailTask} snapshot={snapshot} agentPresets={agentPresets} createProject={createProject} createVersion={createVersion} createTask={createTask} updateProject={updateProject} updateVersion={updateVersion} updateTask={updateTask} repositoryBranches={repositoryBranches} chooseDirectory={chooseDirectory} addVersionWorkspace={addVersionWorkspace} renameVersionWorkspace={renameVersionWorkspace} removeVersionWorkspace={removeVersionWorkspace} directoryRequest={directoryRequest} finishDirectory={finishDirectory} listDirectory={listDirectory} treeDelete={treeDelete} treeDeleting={treeDeleting} treeDeleteFailure={treeDeleteFailure} confirmTreeDelete={confirmTreeDelete} setCreate={setCreate} setEdit={setEdit} setModalBusy={setModalBusy} setVersionStep={setVersionStep} setProject={setProject} setVersion={setVersion} setTask={setTask} setSelected={setSelected} setAttempt={setAttempt} setView={setView} setTreeDelete={setTreeDelete} setTreeDeleteFailure={setTreeDeleteFailure} navigate={navigate} />
   </div>

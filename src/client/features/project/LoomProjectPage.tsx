@@ -27,6 +27,8 @@ export interface LoomProjectPageProps {
   readonly onEditProject: () => void
   readonly onEditVersion: () => void
   readonly onSession: (sessionId: string) => void
+  /** Archived Sessions hidden from the recent list and the Session counter. */
+  readonly archivedSessionIds?: ReadonlySet<string> | undefined
 }
 
 /** One project-level counter shown in the top row. */
@@ -55,7 +57,7 @@ function updatedStamp(task: TaskRecord): number {
  * @param props - catalog, selected project/version and navigation intents.
  * @returns the project page.
  */
-export function LoomProjectPage({ t, snapshot, project, version, onProject, onVersion, onTask, onBoard, onNewTask, onNewVersion, onEditProject, onEditVersion, onSession }: LoomProjectPageProps): JSX.Element {
+export function LoomProjectPage({ t, snapshot, project, version, onProject, onVersion, onTask, onBoard, onNewTask, onNewVersion, onEditProject, onEditVersion, onSession, archivedSessionIds }: LoomProjectPageProps): JSX.Element {
   const pageProject = project ?? snapshot.projects[0]
   if (pageProject === undefined) return <main className={classes.page}><div className={classes.inner}><p className={classes.empty}>{t('project.empty')}</p></div></main>
   const versions = snapshot.versions.filter(candidate => candidate.projectId === pageProject.id)
@@ -66,7 +68,7 @@ export function LoomProjectPage({ t, snapshot, project, version, onProject, onVe
   const lockCommit = shortCommit(activeLock)
   const lockTime = activeLock === undefined ? undefined : formatTimestamp(activeLock.repositories[0]?.committedAt ?? activeLock.createdAt)
   const projectTasks = snapshot.tasks.filter(task => versions.some(candidate => candidate.id === task.versionId))
-  const projectSessions = projectTasks.reduce((total, task) => total + task.attempts.reduce((sum, attempt) => sum + attempt.sessionIds.length, 0), 0)
+  const projectSessions = projectTasks.reduce((total, task) => total + task.attempts.reduce((sum, attempt) => sum + attempt.sessionIds.filter(sessionId => archivedSessionIds?.has(sessionId) !== true).length, 0), 0)
   const projectRunning = projectTasks.filter(task => task.status === 'running').length
   const stats: readonly ProjectStat[] = [
     { id: 'subProjects', label: 'project.subProjects', value: pageProject.config.subProjects?.length ?? 0 },
@@ -85,7 +87,7 @@ export function LoomProjectPage({ t, snapshot, project, version, onProject, onVe
   const visibleBuckets = buckets.filter(bucket => bucket.count > 0)
   const distributionAria = `${t('project.taskDistribution')} · ${visibleBuckets.map(bucket => `${t(bucket.label)} ${String(bucket.count)}`).join(' · ')}`
   const recent = snapshot.audit.filter(entry => tasks.some(task => task.id === entry.taskId)).slice(-3).reverse()
-  const sessionRows = [...projectTasks].sort((left, right) => updatedStamp(right) - updatedStamp(left)).flatMap(task => task.attempts.flatMap((attempt, attemptIndex) => attempt.sessionIds.map(sessionId => ({ sessionId, task, versionName: versions.find(candidate => candidate.id === task.versionId)?.name ?? '—', round: attemptIndex + 1 })))).slice(0, 6)
+  const sessionRows = [...projectTasks].sort((left, right) => updatedStamp(right) - updatedStamp(left)).flatMap(task => task.attempts.flatMap((attempt, attemptIndex) => attempt.sessionIds.filter(sessionId => archivedSessionIds?.has(sessionId) !== true).map(sessionId => ({ sessionId, task, versionName: versions.find(candidate => candidate.id === task.versionId)?.name ?? '—', round: attemptIndex + 1 })))).slice(0, 6)
   return <main className={classes.page}>
     <div className={classes.inner}>
       <header className={classes.head}>

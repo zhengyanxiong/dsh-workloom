@@ -21,6 +21,8 @@ export interface LoomOverviewProps {
   readonly t: Translate
   readonly snapshot: CatalogSnapshot
   readonly activeWorkspaceCount: number
+  /** Archived Sessions hidden from the recent list and the Session counter. */
+  readonly archivedSessionIds?: ReadonlySet<string> | undefined
   readonly onTask: (task: TaskRecord) => void
   readonly onProject: (project: ProjectRecord) => void
   readonly onSession: (sessionId: string) => void
@@ -33,7 +35,7 @@ export interface LoomOverviewProps {
  * @param props - catalog snapshot and navigation intents.
  * @returns the overview page.
  */
-export function LoomOverview({ t, snapshot, activeWorkspaceCount, onTask, onProject, onSession, onBoard, onNewTask }: LoomOverviewProps): JSX.Element {
+export function LoomOverview({ t, snapshot, activeWorkspaceCount, archivedSessionIds, onTask, onProject, onSession, onBoard, onNewTask }: LoomOverviewProps): JSX.Element {
   const running = snapshot.tasks.filter(task => task.status === 'running')
   const review = snapshot.tasks.filter(task => task.status === 'review')
   const completed = snapshot.tasks.filter(task => task.status === 'completed')
@@ -41,13 +43,14 @@ export function LoomOverview({ t, snapshot, activeWorkspaceCount, onTask, onProj
   const projectById = new Map(snapshot.projects.map(project => [project.id, project]))
   const recentSessions = snapshot.tasks
     .flatMap(task => (task.attempts.at(-1)?.sessionIds ?? []).map(sessionId => ({ sessionId, task })))
+    .filter(({ sessionId }) => archivedSessionIds?.has(sessionId) !== true)
     .slice(-4)
     .reverse()
   const recentAudit = snapshot.audit.slice(-4).reverse()
   const recentCompleted = completed.slice(-3).reverse()
   const date = new Date().toLocaleDateString(undefined, { month: 'long', day: 'numeric', weekday: 'short' })
   const greeting = t(GREETING_KEYS[greetingPeriod(new Date().getHours())])
-  const sessionCount = snapshot.tasks.reduce((total, task) => total + task.attempts.reduce((sum, attempt) => sum + attempt.sessionIds.length, 0), 0)
+  const sessionCount = snapshot.tasks.reduce((total, task) => total + task.attempts.reduce((sum, attempt) => sum + attempt.sessionIds.filter(sessionId => archivedSessionIds?.has(sessionId) !== true).length, 0), 0)
   const projectName = (task: TaskRecord): string => {
     const projectId = snapshot.versions.find(version => version.id === task.versionId)?.projectId
     return projectId === undefined ? '' : projectById.get(projectId)?.config.name ?? ''

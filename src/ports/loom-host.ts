@@ -25,6 +25,21 @@ import type { AgentPresetOption } from '../api/agent.ts'
 import type { LoomJobsFace } from './loom-jobs.ts'
 
 /**
+ * One Session archive or restore attempt.
+ *
+ * A native archive is durable and reversible; a refusal keeps the Host code
+ * so the shell can distinguish active work from an unknown Session.
+ */
+export type LoomSessionArchiveOutcome =
+  | { readonly ok: true }
+  | {
+    readonly ok: false
+    /** Host code, e.g. `workspace/session-active` or `session/not-found`. */
+    readonly code: string
+    readonly message: string
+  }
+
+/**
  * Host catalog and native runtime capabilities owned by the registration context.
  */
 export interface LoomHostPort {
@@ -72,6 +87,29 @@ export interface LoomHostPort {
   readFile(sessionId: SessionId, path: string, offset: number, signal: AbortSignal): Promise<RemoteResult<WorkspaceFileText>>
   commitWorkspace(request: CommitWorkspaceRequest): Promise<RemoteResult<WorkspaceCommitResult>>
   forkSession(request: { readonly sessionId: SessionId; readonly increaseTitle?: boolean }): Promise<SessionId>
+  /**
+   * Read the registry-global archived Session ids, in archive order.
+   *
+   * Session lists hide these rows unless the user asks to see them; the set
+   * is shared with the native Workspace surfaces.
+   */
+  archivedSessionIds(): readonly SessionId[]
+  /**
+   * Archive one native Session so every Session list can hide it.
+   *
+   * @param sessionId - Session to archive.
+   * @param options - `stopActivity` also stops the Session's running work
+   *   instead of refusing the archive because of it.
+   * @returns the Host outcome, including the refusal code.
+   */
+  archiveSession(sessionId: SessionId, options: { readonly stopActivity: boolean }): Promise<LoomSessionArchiveOutcome>
+  /**
+   * Restore one archived Session to its recorded list position.
+   *
+   * @param sessionId - Session to unarchive.
+   * @returns the Host outcome, including the refusal code.
+   */
+  unarchiveSession(sessionId: SessionId): Promise<LoomSessionArchiveOutcome>
   /**
    * Native jobs service, when the jobs client plugin is installed.
    */
