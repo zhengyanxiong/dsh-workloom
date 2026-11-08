@@ -729,7 +729,7 @@ it('cleans a workspace after its Lock advances past the preparation baseline', a
   await exec('git', ['-C', repo, '-c', 'user.name=Loom Test', '-c', 'user.email=loom@example.invalid', 'commit', '-qm', 'main'])
   await exec('git', ['-C', repo, 'checkout', '-q', '-b', 'feature'])
   await writeFile(join(repo, 'file'), 'feature\n')
-  await exec('git', ['-C', repo, 'commit', '-qam', 'feature'])
+  await exec('git', ['-C', repo, '-c', 'user.name=Loom Test', '-c', 'user.email=loom@example.invalid', 'commit', '-qam', 'feature'])
   await exec('git', ['-C', repo, 'checkout', '-q', 'main'])
   const project = await call('createProject', { request: { name: 'Git', sources: [{ id: 'web', repo, path: 'web' }], modules: [] } }) as { id: string }
   const version = await call('createVersion', { request: { projectId: project.id, name: 'v', sources: [{ sourceId: 'web', ref: 'feature' }] } }) as { id: string }
