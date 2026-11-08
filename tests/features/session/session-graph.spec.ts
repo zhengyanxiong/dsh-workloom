@@ -31,13 +31,16 @@ it('shows fork relationships, queue position and latest activity time', () => {
 
 it('groups sessions by task and renders the execution gate owner and queue', () => {
   const html = renderToStaticMarkup(createElement(LoomSessionGraph, {
-    t, taskTitle: 'Task A', workspaceLabel: 'v0.1-auto', rows,
+    t, taskTitle: 'Task A', versionLabel: 'v1', workspaceLabel: 'v0.1-auto', rows,
     groups: [
       { taskId: 'a', taskTitle: 'Task A', rows },
       { taskId: 'b', taskTitle: 'Task B', rows: [{ id: 'other', label: 'Other session', running: false, updatedAt: Date.UTC(2026, 9, 31, 14, 20) }] },
     ],
     execution, currentSessionId: 'root', onOpenSession: () => {},
   }))
+  expect(html).toContain('v1')
+  expect(html).toContain('2 sessions')
+  expect(html).toContain('1 session')
   expect(html).toContain('Task A')
   expect(html).toContain('Task B')
   expect(html).toContain('Execution gate')

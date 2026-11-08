@@ -2,6 +2,7 @@
 import type { ReactNode } from 'react'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { ExecutionState } from 'dsh-workloom/types'
+import { IconBranchOutlineRegular } from '../../ui/primitives.ts'
 import { LoomTokenECG } from '../../ui/LoomTokenECG.tsx'
 import type { TokenUsageView } from '../../shared/projection.ts'
 import type { LoomKey } from '../../shared/locales.ts'
@@ -31,6 +32,8 @@ export interface LoomTaskSessionGroup {
 export interface LoomSessionGraphProps {
   readonly t: Translate
   readonly taskTitle?: string | undefined
+  /** Owning version label; rendered as the top level of the session tree. */
+  readonly versionLabel?: string | undefined
   readonly workspaceLabel?: string | undefined
   readonly rows: readonly LoomTaskSessionRow[]
   readonly groups?: readonly LoomTaskSessionGroup[] | undefined
@@ -59,11 +62,12 @@ function formatActivity(updatedAt: number): string {
  * @param props - session rows, task groups, execution ownership and open-session intent.
  * @returns the grouped session list and execution gate.
  */
-export function LoomSessionGraph({ t, taskTitle, workspaceLabel, rows, groups, execution, usageBySession, currentSessionId, onOpenSession }: LoomSessionGraphProps): ReactNode {
+export function LoomSessionGraph({ t, taskTitle, versionLabel, workspaceLabel, rows, groups, execution, usageBySession, currentSessionId, onOpenSession }: LoomSessionGraphProps): ReactNode {
   const allRows = groups === undefined || groups.length === 0 ? rows : groups.flatMap(group => group.rows)
   const waiting = execution?.waiting ?? []
   const owner = execution?.owner?.sessionId
   const byId = new Map(allRows.map(row => [row.id, row]))
+  const countLabel = (count: number): string => count === 1 ? t('bottom.sessionCountOne') : t('bottom.sessionCount', { count: String(count) })
   const visibleGroups: readonly LoomTaskSessionGroup[] = groups === undefined || groups.length === 0
     ? [{ taskId: 'active', taskTitle: taskTitle ?? '—', rows }]
     : groups
@@ -93,16 +97,23 @@ export function LoomSessionGraph({ t, taskTitle, workspaceLabel, rows, groups, e
       {allRows.length === 0
         ? <p className={classes.empty}>{t('sessionList.empty')}</p>
         : <div className={classes.list}>
+            {versionLabel !== undefined && <div className={classes.versionHead}>
+              <span className={classes.versionIcon} aria-hidden><IconBranchOutlineRegular size={12} /></span>
+              <span className={classes.versionName}>{versionLabel}</span>
+              <span className={classes.versionCount}>{countLabel(allRows.length)}</span>
+            </div>}
             {visibleGroups.map((group, groupIndex) => <div key={group.taskId}>
               <div className={`${classes.groupHead} ${groupIndex === 0 ? classes.groupHeadFirst : ''}`}>
                 <span className={classes.groupDot} aria-hidden />
                 <span className={classes.groupName}>{group.taskTitle}</span>
-                <span className={classes.groupCount}>{String(group.rows.length)} sessions</span>
+                <span className={classes.groupCount}>{countLabel(group.rows.length)}</span>
               </div>
-              {group.rows.filter(row => row.parentId === undefined || !group.rows.some(candidate => candidate.id === row.parentId)).map(row => {
-                const children = group.rows.filter(candidate => candidate.parentId === row.id)
-                return <div key={row.id}>{renderRow(row, 0)}{children.map(child => renderRow(child, 1))}</div>
-              })}
+              <div className={classes.groupRows}>
+                {group.rows.filter(row => row.parentId === undefined || !group.rows.some(candidate => candidate.id === row.parentId)).map(row => {
+                  const children = group.rows.filter(candidate => candidate.parentId === row.id)
+                  return <div key={row.id}>{renderRow(row, 0)}{children.map(child => renderRow(child, 1))}</div>
+                })}
+              </div>
             </div>)}
           </div>}
     </section>

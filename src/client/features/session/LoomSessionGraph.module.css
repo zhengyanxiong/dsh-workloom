@@ -59,14 +59,49 @@
   background: var(--color-surface);
 }
 
+.versionHead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-panel);
+  border-bottom: 1px solid var(--color-line);
+}
+
+.versionIcon {
+  display: inline-flex;
+  flex: none;
+  color: var(--color-muted);
+}
+
+.versionName {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  color: var(--color-ink);
+  font-size: var(--text-label-size);
+  font-weight: 600;
+  line-height: var(--text-label-lh);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.versionCount {
+  flex: none;
+  color: var(--color-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-nano-size);
+}
+
 .groupHead {
   display: flex;
   align-items: center;
   gap: var(--space-1);
   min-width: 0;
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-1) var(--space-3) var(--space-1) var(--space-6);
   border-top: 1px solid var(--color-line-soft);
-  background: var(--color-panel);
+  background: var(--color-surface);
 }
 
 .groupHeadFirst {
@@ -96,6 +131,11 @@
   color: var(--color-muted);
   font-family: var(--font-mono);
   font-size: var(--text-nano-size);
+}
+
+.groupRows {
+  margin-left: var(--space-6);
+  border-left: 1px solid var(--color-line-soft);
 }
 
 .sessionRow {
