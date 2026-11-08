@@ -123,7 +123,7 @@ export function LoomTopbar(props: LoomTopbarProps): JSX.Element {
         </div>}
       </div>
       {(route === 'task' || route === 'session') && <Tooltip label={t('top.contextPanel')} side="bottom" delayMs={300}>
-        <LoomButton variant="ghost" size="sm" iconOnly icon={<span className={classes.mirrorIcon}><IconPanelLeftOutlineRegular size={14} /></span>} aria-label={t('top.contextPanel')} aria-pressed={asideOpen} onClick={onToggleAside} />
+        <LoomButton className="loom-context-toggle" variant="ghost" size="sm" iconOnly icon={<span className={classes.mirrorIcon}><IconPanelLeftOutlineRegular size={14} /></span>} aria-label={t('top.contextPanel')} aria-pressed={asideOpen} onClick={onToggleAside} />
       </Tooltip>}
       <Tooltip label={t('top.settings')} side="bottom" delayMs={300}>
         <LoomButton variant={route === 'settings' ? 'secondary' : 'ghost'} size="sm" iconOnly icon={<IconSettingsOutlineRegular size={14} />} aria-label={t('top.settings')} aria-current={route === 'settings' ? 'page' : undefined} onClick={onOpenSettings} />
