@@ -448,13 +448,13 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
       return openDirectoryBrowser(startPath)
     }
   }
-  async function prepareAutoWorkspace(version: VersionRecord, project: ProjectRecord, input: { readonly parentPath: string; readonly name: string; readonly branchPrefix?: string | undefined }): Promise<RemoteResult<WorkspaceRecord>> {
+  async function prepareAutoWorkspace(version: VersionRecord, project: ProjectRecord, input: { readonly parentPath: string; readonly name: string; readonly branchPrefix?: string | undefined; readonly branchName?: string | undefined }): Promise<RemoteResult<WorkspaceRecord>> {
     if (snapshot === undefined) throw new Error(t('state.error'))
     const lock = snapshot.locks.filter(candidate => candidate.versionId === version.id).at(-1)
     if (lock === undefined) throw new Error(t('lock.generateFirst'))
     const parent = input.parentPath.replace(/\/+$/u, '')
     const root = `${parent}/${input.name}`
-    const branch = workspaceBranch(input.branchPrefix, input.name)
+    const branch = workspaceBranch(input.branchPrefix, input.name, input.branchName)
     const branches: Record<string, string> = {}
     const repositories = lock.repositories.map(entry => {
       const source = project.config.sources.find(candidate => candidate.id === entry.sourceId)

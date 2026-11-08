@@ -52,14 +52,25 @@ function labelHash(value: string): string {
 }
 
 /**
+ * Derive the default branch segment from a workspace label.
+ * @param name - workspace display name, possibly non-ASCII.
+ * @returns an ASCII segment, or a stable hash fallback for non-ASCII names.
+ */
+export function workspaceBranchSegment(name: string): string {
+  const raw = name.trim()
+  return branchSlug(raw) || `ws-${labelHash(raw)}`
+}
+
+/**
  * Build a valid Git branch name from a human-readable workspace label.
  * @param prefix - user branch prefix; defaults to `loom`.
  * @param name - workspace display name, possibly non-ASCII.
+ * @param branchName - optional user-entered branch segment overriding the label.
  * @returns an ASCII `prefix/name` branch that the Host accepts.
  */
-export function workspaceBranch(prefix: string | undefined, name: string): string {
+export function workspaceBranch(prefix: string | undefined, name: string, branchName?: string): string {
   const scope = branchSlug(prefix ?? 'loom') || 'loom'
-  const raw = name.trim()
-  const segment = branchSlug(raw) || `ws-${labelHash(raw)}`
+  const override = branchName?.trim() ?? ''
+  const segment = override === '' ? workspaceBranchSegment(name) : (branchSlug(override) || workspaceBranchSegment(name))
   return `${scope}/${segment}`
 }

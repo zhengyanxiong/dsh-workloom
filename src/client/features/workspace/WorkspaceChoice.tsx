@@ -5,7 +5,7 @@ import type { LoomKey } from '../../shared/locales.ts'
 import { Button } from '../../ui/primitives.ts'
 import { COLORS } from '../../ui/tokens.ts'
 import { failureReport, type FailureReport } from '../../ui/failure.ts'
-import { workspaceBranch } from './workspace-refs.ts'
+import { workspaceBranch, workspaceBranchSegment } from './workspace-refs.ts'
 import { LoomSelect } from '../../ui/Select.tsx'
 import { LoomSegmented } from '../../ui/Segmented.tsx'
 
@@ -24,6 +24,8 @@ export interface WorkspaceCreationInput {
   readonly parentPath: string
   readonly name: string
   readonly branchPrefix: string
+  /** Optional user-entered branch segment; absent uses the workspace label. */
+  readonly branchName?: string | undefined
 }
 
 /** Result of creating one workspace from the choice control. */
@@ -70,10 +72,12 @@ export function WorkspaceChoice({ t, ariaLabel, workspaces, value, onChange, cre
   const [parentPath, setParentPath] = useState('')
   const [name, setName] = useState(defaultName ?? '')
   const [branchPrefix, setBranchPrefix] = useState('loom')
+  const [branchName, setBranchName] = useState('')
   const [busy, setBusy] = useState(false)
   const [failure, setFailure] = useState<FailureReport>()
   const refs = sourceRefs?.map(source => `${source.name}@${source.ref}`).join(t('task.workspaceBaseRefSeparator')) ?? ''
-  const branchLabel = t('task.workspaceNewBranch').replace('{branch}', workspaceBranch(branchPrefix, name === '' ? 'workspace' : name))
+  const defaultBranchName = workspaceBranchSegment(name === '' ? 'workspace' : name)
+  const branchLabel = t('task.workspaceNewBranch').replace('{branch}', workspaceBranch(branchPrefix, name === '' ? 'workspace' : name, branchName))
   const createBaseHint = refs === ''
     ? t('task.workspaceBaseHintLock').replace('{prefix}', branchPrefix === '' ? 'loom' : branchPrefix).replace('{name}', name === '' ? '…' : name)
     : t('task.workspaceBaseHint').replace('{refs}', refs).replace('{prefix}', branchPrefix === '' ? 'loom' : branchPrefix).replace('{name}', name === '' ? '…' : name)
@@ -89,7 +93,7 @@ export function WorkspaceChoice({ t, ariaLabel, workspaces, value, onChange, cre
     if (create === undefined) return
     setBusy(true); setFailure(undefined)
     try {
-      const outcome = await create({ parentPath, name, branchPrefix })
+      const outcome = await create({ parentPath, name, branchPrefix, ...(branchName.trim() === '' ? {} : { branchName }) })
       if (!outcome.ok) { setFailure(outcome.error); return }
       setCreated(current => [...current, outcome.workspace])
       onCreated?.(outcome.workspace)
@@ -130,7 +134,6 @@ export function WorkspaceChoice({ t, ariaLabel, workspaces, value, onChange, cre
                   <strong style={{ fontWeight: 500, color: COLORS.text }}>{group.subProject}</strong>
                   <span> · {group.refs.map(reference => `${reference.name}@${reference.ref}`).join(t('task.workspaceBaseRefSeparator'))}</span>
                 </li>)}</ul>
-                <p style={{ ...hint, margin: 0 }}>{branchLabel}</p>
               </div>
             : <p style={hint}>{createBaseHint}</p>}
           <label style={field}><span>{t('task.workspaceParent')}</span>
@@ -145,6 +148,11 @@ export function WorkspaceChoice({ t, ariaLabel, workspaces, value, onChange, cre
           <label style={field}><span>{t('task.workspaceBranchPrefix')}</span>
             <input aria-label={t('task.workspaceBranchPrefix')} value={branchPrefix} onChange={event => setBranchPrefix(event.target.value)} style={inputStyle} />
           </label>
+          <label style={field}><span>{t('task.workspaceBranchName')}</span>
+            <input aria-label={t('task.workspaceBranchName')} value={branchName} placeholder={defaultBranchName} onChange={event => setBranchName(event.target.value)} style={inputStyle} />
+            <p style={{ ...hint, margin: 0 }}>{t('task.workspaceBranchNameHint')}</p>
+          </label>
+          <p style={{ ...hint, margin: 0 }}>{branchLabel}</p>
           {failure !== undefined && <p role="alert" style={alert}>{t(failure.message)}{failure.detail === undefined ? '' : ` · ${failure.detail}`}</p>}
           <div style={{ display: 'flex', gap: 8 }}>
             <Button type="button" variant="primary" disabled={busy || parentPath.trim() === '' || name.trim() === ''} onClick={() => { void submit() }}>

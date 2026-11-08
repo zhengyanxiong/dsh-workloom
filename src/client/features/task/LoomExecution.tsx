@@ -405,7 +405,7 @@ function StartForm({ t, task, snapshot, versionId, agentPresets = [], actions }:
     try {
       const parent = input.parentPath.replace(/\/+$/u, '')
       const root = `${parent}/${input.name.trim()}`
-      const branch = workspaceBranch(input.branchPrefix, input.name)
+      const branch = workspaceBranch(input.branchPrefix, input.name, input.branchName)
       const branches: Record<string, string> = {}
       const repositories = lock.repositories.map(entry => {
         const source = project.config.sources.find(candidate => candidate.id === entry.sourceId)

@@ -115,6 +115,7 @@ it('creates an independent workspace from the execution panel for concurrent tas
   await act(async () => { createTab?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true })) })
   expect(container.querySelector(`input[aria-label="${en['task.workspaceParent']}"]`)).not.toBeNull()
   expect(container.querySelector(`input[aria-label="${en['task.workspaceName']}"]`)).not.toBeNull()
+  expect(container.querySelector(`input[aria-label="${en['task.workspaceBranchName']}"]`)).not.toBeNull()
   expect(container.textContent).toContain(en['task.workspaceCreateHint'])
   expect(container.textContent).toContain(en['task.workspaceConcurrentHint'])
 })

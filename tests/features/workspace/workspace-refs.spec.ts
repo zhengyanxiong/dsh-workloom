@@ -64,4 +64,6 @@ it('derives an ASCII Git branch from a non-ASCII workspace name', () => {
   expect(workspaceBranch('loom_test', '测试工作区')).toBe(branch)
   expect(workspaceBranch('loom', 'race-condition')).toBe('loom/race-condition')
   expect(workspaceBranch('bad prefix', 'feature')).toBe('bad-prefix/feature')
+  expect(workspaceBranch('loom_test', '测试工作区', 'feature-concurrency')).toBe('loom_test/feature-concurrency')
+  expect(workspaceBranch('loom_test', '测试工作区', '中文覆盖')).toBe(branch)
 })
