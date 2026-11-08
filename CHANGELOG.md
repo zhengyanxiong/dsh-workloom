@@ -8,6 +8,51 @@ Releases start at 0.1.8 in this repository.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-08
+
+### Added
+
+- A reworked workbench shell: Overview, Kanban, task document, native Session,
+  project and Settings routes, plus four themes (Paper, White, Blue, Dark) with
+  a Follow DSH mode, density, body-size and reduced-motion controls.
+- Project pages, version details and version context with Lock history, task
+  occupancy and session round cards.
+- Task workspace selection can reuse a ready workspace, create a managed
+  worktree with editable branch prefix/name, or register an existing directory
+  as a direct workspace without copying files.
+- Per-task Agent preset overrides that survive the Remote boundary and apply to
+  Sessions created for that task.
+- The bottom session dock is bound to the active task and supports releasing
+  execution, joining the wait queue, leaving it and acquiring access inline.
+- Lock repository commit timestamps, including startup backfill for catalogs
+  created before the field existed.
+- Ctrl/Cmd+K command palette, project/session summaries and README screenshots.
+
+### Changed
+
+- The Host, domain, platform and client layers are split into modules; the
+  shell state, forms, sidebar, route content and feature domains no longer live
+  in one `LoomPanel`.
+- Workspace branch names are sanitized to valid ASCII Git names derived from the
+  workspace label.
+- On compact widths the context rail, its resizer and its top-bar toggle are
+  hidden so the main column stays readable.
+- Generated Typert schemas carry workspace selection, Agent preset and commit
+  timestamp fields across the Remote boundary.
+
+### Fixed
+
+- Creating a task no longer loses the selected workspace when the task record or
+  snapshot arrives asynchronously; the start form adopts the task workspace.
+- Cleaning a workspace after its Lock baseline advanced no longer reports old
+  baseline commits as unpushed or uncommitted workspace changes.
+- Unicode workspace names no longer produce invalid Git branches or a misleading
+  “existing code directory is invalid” error.
+- The Paper-theme context rail uses the same side-panel surface as the left
+  sidebar, and version baselines show the pinned commit time.
+- Workspace creation and directory registration no longer reset the open task
+  form when the catalog snapshot refreshes.
+
 ## [0.2.1] - 2026-11-02
 
 ### Added

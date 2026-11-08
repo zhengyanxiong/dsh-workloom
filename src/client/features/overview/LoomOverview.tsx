@@ -104,7 +104,7 @@ export function LoomOverview({ t, snapshot, activeWorkspaceCount, onTask, onProj
                 return <button key={project.id} type="button" className={classes.project} data-loom-hover="card" onClick={() => onProject(project)}>
                   <span className={classes.projectHead}><span className={classes.projectMark}>{project.config.name.slice(0, 1)}</span><span className={classes.projectName}>{project.config.name}</span></span>
                   <span className={classes.projectSub}>{sourceName(project)}</span>
-                  <span className={classes.projectStats}><span>{projectTasks.length} {t('nav.tasks')} · {project.config.sources.length} {t('source.repo')}</span></span>
+                  <span className={classes.projectStats}><span>{projectTasks.length} {t('nav.tasks')} · {project.config.sources.length} {t('project.repositories')}</span></span>
                   <span className={classes.progress}><span className={classes.progressFill} style={{ width: `${String(Math.min(100, projectTasks.length * 8 + 8))}%` }} /></span>
                 </button>
               })}

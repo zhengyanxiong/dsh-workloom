@@ -10,6 +10,16 @@ Workloom 复用 DSH 原生的会话、Diff、输入框、模型选择、审批�
 
 [English](#english) · [更新日志](CHANGELOG.md) · [贡献指南](CONTRIBUTING.md)
 
+## 截图 / Screenshots
+
+| 总览 / Overview | 看板 / Kanban |
+| --- | --- |
+| <img src="https://raw.githubusercontent.com/zhengyanxiong/dsh-workloom/main/assets/screenshots/overview.png" width="100%" alt="Workloom overview: projects, tasks and sessions"> | <img src="https://raw.githubusercontent.com/zhengyanxiong/dsh-workloom/main/assets/screenshots/kanban.png" width="100%" alt="Workloom kanban board with multi-project tasks"> |
+| **任务工作台 / Task workbench** | **主题与设置 / Themes & Settings** |
+| <img src="https://raw.githubusercontent.com/zhengyanxiong/dsh-workloom/main/assets/screenshots/task-session.png" width="100%" alt="A native Agent session opened from a Workloom task with Lock and version context"> | <img src="https://raw.githubusercontent.com/zhengyanxiong/dsh-workloom/main/assets/screenshots/settings.png" width="100%" alt="Workloom appearance themes and workspace preferences"> |
+
+> 截图使用演示项目 “Nimbus Storefront” 和 “Orbit Console”；Screenshots use the demo projects “Nimbus Storefront” and “Orbit Console”.
+
 ## 它能做什么
 
 - **多项目管理**：一个工作台管理多个项目，每个项目可以包含多个本地 Git 仓库和业务模块。
@@ -27,14 +37,14 @@ Workloom 复用 DSH 原生的会话、Diff、输入框、模型选择、审批�
 从 npm 安装：
 
 ```bash
-dsh plugin --profile web add dsh-workloom@0.2.1
+dsh plugin --profile web add dsh-workloom@0.3.0
 dsh --profile web
 ```
 
 Desktop：
 
 ```bash
-dsh plugin --profile desktop add dsh-workloom@0.2.1
+dsh plugin --profile desktop add dsh-workloom@0.3.0
 ```
 
 然后重启 DSH。Web 端仅刷新浏览器不够，Host 和 Client 都需要重新加载插件。
@@ -44,13 +54,13 @@ dsh plugin --profile desktop add dsh-workloom@0.2.1
 > 本机如果配置了只读镜像（例如 `registry.npmmirror.com`），镜像可能尚未同步新版本。安装时临时使用官方 registry：
 >
 > ```bash
-> npm_config_registry=https://registry.npmjs.org dsh plugin --profile web add dsh-workloom@0.2.1
+> npm_config_registry=https://registry.npmjs.org dsh plugin --profile web add dsh-workloom@0.3.0
 > ```
 
 如果 npm 不可用，也可以从 [Releases](https://github.com/zhengyanxiong/dsh-workloom/releases) 下载 `dsh-workloom-<版本>.tgz` 离线安装（就是 npm 上发布的同一个包）：
 
 ```bash
-dsh plugin --profile web add file:/path/to/dsh-workloom-0.2.1.tgz
+dsh plugin --profile web add file:/path/to/dsh-workloom-0.3.0.tgz
 ```
 
 ## 快速开始
@@ -125,7 +135,7 @@ Highlights:
 Requirements: DSH `>=0.2.1-rc.2 <0.3.0`, Node.js `>=22.19`.
 
 ```bash
-dsh plugin --profile web add dsh-workloom@0.2.1
+dsh plugin --profile web add dsh-workloom@0.3.0
 dsh --profile web
 ```
 
@@ -133,7 +143,7 @@ When the registry is unavailable, install the same package from the tarball
 attached to a GitHub Release:
 
 ```bash
-dsh plugin --profile web add file:/path/to/dsh-workloom-0.2.1.tgz
+dsh plugin --profile web add file:/path/to/dsh-workloom-0.3.0.tgz
 ```
 
 Development:
