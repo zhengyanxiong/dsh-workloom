@@ -10,6 +10,8 @@ export interface Lock {
     readonly sourceId: Branded<'loom.source'>
     readonly commit: string
     readonly subProjectId?: Branded<'loom.subproject'> | undefined
+    /** Commit timestamp resolved when the Lock was generated. */
+    readonly committedAt?: string | undefined
   }[]
   /**
    * ISO 8601 generation time when the Host recorded one. Absent on Locks

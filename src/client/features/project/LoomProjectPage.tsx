@@ -3,7 +3,7 @@ import { IconBranchOutlineRegular, IconFolderOpenRegular, IconNewChatOutlineRegu
 import type { CatalogSnapshot, ProjectRecord, TaskRecord, VersionRecord } from 'dsh-workloom/types'
 import { ACTOR_LABEL, AUDIT_LABEL } from '../../ui/labels.ts'
 import { STATUS_META } from '../../ui/status.ts'
-import { shortCommit } from '../../shared/format.ts'
+import { formatTimestamp, shortCommit } from '../../shared/format.ts'
 import { LoomButton } from '../../ui/Button.tsx'
 import { LoomSelect } from '../../ui/Select.tsx'
 import { absoluteTime, relativeTime } from '../../shared/time.ts'
@@ -64,6 +64,7 @@ export function LoomProjectPage({ t, snapshot, project, version, onProject, onVe
   const workspaces = activeVersion === undefined ? [] : snapshot.workspaces.filter(workspace => workspace.versionId === activeVersion.id)
   const activeLock = activeVersion === undefined ? undefined : snapshot.locks.filter(candidate => candidate.versionId === activeVersion.id).at(-1)
   const lockCommit = shortCommit(activeLock)
+  const lockTime = activeLock === undefined ? undefined : formatTimestamp(activeLock.repositories[0]?.committedAt ?? activeLock.createdAt)
   const projectTasks = snapshot.tasks.filter(task => versions.some(candidate => candidate.id === task.versionId))
   const projectSessions = projectTasks.reduce((total, task) => total + task.attempts.reduce((sum, attempt) => sum + attempt.sessionIds.length, 0), 0)
   const projectRunning = projectTasks.filter(task => task.status === 'running').length
@@ -120,7 +121,7 @@ export function LoomProjectPage({ t, snapshot, project, version, onProject, onVe
         <div className={classes.main}>
           <section className={classes.card}>
             <div className={classes.versionHead}><h2 className={classes.versionTitle}>{activeVersion?.name ?? t('project.noVersion')}</h2><span className={classes.sectionHint}>{t('project.currentVersion')}</span><span className={classes.versionActions}><LoomButton variant="ghost" size="sm" onClick={onEditVersion} disabled={activeVersion === undefined}>{t('version.edit')}</LoomButton><LoomButton variant="ghost" size="sm" icon={<IconPlusOutlineRegular size={12} />} onClick={onNewTask} disabled={activeVersion === undefined}>{t('top.newTask')}</LoomButton></span></div>
-            <p className={classes.versionSub}>{workspaces.length} {t('project.workspaces')}{lockCommit !== undefined && <span> · {t('lock.title')} <code className={classes.versionCommit}>{lockCommit}</code></span>}</p>
+            <p className={classes.versionSub}>{workspaces.length} {t('project.workspaces')}{lockCommit !== undefined && <span> · {t('lock.title')} <code className={classes.versionCommit}>{lockCommit}</code>{lockTime !== undefined && <span className={classes.versionCommitTime}> · {lockTime}</span>}</span>}</p>
             <p className={classes.description}>{activeVersion?.description ?? t('project.noDescription')}</p>
             <div className={classes.workspaceList}>{workspaces.map(workspace => <div key={workspace.id} className={classes.workspace}><span className={classes.workspaceName}>{workspace.label ?? workspace.id.slice(0, 8)}</span><span className={classes.workspacePath}>{workspace.rootPath ?? workspace.path ?? '—'}</span><span className={`${classes.workspaceStatus} ${workspace.preparation?.status === 'failed' ? classes.workspaceStatusFailed : workspace.preparation?.status === 'ready' ? '' : classes.workspaceStatusPending}`}><span className={classes.statusDot} style={{ background: workspace.preparation?.status === 'failed' ? 'var(--color-danger)' : workspace.preparation?.status === 'ready' ? 'var(--color-success)' : 'var(--color-warning)' }} />{workspace.preparation?.status === 'failed' ? t('project.workspaceGap') : workspace.preparation?.status === 'ready' ? t('project.ready') : t('project.workspacePending')}</span></div>)}{workspaces.length === 0 && <p className={classes.hint}>{t('project.noWorkspaces')}</p>}</div>
           </section>

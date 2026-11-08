@@ -9,7 +9,7 @@ import type { LoomRoute } from './router.ts'
 import type { ShellFilter, TaskAttemptRow } from '../shared/projection.ts'
 import type { ExecutionActions } from '../features/task/LoomExecution.tsx'
 import type { LoomPreferences } from '../features/settings/LoomSettings.tsx'
-import { shortCommit } from '../shared/format.ts'
+import { formatTimestamp, shortCommit } from '../shared/format.ts'
 import type { deriveVersionContext } from '../../shared/version-context.ts'
 import { LoomOverview } from '../features/overview/LoomOverview.tsx'
 import { LoomProjectPage } from '../features/project/LoomProjectPage.tsx'
@@ -174,6 +174,7 @@ export function LoomRouteContent(props: LoomRouteContentProps): JSX.Element {
               priority={detailPriority}
               modules={detailModules}
               lock={shortCommit(detailTask?.attempts.at(-1)?.lock)}
+              lockTime={(() => { const lock = detailTask?.attempts.at(-1)?.lock; return lock === undefined ? undefined : formatTimestamp(lock.repositories[0]?.committedAt ?? lock.createdAt) })()}
               taskStatus={detailTask?.status}
               onDetails={detailTask === undefined ? undefined : () => setSelected(undefined)}
               onClose={() => setSelected(undefined)}

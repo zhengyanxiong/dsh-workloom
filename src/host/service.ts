@@ -25,7 +25,7 @@ InspectWorkspaceRequest, WorkspaceInspection, CommitWorkspaceRequest, WorkspaceC
 } from '../types.ts'
 import type { Lock } from '../domain/task.ts'
 import { ExecutionError, type ExecutionState } from '../domain/execution.ts'
-import { resolveCommit } from '../git/workspace.ts'
+import { resolveCommit, resolveCommitTime } from '../git/workspace.ts'
 import type {} from './events.ts'
 import type { LoomAgentRegistry } from './events.ts'
 import {
@@ -99,7 +99,7 @@ export default class LoomService extends TypertRemoteService {
     this.operations = new RemoteOperations(this.workspacesDir, this.versionContext)
     mkdirSync(dirname(admitted.catalogFile), { recursive: true })
     mkdirSync(this.workspacesDir, { recursive: true })
-    this.catalog = createCatalog(admitted.catalogFile, resolveCommit)
+    this.catalog = createCatalog(admitted.catalogFile, resolveCommit, resolveCommitTime)
     // Cache the loaded snapshot for synchronous Session and Agent lifecycle listeners.
     void this.catalog.then(catalog => { this.refreshSnapshot(catalog) }, () => undefined)
     ctx.effect(() => async () => {

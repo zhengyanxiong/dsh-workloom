@@ -14,7 +14,7 @@ import { COLORS } from '../../ui/tokens.ts'
 import { failureReport, thrownFailureReport } from '../../ui/failure.ts'
 import type { FailureReport } from '../../ui/failure.ts'
 import { sectionTitle } from '../../ui/styles.ts'
-import { shortCommit } from '../../shared/format.ts'
+import { formatTimestamp, shortCommit } from '../../shared/format.ts'
 import { PRIORITY_META, STATUS_META } from '../../ui/status.ts'
 import { TaskStatusDot } from '../../ui/LoomStatusDot.tsx'
 import { LoomWorkspaceOpen } from '../workspace/LoomWorkspaceOpen.tsx'
@@ -121,11 +121,12 @@ function repoNameOf(path: string): string {
 }
 
 /** One repository's Lock and version ref; the current branch stays in DSH's native Git panel. */
-function RepositoryGraph({ t, source, versionRef, lock }: {
+function RepositoryGraph({ t, source, versionRef, lock, committedAt }: {
   t: Translate
   source: SourceConfig
   versionRef: string | undefined
   lock: string | undefined
+  committedAt: string | undefined
 }) {
   return <div style={gitRepo}>
     <div style={repoHead}>
@@ -136,6 +137,7 @@ function RepositoryGraph({ t, source, versionRef, lock }: {
       <span style={{ ...dot, background: lock === undefined ? COLORS.borderStrong : COLORS.text }} />
       <span style={graphLabel}>{t('lock.title')}</span>
       <span style={{ ...mono, color: lock === undefined ? COLORS.faint : COLORS.text }} title={lock}>{lock ?? t('ctx.noLock')}</span>
+      {committedAt !== undefined && <span style={{ marginLeft: 'auto', color: COLORS.faint, fontFamily: 'ui-monospace, monospace', fontSize: 'var(--text-micro-size)', whiteSpace: 'nowrap' }}>{formatTimestamp(committedAt)}</span>}
     </div>
     <div style={{ ...graphRow, paddingLeft: 10 }}>
       <span style={{ ...dot, background: COLORS.accent }} />
@@ -234,7 +236,9 @@ export function LoomContextPanel({ t, snapshot, project, version, task, versionC
   }, [workspace?.id, loadBranches])
   const projectSource = (sourceId: string) => project?.config.sources.find(source => source.id === sourceId)
   const versionRef = (source: SourceConfig): string | undefined => version?.sources.find(entry => entry.sourceId === source.id)?.ref
-  const lockCommit = (source: SourceConfig): string | undefined => latestLock?.repositories.find(entry => entry.sourceId === source.id)?.commit.slice(0, 7)
+  const lockEntry = (source: SourceConfig) => latestLock?.repositories.find(entry => entry.sourceId === source.id)
+  const lockCommit = (source: SourceConfig): string | undefined => lockEntry(source)?.commit.slice(0, 7)
+  const lockTime = (source: SourceConfig): string | undefined => lockEntry(source)?.committedAt ?? latestLock?.createdAt
   const moreItems: MenuEntry[] = []
   if (onEditProject !== undefined) moreItems.push({ id: 'edit-project', label: t('project.edit'), icon: <IconEditOutlineRegular /> })
   if (onNewVersion !== undefined) moreItems.push({ id: 'new-version', label: t('version.new'), icon: <IconPlusOutlineRegular /> })
@@ -279,7 +283,7 @@ export function LoomContextPanel({ t, snapshot, project, version, task, versionC
       <section style={section}>
         <SectionHeading title={t('ctx.baseline')} action={<span style={{ ...hint, fontFamily: 'ui-monospace, monospace' }}>{t('ctx.lockRepos').replace('{count}', String(count))}</span>} />
         {project.config.sources.map(source => <RepositoryGraph key={source.id} t={t} source={source}
-          versionRef={versionRef(source)} lock={lockCommit(source)} />)}
+          versionRef={versionRef(source)} lock={lockCommit(source)} committedAt={lockTime(source)} />)}
         {version !== undefined && <div style={{ marginTop: 2 }}>
           <LockButton t={t} version={version} generate={generateLock} onCreated={onLockChanged} existing={latestLock !== undefined} hint />
           <p style={hint}>{t('ctx.baselineHint')}</p>

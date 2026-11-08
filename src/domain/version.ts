@@ -24,6 +24,7 @@ export interface ResolvedLock {
     readonly sourceId: SourceConfig['id']
     readonly commit: string
     readonly subProjectId?: SubProjectConfig['id'] | undefined
+    readonly committedAt?: string | undefined
   }[]
 }
 /** Stable version failure with a descriptive message. */
@@ -37,6 +38,7 @@ export async function resolveLock(
   version: VersionConfig,
   lockId: string,
   resolveCommit: (repo: string, ref: string) => Promise<string>,
+  resolveCommitTime?: ((repo: string, commit: string) => Promise<string | undefined>) | undefined,
 ): Promise<ResolvedLock> {
   const versionId = version.id
   const targets = version.targets
@@ -72,10 +74,12 @@ export async function resolveLock(
   for (const { source, ref, subProjectId } of selected) {
     const commit = await resolveCommit(source.repo, ref)
     if (!/^[0-9a-f]{40}(?:[0-9a-f]{24})?$/u.test(commit)) throw versionError('invalid_commit', `the resolver returned an invalid commit for ${source.id}`)
+    const committedAt = await resolveCommitTime?.(source.repo, commit).catch(() => undefined)
     repositories.push(Object.freeze({
       sourceId: source.id,
       commit,
       ...(subProjectId === undefined ? {} : { subProjectId }),
+      ...(committedAt === undefined ? {} : { committedAt }),
     }))
   }
   return Object.freeze({

@@ -45,6 +45,8 @@
   border-color: color-mix(in srgb, var(--color-accent) 30%, transparent);
 }
 
+.lockTime { color: var(--color-muted); font-family: var(--font-mono); }
+
 .pillLock {
   font-family: var(--font-mono);
   font-size: var(--text-nano-size);

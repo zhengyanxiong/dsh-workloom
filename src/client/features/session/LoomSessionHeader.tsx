@@ -18,6 +18,7 @@ export interface LoomSessionHeaderProps {
   readonly priority: TaskPriority | undefined
   readonly modules: readonly string[]
   readonly lock: string | undefined
+  readonly lockTime?: string | undefined
   readonly taskStatus: TaskStatus | undefined
   readonly onDetails: (() => void) | undefined
   readonly onClose: () => void
@@ -29,14 +30,14 @@ export interface LoomSessionHeaderProps {
  * @param props - session title, task context and navigation actions.
  * @returns the session header.
  */
-export function LoomSessionHeader({ t, title, projectName, versionName, priority, modules, lock, taskStatus, onDetails, onClose }: LoomSessionHeaderProps): JSX.Element {
+export function LoomSessionHeader({ t, title, projectName, versionName, priority, modules, lock, lockTime, taskStatus, onDetails, onClose }: LoomSessionHeaderProps): JSX.Element {
   return <div className={classes.header}>
     <span className={classes.title}>{title}</span>
     {projectName !== undefined && <span className={`${classes.pill} ${classes.pillProject}`}>{projectName}</span>}
     {versionName !== undefined && <span className={`${classes.pill} ${classes.pillVersion}`}>{versionName}</span>}
     {priority !== undefined && <span className={classes.pill} style={{ color: PRIORITY_META[priority].color }}>{t(PRIORITY_META[priority].key)}</span>}
     {modules.slice(0, 2).map((module, index) => <span key={`${module}-${String(index)}`} className={classes.pill}>{module}</span>)}
-    {lock !== undefined && <span className={`${classes.pill} ${classes.pillLock}`}>{t('ctx.lockRepos').replace('{count}', '')} {lock}</span>}
+    {lock !== undefined && <span className={`${classes.pill} ${classes.pillLock}`} title={lockTime}>{t('ctx.lockRepos').replace('{count}', '')} {lock}{lockTime !== undefined && <span className={classes.lockTime}> · {lockTime}</span>}</span>}
     {taskStatus !== undefined && <span className={classes.pill}>{t('task.status')}: {t(STATUS_META[taskStatus].key)}</span>}
     <span className={classes.actions}>
       {onDetails !== undefined && <LoomButton size="sm" variant="ghost" onClick={onDetails}>{t('task.details')}</LoomButton>}

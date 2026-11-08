@@ -25,5 +25,6 @@ it('keeps per-task Agent preset fields in the generated Typert schemas', () => {
     const taskRecord = source.slice(source.indexOf("describe('Version-bound workspace selected when the task was created.'),"))
     expect(taskRecord.slice(0, 260), name).toContain("'agentPreset'")
     expect(source).toContain('"agentPreset":{"type":"string"')
+    expect(source).toContain("'committedAt'")
   }
 })

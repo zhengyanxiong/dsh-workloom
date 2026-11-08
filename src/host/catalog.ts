@@ -27,6 +27,7 @@ export { parseCatalog } from './catalog/admission.ts'
 import type { CatalogSnapshot, WorkspaceCleanup, WorkspacePreparation, WorkspaceRecord } from '../api/records.ts'
 export type { CatalogSnapshot, ProjectRecord, TaskPriority, TaskRecord, TemporarySessionRecord, VersionRecord, WorkspaceCleanup, WorkspaceCleanupRepository, WorkspaceCleanupRepositoryStatus, WorkspaceCleanupStatus, WorkspacePreparation, WorkspacePreparationRepository, WorkspacePreparationRepositoryStatus, WorkspacePreparationStatus, WorkspaceRecord } from '../api/records.ts'
 import type { AuditEntry, AuditEvent } from '../domain/audit.ts'
+import type { Lock } from '../domain/task.ts'
 import {
   confirmStop, createExecution, releaseExecution as releaseExecutionState, type ExecutionState,
 } from '../domain/execution.ts'
@@ -36,7 +37,7 @@ import {
  * @param resolveCommit - Local repository ref resolver; failures abort Lock generation.
  * @returns initialized catalog with instance-serialized transactions (not cross-process locking).
  */
-export async function createCatalog(file: string, resolveCommit: (repo: string, ref: string) => Promise<string>): Promise<Catalog> {
+export async function createCatalog(file: string, resolveCommit: (repo: string, ref: string) => Promise<string>, resolveCommitTime?: (repo: string, commit: string) => Promise<string | undefined>): Promise<Catalog> {
   const store = createJsonStore<CatalogSnapshot>({ file, version: 2, parse: parseCatalog, migrate: value => migrateCatalog(value) })
   let state: CatalogSnapshot
   try { state = await store.load() } catch (error) {
@@ -167,6 +168,7 @@ export async function createCatalog(file: string, resolveCommit: (repo: string, 
   const projectVersion = {
     transaction: <T,>(operation: (draft: CatalogSnapshot) => Promise<T> | T): Promise<T> => transaction(operation),
     resolveCommit,
+    ...(resolveCommitTime === undefined ? {} : { resolveCommitTime }),
     recordAudit,
   }
 
@@ -212,6 +214,57 @@ export async function createCatalog(file: string, resolveCommit: (repo: string, 
     createTask: (versionId, title, options) => createTask(taskCrud, versionId, title, options),
     updateTask: (taskId, title, options) => updateTask(taskCrud, taskId, title, options),
     deleteTask: taskId => deleteTask(taskCrud, taskId),
+  }
+  // Existing Locks predate the per-repository commit timestamp. Resolve it
+  // lazily once at startup so the UI can show a real commit time without
+  // requiring every version to regenerate its Lock.
+  if (resolveCommitTime !== undefined) {
+    try {
+      const missing = state.locks.flatMap(lock => lock.repositories
+        .filter(repository => repository.committedAt === undefined)
+        .map(repository => ({ lockId: lock.id, repository })))
+      const times = new Map<string, string>()
+      const cache = new Map<string, string | undefined>()
+      for (const entry of missing) {
+        const lock = state.locks.find(candidate => candidate.id === entry.lockId)
+        const version = lock === undefined ? undefined : state.versions.find(candidate => candidate.id === lock.versionId)
+        const project = version === undefined ? undefined : state.projects.find(candidate => candidate.id === version.projectId)
+        const source = project?.config.sources.find(candidate => candidate.id === entry.repository.sourceId)
+        if (source === undefined) continue
+        const key = `${source.repo}\u0000${entry.repository.commit}`
+        let committedAt = cache.get(key)
+        if (!cache.has(key)) {
+          committedAt = await resolveCommitTime(source.repo, entry.repository.commit).catch(() => undefined)
+          cache.set(key, committedAt)
+        }
+        if (committedAt !== undefined) times.set(`${entry.lockId}\u0000${entry.repository.sourceId}`, committedAt)
+      }
+      if (times.size > 0) {
+        await transaction(draft => {
+          const updated = new Map<string, Lock>()
+          draft.locks = draft.locks.map(lock => {
+            const next: Lock = {
+              ...lock,
+              repositories: lock.repositories.map(repository => {
+                const committedAt = times.get(`${lock.id}\u0000${repository.sourceId}`)
+                return committedAt === undefined ? repository : { ...repository, committedAt }
+              }),
+            }
+            updated.set(lock.id, next)
+            return next
+          })
+          // Attempts embed an immutable copy of their round's Lock; keep those
+          // copies equal to the catalog record so admission stays valid.
+          draft.tasks = draft.tasks.map(task => ({
+            ...task,
+            attempts: task.attempts.map(attempt => {
+              const lock = updated.get(attempt.lock.id)
+              return lock === undefined ? attempt : { ...attempt, lock }
+            }),
+          }))
+        })
+      }
+    } catch { /* legacy timestamps are best-effort; the Lock commit remains authoritative */ }
   }
   return api
 }

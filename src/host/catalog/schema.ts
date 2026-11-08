@@ -40,7 +40,7 @@ export const versionSchema = z.strictObject({
   sources: z.array(sourceSchema).min(1),
   targets: z.array(targetSchema).min(1).optional(),
 })
-const lockSchema = z.strictObject({ id: id<'loom.lock'>(), versionId: id<'loom.version'>(), repositories: z.array(z.strictObject({ sourceId: id<'loom.source'>(), commit: z.string().regex(/^[0-9a-f]{40}(?:[0-9a-f]{24})?$/u), subProjectId: id<'loom.subproject'>().optional() })).min(1), createdAt: isoTimestamp.optional() })
+const lockSchema = z.strictObject({ id: id<'loom.lock'>(), versionId: id<'loom.version'>(), repositories: z.array(z.strictObject({ sourceId: id<'loom.source'>(), commit: z.string().regex(/^[0-9a-f]{40}(?:[0-9a-f]{24})?$/u), subProjectId: id<'loom.subproject'>().optional(), committedAt: isoTimestamp.optional() })).min(1), createdAt: isoTimestamp.optional() })
 const status = z.enum(['running', 'review', 'completed', 'failed'])
 const taskPrioritySchema = z.enum(['low', 'normal', 'high'])
 const evidenceList = z.array(z.string().max(500)).max(50)

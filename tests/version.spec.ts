@@ -54,3 +54,15 @@ it('captures repository configuration before asynchronous resolution', async () 
 it('rejects duplicate repository selections before resolution', async () => {
   await expect(resolveLock(project, { id: 'v1', sources: [{ sourceId: sourceId('web'), ref: 'main' }, { sourceId: sourceId('web'), ref: 'other' }] }, 'l', async () => 'a'.repeat(40))).rejects.toThrow('duplicate_source')
 })
+
+
+it('records the pinned commit timestamp alongside each repository', async () => {
+  const lock = await resolveLock(
+    project,
+    { id: 'v1', sources: [{ sourceId: sourceId('web'), ref: 'main' }] },
+    'l',
+    async () => 'a'.repeat(40),
+    async () => '2026-11-01T14:32:00+08:00',
+  )
+  expect(lock.repositories[0]).toMatchObject({ commit: 'a'.repeat(40), committedAt: '2026-11-01T14:32:00+08:00' })
+})

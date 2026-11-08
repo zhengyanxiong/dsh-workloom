@@ -152,6 +152,18 @@ export async function resolveCommit(repo: string, ref: string): Promise<string> 
   }
 }
 
+/** Resolve the authored time of an already-resolved commit. */
+export async function resolveCommitTime(repo: string, commit: string): Promise<string | undefined> {
+  try {
+    const top = await localRepository(repo)
+    const result = await execFile('git', ['-C', top, 'show', '-s', '--format=%cI', commit], { windowsHide: true })
+    const value = result.stdout.trim()
+    if (value === '') return undefined
+    const parsed = new Date(value)
+    return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString()
+  } catch { return undefined }
+}
+
 /** Verify an already-fetched ref expression without network access. */
 async function verifyCommit(repo: string, ref: string): Promise<string> {
   try {

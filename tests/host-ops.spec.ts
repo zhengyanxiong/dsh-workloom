@@ -416,3 +416,16 @@ it('stores and clears a per-task Agent preset override', async () => {
   const cleared = await catalog.updateTask(task.id, 'Preset task')
   expect(cleared.agentPreset).toBeUndefined()
 })
+
+it('backfills commit timestamps for locks created before the field existed', async () => {
+  const { dir } = await fixture()
+  const file = join(dir, 'catalog.json')
+  const commit = 'a'.repeat(40)
+  const first = await createCatalog(file, async () => commit)
+  const project = await first.createProject({ name: 'Shop', sources: [{ id: 'web', repo: join(dir, 'repo'), path: 'web' }], modules: [] })
+  const version = await first.createVersion(project.id, 'v', [{ sourceId: project.config.sources[0]!.id, ref: 'main' }])
+  await first.generateLock(version.id)
+  expect(first.snapshot().locks[0]?.repositories[0]?.committedAt).toBeUndefined()
+  const reopened = await createCatalog(file, async () => commit, async () => '2026-11-01T02:59:13.000Z')
+  expect(reopened.snapshot().locks[0]?.repositories[0]?.committedAt).toBe('2026-11-01T02:59:13.000Z')
+})

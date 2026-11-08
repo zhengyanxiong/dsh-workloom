@@ -21,6 +21,7 @@ import { versionIn } from './selectors.ts'
 export interface ProjectVersionRuntime {
   transaction<T>(operation: (draft: CatalogSnapshot) => Promise<T> | T): Promise<T>
   resolveCommit(repo: string, ref: string): Promise<string>
+  resolveCommitTime?: ((repo: string, commit: string) => Promise<string | undefined>) | undefined
   recordAudit(
     draft: CatalogSnapshot,
     event: AuditEvent,
@@ -118,7 +119,7 @@ export async function generateLock(runtime: ProjectVersionRuntime, versionId: Ve
     const version = versionIn(draft, versionId)
     const project = draft.projects.find(p => p.id === version.projectId)!
     const previous = draft.locks.filter(lock => lock.versionId === version.id).at(-1)
-    const resolved = await resolveLock(project.config, version, randomUUID(), runtime.resolveCommit)
+    const resolved = await resolveLock(project.config, version, randomUUID(), runtime.resolveCommit, runtime.resolveCommitTime)
     const lock: Lock = { ...resolved, createdAt: nowIso() }
     draft.locks.push(lock)
     // A long-lived version advances its baseline here instead of forcing a new
