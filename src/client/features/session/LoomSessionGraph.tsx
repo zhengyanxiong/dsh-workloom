@@ -2,7 +2,6 @@
 import type { ReactNode } from 'react'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { ExecutionState } from 'dsh-workloom/types'
-import { IconBranchOutlineRegular } from '../../ui/primitives.ts'
 import { LoomTokenECG } from '../../ui/LoomTokenECG.tsx'
 import type { TokenUsageView } from '../../shared/projection.ts'
 import type { LoomKey } from '../../shared/locales.ts'
@@ -28,12 +27,18 @@ export interface LoomTaskSessionGroup {
   readonly rows: readonly LoomTaskSessionRow[]
 }
 
+/** Per-session execution state used by the row actions. */
+export interface LoomSessionExecutionState {
+  readonly isOwner: boolean
+  readonly waiting: boolean
+  readonly queueIndex: number
+  readonly hasOwner: boolean
+}
+
 /** Inputs for the bottom-panel session tree. */
 export interface LoomSessionGraphProps {
   readonly t: Translate
   readonly taskTitle?: string | undefined
-  /** Owning version label; rendered as the top level of the session tree. */
-  readonly versionLabel?: string | undefined
   readonly workspaceLabel?: string | undefined
   readonly rows: readonly LoomTaskSessionRow[]
   readonly groups?: readonly LoomTaskSessionGroup[] | undefined
@@ -41,6 +46,12 @@ export interface LoomSessionGraphProps {
   readonly usageBySession?: Readonly<Record<string, TokenUsageView | undefined>> | undefined
   readonly currentSessionId?: string | undefined
   readonly onOpenSession: (sessionId: SessionId) => void
+  /** Execution state for sessions outside the selected workspace. */
+  readonly sessionStates?: Readonly<Record<string, LoomSessionExecutionState>> | undefined
+  readonly busySessionId?: string | undefined
+  readonly onReleaseSession?: ((sessionId: string) => void) | undefined
+  readonly onQueueSession?: ((sessionId: string) => void) | undefined
+  readonly onLeaveQueue?: ((sessionId: string) => void) | undefined
 }
 
 type SessionTone = 'owner' | 'queue' | 'idle'
@@ -62,7 +73,7 @@ function formatActivity(updatedAt: number): string {
  * @param props - session rows, task groups, execution ownership and open-session intent.
  * @returns the grouped session list and execution gate.
  */
-export function LoomSessionGraph({ t, taskTitle, versionLabel, workspaceLabel, rows, groups, execution, usageBySession, currentSessionId, onOpenSession }: LoomSessionGraphProps): ReactNode {
+export function LoomSessionGraph({ t, taskTitle, workspaceLabel, rows, groups, execution, usageBySession, currentSessionId, onOpenSession, sessionStates, busySessionId, onReleaseSession, onQueueSession, onLeaveQueue }: LoomSessionGraphProps): ReactNode {
   const allRows = groups === undefined || groups.length === 0 ? rows : groups.flatMap(group => group.rows)
   const waiting = execution?.waiting ?? []
   const owner = execution?.owner?.sessionId
@@ -75,17 +86,30 @@ export function LoomSessionGraph({ t, taskTitle, versionLabel, workspaceLabel, r
   const ownerTime = ownerRow === undefined ? '—' : formatActivity(ownerRow.updatedAt)
   const renderRow = (session: LoomTaskSessionRow, depth: number): ReactNode => {
     const active = session.id === currentSessionId
-    const isOwner = owner === session.id
-    const queueIndex = waiting.indexOf(session.id as SessionId)
-    const tone: SessionTone = isOwner ? 'owner' : queueIndex >= 0 ? 'queue' : 'idle'
-    return <button key={session.id} type="button" className={`${classes.sessionRow} ${active ? classes.rowActive : ''}`} onClick={() => onOpenSession(session.id as SessionId)}>
-      {depth > 0 ? <span className={classes.indent} /> : null}
-      <span className={TONE_CLASS[tone]} aria-hidden />
-      <span className={`${classes.name} ${active ? classes.nameActive : ''}`} title={session.label}>{session.label}</span>
-      {session.parentId !== undefined && <span className={classes.fork}>↳ {t('bottom.sessionFork')}</span>}
-      {isOwner ? <span className={`${classes.tag} ${classes.ownerTag}`}>{t('bottom.sessionOwner')}</span> : queueIndex >= 0 ? <span className={`${classes.tag} ${classes.queueTag}`}>{t('bottom.sessionQueue', { index: String(queueIndex + 1) })}</span> : session.unavailable === true ? <span className={classes.tag}>{t('bottom.sessionUnavailable')}</span> : session.running ? <span className={`${classes.tag} ${classes.ownerTag}`}>{t('bottom.sessionRunning')}</span> : null}
-      <span className={classes.time}>{isOwner && session.running ? t('bottom.sessionExecuting', { time: formatActivity(session.updatedAt) }) : queueIndex >= 0 ? t('bottom.sessionQueued', { time: formatActivity(session.updatedAt) }) : t('bottom.sessionRecent', { time: formatActivity(session.updatedAt) })}</span>
-    </button>
+    const state = sessionStates?.[session.id]
+    const isOwner = state?.isOwner ?? owner === session.id
+    const queueIndex = state?.queueIndex ?? waiting.indexOf(session.id as SessionId)
+    const isWaiting = state?.waiting ?? queueIndex >= 0
+    const hasOwner = state?.hasOwner ?? owner !== undefined
+    const tone: SessionTone = isOwner ? 'owner' : isWaiting ? 'queue' : 'idle'
+    const action = isOwner && onReleaseSession !== undefined
+      ? { label: t('bottom.sessionReleaseAccess'), run: () => onReleaseSession(session.id) }
+      : isWaiting && onLeaveQueue !== undefined
+        ? { label: t('bottom.sessionLeaveQueue'), run: () => onLeaveQueue(session.id) }
+        : !isWaiting && onQueueSession !== undefined
+          ? { label: hasOwner ? t('bottom.sessionJoinQueue') : t('bottom.sessionAcquireAccess'), run: () => onQueueSession(session.id) }
+          : undefined
+    return <div key={session.id} className={`${classes.rowWrap} ${active ? classes.rowActive : ''}`}>
+      <button type="button" className={classes.sessionRow} onClick={() => onOpenSession(session.id as SessionId)}>
+        {depth > 0 ? <span className={classes.indent} /> : null}
+        <span className={TONE_CLASS[tone]} aria-hidden />
+        <span className={`${classes.name} ${active ? classes.nameActive : ''}`} title={session.label}>{session.label}</span>
+        {session.parentId !== undefined && <span className={classes.fork}>↳ {t('bottom.sessionFork')}</span>}
+        {isOwner ? <span className={`${classes.tag} ${classes.ownerTag}`}>{t('bottom.sessionOwner')}</span> : isWaiting ? <span className={`${classes.tag} ${classes.queueTag}`}>{t('bottom.sessionQueue', { index: queueIndex >= 0 ? String(queueIndex + 1) : '—' })}</span> : session.unavailable === true ? <span className={classes.tag}>{t('bottom.sessionUnavailable')}</span> : session.running ? <span className={`${classes.tag} ${classes.ownerTag}`}>{t('bottom.sessionRunning')}</span> : null}
+        <span className={classes.time}>{isOwner && session.running ? t('bottom.sessionExecuting', { time: formatActivity(session.updatedAt) }) : isWaiting ? t('bottom.sessionQueued', { time: formatActivity(session.updatedAt) }) : t('bottom.sessionRecent', { time: formatActivity(session.updatedAt) })}</span>
+      </button>
+      {action !== undefined && <button type="button" className={classes.rowAction} disabled={busySessionId === session.id} onClick={event => { event.stopPropagation(); action.run() }}>{busySessionId === session.id ? '…' : action.label}</button>}
+    </div>
   }
   return <div className={classes.wrap}>
     <section className={`${classes.column} ${classes.columnGrow}`}>
@@ -97,11 +121,6 @@ export function LoomSessionGraph({ t, taskTitle, versionLabel, workspaceLabel, r
       {allRows.length === 0
         ? <p className={classes.empty}>{t('sessionList.empty')}</p>
         : <div className={classes.list}>
-            {versionLabel !== undefined && <div className={classes.versionHead}>
-              <span className={classes.versionIcon} aria-hidden><IconBranchOutlineRegular size={12} /></span>
-              <span className={classes.versionName}>{versionLabel}</span>
-              <span className={classes.versionCount}>{countLabel(allRows.length)}</span>
-            </div>}
             {visibleGroups.map((group, groupIndex) => <div key={group.taskId}>
               <div className={`${classes.groupHead} ${groupIndex === 0 ? classes.groupHeadFirst : ''}`}>
                 <span className={classes.groupDot} aria-hidden />

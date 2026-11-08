@@ -31,14 +31,13 @@ it('shows fork relationships, queue position and latest activity time', () => {
 
 it('groups sessions by task and renders the execution gate owner and queue', () => {
   const html = renderToStaticMarkup(createElement(LoomSessionGraph, {
-    t, taskTitle: 'Task A', versionLabel: 'v1', workspaceLabel: 'v0.1-auto', rows,
+    t, taskTitle: 'Task A', workspaceLabel: 'v0.1-auto', rows,
     groups: [
       { taskId: 'a', taskTitle: 'Task A', rows },
       { taskId: 'b', taskTitle: 'Task B', rows: [{ id: 'other', label: 'Other session', running: false, updatedAt: Date.UTC(2026, 9, 31, 14, 20) }] },
     ],
     execution, currentSessionId: 'root', onOpenSession: () => {},
   }))
-  expect(html).toContain('v1')
   expect(html).toContain('2 sessions')
   expect(html).toContain('1 session')
   expect(html).toContain('Task A')
@@ -47,4 +46,19 @@ it('groups sessions by task and renders the execution gate owner and queue', () 
   expect(html).toContain('v0.1-auto')
   expect(html).toContain('owner')
   expect(html).toContain('queue #1')
+})
+
+it('offers release, queue and leave-queue actions from per-session execution state', () => {
+  const html = renderToStaticMarkup(createElement(LoomSessionGraph, {
+    t, taskTitle: 'Task A', rows, execution,
+    sessionStates: {
+      root: { isOwner: true, waiting: false, queueIndex: -1, hasOwner: true },
+      child: { isOwner: false, waiting: true, queueIndex: 0, hasOwner: true },
+    },
+    busySessionId: undefined,
+    onReleaseSession: () => {}, onQueueSession: () => {}, onLeaveQueue: () => {},
+    currentSessionId: 'root', onOpenSession: () => {},
+  }))
+  expect(html).toContain(en['bottom.sessionReleaseAccess'])
+  expect(html).toContain(en['bottom.sessionLeaveQueue'])
 })

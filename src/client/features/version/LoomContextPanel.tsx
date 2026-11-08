@@ -59,7 +59,7 @@ export interface LoomContextPanelProps {
   readonly versionGraph?: ReactNode | undefined
 }
 
-const panel: CSSProperties = { display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'auto', background: COLORS.panel, borderLeft: `0.5px solid ${COLORS.border}` }
+const panel: CSSProperties = { display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'auto', background: COLORS.panel2, borderLeft: `0.5px solid ${COLORS.border}` }
 const header: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 5, padding: '12px 14px 11px', borderBottom: `0.5px solid ${COLORS.border}` }
 const eyebrow: CSSProperties = { margin: 0, color: COLORS.faint, fontSize: 'var(--text-micro-size)', fontWeight: 500, letterSpacing: '.08em', textTransform: 'uppercase' }
 const titleRow: CSSProperties = { display: 'flex', alignItems: 'flex-start', gap: 8, minWidth: 0 }

@@ -59,41 +59,6 @@
   background: var(--color-surface);
 }
 
-.versionHead {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-width: 0;
-  padding: var(--space-2) var(--space-3);
-  background: var(--color-panel);
-  border-bottom: 1px solid var(--color-line);
-}
-
-.versionIcon {
-  display: inline-flex;
-  flex: none;
-  color: var(--color-muted);
-}
-
-.versionName {
-  min-width: 0;
-  flex: 1;
-  overflow: hidden;
-  color: var(--color-ink);
-  font-size: var(--text-label-size);
-  font-weight: 600;
-  line-height: var(--text-label-lh);
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-.versionCount {
-  flex: none;
-  color: var(--color-muted);
-  font-family: var(--font-mono);
-  font-size: var(--text-nano-size);
-}
-
 .groupHead {
   display: flex;
   align-items: center;
@@ -136,6 +101,55 @@
 .groupRows {
   margin-left: var(--space-6);
   border-left: 1px solid var(--color-line-soft);
+}
+
+.rowWrap {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  border-top: 1px solid var(--color-line-soft);
+  background: var(--color-surface);
+}
+
+.rowWrap:hover {
+  background: var(--color-panel);
+}
+
+.rowWrap.rowActive {
+  background: var(--color-accent-soft);
+}
+
+.rowWrap .sessionRow {
+  flex: 1;
+  width: auto;
+  border-top: 0;
+  background: transparent;
+}
+
+.rowAction {
+  flex: none;
+  margin-right: var(--space-2);
+  padding: 1px var(--space-2);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-xs);
+  background: var(--color-surface);
+  color: var(--color-ink-3);
+  font: inherit;
+  font-size: var(--text-nano-size);
+  line-height: 18px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.rowAction:hover:not(:disabled) {
+  border-color: var(--color-line-strong);
+  color: var(--color-ink);
+}
+
+.rowAction:disabled {
+  opacity: .55;
+  cursor: default;
 }
 
 .sessionRow {

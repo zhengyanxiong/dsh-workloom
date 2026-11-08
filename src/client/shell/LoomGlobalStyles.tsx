@@ -31,6 +31,7 @@ export function LoomGlobalStyles({ fontSize }: LoomGlobalStylesProps): JSX.Eleme
       .loom-palette { width: min(560px, calc(100vw - 48px)) !important; max-height: min(640px, calc(100vh - 96px)); padding: 0 !important; gap: 0 !important; overflow: hidden; }
       .loom-root [role='separator']:focus-visible { outline: 2px solid var(--color-accent) !important; outline-offset: 2px; }
       .loom-branch-menu { --dsw-menu-surface-fill: var(--color-surface); --dsw-menu-backdrop-filter: none; width: var(--loom-branch-menu-width, 320px) !important; max-width: none !important; background: var(--color-surface) !important; border: 0.5px solid var(--color-line) !important; color: var(--color-ink); box-shadow: 0 12px 32px color-mix(in srgb, var(--color-ink) 16%, transparent) !important; }
+      .loom-aside { background: var(--color-panel) !important; }
       .loom-workspace-switch { align-self: flex-start; }
       .loom-primary { background: var(--loom-accent) !important; color: var(--loom-on-accent) !important; border: 0.5px solid transparent !important; border-radius: 8px !important; font-size: var(--text-compact-size) !important; font-weight: 500 !important; box-shadow: 0 1px 2px color-mix(in srgb, var(--color-ink) 12%, transparent); transition: background-color .12s ease, box-shadow .12s ease; }
       .loom-primary:hover:not(:disabled) { background: var(--loom-accent-hover) !important; }
