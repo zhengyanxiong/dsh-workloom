@@ -14,6 +14,25 @@ Releases start at 0.1.8 in this repository.
   once archived, a per-list toggle reveals them with their count, and archiving
   a running Session asks before stopping its work. Execution owners and queued
   Sessions must release access first.
+- Version editing can reuse a finished direct workspace: an idle, clean
+  workspace from another version of the same project is retired and re-bound to
+  the edited version and its Lock, without copying directories.
+- Loom Sessions waiting for an approval keep a title badge and raise a system
+  notification; clicking the notification returns to the blocked Session.
+- Reading version branches refreshes the default remote first and lists remote
+  tracking branches, and Lock resolution prefers the remote tip of a base branch
+  so a stale local clone cannot pin an old commit.
+
+### Fixed
+
+- The Kanban board orders columns as pending, running, in review, completed,
+  failed instead of showing running before pending.
+- Starting a round now verifies that the workspace maps every repository the
+  task needs: a managed workspace materializes the worktrees it was missing,
+  while a direct or linked workspace refuses with the repository names instead
+  of letting an Agent write a new repository's files into a sibling checkout. A
+  task module from a repository the version Lock never resolved reports that the
+  version Lock must advance first.
 
 ## [0.3.0] - 2026-11-08
 

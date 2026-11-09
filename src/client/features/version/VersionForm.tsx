@@ -5,7 +5,7 @@ import type { CreateVersionRequest, ProjectRecord, SourceConfig, VersionRecord, 
 import { autoWorkspaceRepositoryPath } from '../../../domain/workspace.ts'
 import { VERSION_DESCRIPTION_MAX_CHARS } from '../../../shared/version-context.ts'
 import { COLORS } from '../../ui/tokens.ts'
-import { failureKey } from '../../ui/failure.ts'
+import { failureKey, thrownFailureReport } from '../../ui/failure.ts'
 import { LoomWizardSteps } from '../forms/LoomWizardSteps.tsx'
 import { LoomSelect } from '../../ui/Select.tsx'
 import type { LoomKey } from '../../shared/locales.ts'
@@ -14,6 +14,7 @@ import { FailureNotice } from '../forms/FailureNotice.tsx'
 import { versionRequest, workspaceDraftInput, type WorkspaceDraft } from '../forms/drafts.ts'
 import { Translate } from '../forms/types.ts'
 import { BranchPicker } from '../forms/fields.tsx'
+import { ReuseWorkspacePicker, type ReuseWorkspaceOption } from './ReuseWorkspacePicker.tsx'
 
 interface VersionFormProps {
   t: Translate
@@ -21,6 +22,10 @@ interface VersionFormProps {
   listBranches?: (request: RepositoryBranchesRequest) => Promise<RemoteResult<RepositoryBranches>>
   /** Optional native directory picker used by workspace inputs. */
   pickDirectory?: (startPath?: string) => Promise<string | null>
+  /** Finished direct workspaces of this project that another version can adopt. */
+  readonly reuseCandidates?: readonly ReuseWorkspaceOption[] | undefined
+  /** Retire an old workspace and bind its directories to this version. */
+  readonly reuseWorkspace?: ((workspaceId: string) => Promise<RemoteResult<WorkspaceRecord>>) | undefined
   /** Workspaces already bound to the version; shown read-only while editing. */
   boundWorkspaces?: readonly { readonly id: string; readonly label?: string | undefined; readonly mode?: string | undefined; readonly rootPath?: string | undefined; readonly path: string; readonly cleaned?: boolean | undefined; readonly taskCount?: number | undefined; readonly ownerSessionId?: string | undefined; readonly preparation?: { readonly status: string } | undefined }[] | undefined
   create(request: CreateVersionRequest): Promise<RemoteResult<VersionRecord>>
@@ -52,7 +57,7 @@ const VERSION_STEPS: readonly { readonly key: VersionStep; readonly label: LoomK
 ]
 
 /** One workspace draft created together with a version. */
-export function VersionForm({ t, project, listBranches, pickDirectory, boundWorkspaces, otherWorkspaces, create, update, version, onCreated, addWorkspace, renameWorkspace, deleteWorkspace, cleanupWorkspace, onWorkspaceAdded, open: controlledOpen, onOpenChange, onBusyChange, onStepChange }: VersionFormProps) {
+export function VersionForm({ t, project, listBranches, pickDirectory, boundWorkspaces, otherWorkspaces, reuseCandidates, reuseWorkspace, create, update, version, onCreated, addWorkspace, renameWorkspace, deleteWorkspace, cleanupWorkspace, onWorkspaceAdded, open: controlledOpen, onOpenChange, onBusyChange, onStepChange }: VersionFormProps) {
   const editing = version !== undefined
   const [internalOpen, setInternalOpen] = useState(false)
   const open = controlledOpen ?? internalOpen
@@ -76,8 +81,10 @@ export function VersionForm({ t, project, listBranches, pickDirectory, boundWork
   const [workspaceActionBusy, setWorkspaceActionBusy] = useState(false)
   const [pendingWorkspaceDelete, setPendingWorkspaceDelete] = useState<string>()
   const [pendingWorkspaceDeleteFiles, setPendingWorkspaceDeleteFiles] = useState(false)
-  const [workspaceSourceMode, setWorkspaceSourceMode] = useState<'new' | 'copy'>('new')
+  const [workspaceSourceMode, setWorkspaceSourceMode] = useState<'new' | 'copy' | 'reuse'>('new')
   const [workspaceSourceId, setWorkspaceSourceId] = useState('')
+  const [reuseWorkspaceId, setReuseWorkspaceId] = useState('')
+  const [reuseFailure, setReuseFailure] = useState<string>()
   const [pendingWorkspaceCleanup, setPendingWorkspaceCleanup] = useState<string>()
   const workspaceErrorRef = useRef<HTMLParagraphElement>(null)
   if (!open) return editing ? null : <Button variant="outline" icon={<IconPlusOutlineRegular />} onClick={() => setOpen(true)}>{t('version.new')}</Button>
@@ -156,6 +163,21 @@ export function VersionForm({ t, project, listBranches, pickDirectory, boundWork
       setShowAddWorkspace(false); onWorkspaceAdded?.()
     } catch (error) {
       setWorkspaceFailure(error instanceof Error ? error.message : String(error))
+    } finally { setAddingWorkspace(false) }
+  }
+  function localizedFailure(code: string, message: string): string {
+    const key = failureKey(code) ?? failureKey(message)
+    return key === undefined ? (code === '' ? message : `${code}: ${message}`) : t(key)
+  }
+  async function submitReuse(): Promise<void> {
+    if (reuseWorkspace === undefined || reuseWorkspaceId === '') return
+    setAddingWorkspace(true); setReuseFailure(undefined)
+    try {
+      const result = await reuseWorkspace(reuseWorkspaceId)
+      if (!result.ok) { setReuseFailure(localizedFailure(result.error.code, result.error.message)); return }
+      setShowAddWorkspace(false); setReuseWorkspaceId(''); onWorkspaceAdded?.()
+    } catch (error) {
+      setReuseFailure(localizedFailure('', thrownFailureReport(error).detail ?? (error instanceof Error ? error.message : String(error))))
     } finally { setAddingWorkspace(false) }
   }
   useEffect(() => {
@@ -294,7 +316,8 @@ export function VersionForm({ t, project, listBranches, pickDirectory, boundWork
             // workspace instead of submitting the outer Version update.
             if (event.key === 'Enter' && !event.shiftKey && !(event.target instanceof HTMLButtonElement)) {
               event.preventDefault()
-              void submitWorkspace()
+              if (workspaceSourceMode === 'reuse') void submitReuse()
+              else void submitWorkspace()
             }
           }}>
             {workspaceFailureLabel !== undefined && <div role="alert" aria-live="polite" ref={workspaceErrorRef} style={{ ...branchError, flexDirection: 'column', alignItems: 'flex-start' }}>
@@ -304,7 +327,9 @@ export function VersionForm({ t, project, listBranches, pickDirectory, boundWork
             <div style={{ display: 'flex', gap: 4, padding: 3, background: COLORS.panel2, border: `0.5px solid ${COLORS.border}`, borderRadius: 7, marginBottom: 2 }}>
               <Button type="button" variant={workspaceSourceMode === 'new' ? 'primary' : 'ghost'} style={{ flex: 1 }} onClick={() => setWorkspaceSourceMode('new')}>{t('version.workspaceNew')}</Button>
               <Button type="button" variant={workspaceSourceMode === 'copy' ? 'primary' : 'ghost'} style={{ flex: 1 }} disabled={(otherWorkspaces ?? []).length === 0} onClick={() => setWorkspaceSourceMode('copy')}>{t('version.workspaceFromVersion')}</Button>
+              <Button type="button" variant={workspaceSourceMode === 'reuse' ? 'primary' : 'ghost'} style={{ flex: 1 }} disabled={reuseWorkspace === undefined || (reuseCandidates ?? []).length === 0} onClick={() => { setWorkspaceSourceMode('reuse'); setReuseFailure(undefined) }}>{t('version.workspaceReuse')}</Button>
             </div>
+            {workspaceSourceMode === 'reuse' && (reuseCandidates ?? []).length === 0 && <p style={hint}>{t('version.workspaceReuseEmpty')}</p>}
             {workspaceSourceMode === 'copy' && <label style={field}><span style={fieldLabel}>{t('version.workspaceSource')}</span>
               <LoomSelect
                 block
@@ -315,6 +340,9 @@ export function VersionForm({ t, project, listBranches, pickDirectory, boundWork
               />
             </label>}
             {workspaceSourceMode === 'copy' && workspaceSourceId !== '' && <p style={hint}>{t('version.workspaceCopyNote')}</p>}
+            {workspaceSourceMode === 'reuse'
+              ? <ReuseWorkspacePicker t={t} options={reuseCandidates ?? []} value={reuseWorkspaceId} onChange={value => { setReuseWorkspaceId(value); setReuseFailure(undefined) }} failure={reuseFailure} />
+              : <>
             <label style={field}><span style={fieldLabel}>{t('version.workspaceParentPath')}</span>
               <div style={{ display: 'flex', gap: 6 }}>
                 <input aria-label={t('version.workspaceParentPath')} placeholder="/home/me/work" value={workspace.parentPath} onChange={event => setWorkspace(current => ({ ...current, parentPath: event.target.value }))} style={{ ...input, flex: 1 }} />
@@ -334,9 +362,12 @@ export function VersionForm({ t, project, listBranches, pickDirectory, boundWork
               <span style={hint}>{t('version.workspacePreviewBranch', { branch: `${workspace.branchPrefix}/${workspace.name}` })}</span>
             </div>}
             {workspaceInput === undefined && <p role="alert" style={branchError}><IconInfoOutlineRegular size={13} />{t('version.workspaceInvalid')}</p>}
+            </>}
             <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-              <Button type="button" variant="ghost" onClick={() => { setShowAddWorkspace(false); setWorkspaceFailure(undefined) }}>{t('form.cancel')}</Button>
-              <Button type="button" variant="primary" disabled={addingWorkspace || workspaceInput === undefined} onClick={() => { void submitWorkspace() }}>{addingWorkspace ? t('form.submitPending') : t('version.workspaceAdd')}</Button>
+              <Button type="button" variant="ghost" onClick={() => { setShowAddWorkspace(false); setWorkspaceFailure(undefined); setReuseFailure(undefined) }}>{t('form.cancel')}</Button>
+              {workspaceSourceMode === 'reuse'
+                ? <Button type="button" variant="primary" disabled={addingWorkspace || reuseWorkspaceId === ''} onClick={() => { void submitReuse() }}>{addingWorkspace ? t('form.submitPending') : t('version.workspaceReuseAction')}</Button>
+                : <Button type="button" variant="primary" disabled={addingWorkspace || workspaceInput === undefined} onClick={() => { void submitWorkspace() }}>{addingWorkspace ? t('form.submitPending') : t('version.workspaceAdd')}</Button>}
             </div>
           </div>
         : <Button type="button" variant="outline" icon={<IconPlusOutlineRegular />} style={{ alignSelf: 'flex-start' }} onClick={() => { setShowAddWorkspace(true); setWorkspaceFailure(undefined) }}>{t('version.workspaceAdd')}</Button>)}

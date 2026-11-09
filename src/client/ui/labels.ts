@@ -50,6 +50,8 @@ export const ERROR_LABEL: Readonly<Record<string, LoomKey>> = {
   owner_required: 'error.ownerRequired',
   loom_disposed: 'error.loomDisposed',
   detached_head: 'error.detachedHead',
+  workspace_incomplete: 'error.workspaceIncomplete',
+  version_lagging: 'error.versionLagging',
   empty_version: 'error.emptyVersion',
   duplicate_source: 'error.duplicateSource',
   unknown_source: 'error.unknownSource',

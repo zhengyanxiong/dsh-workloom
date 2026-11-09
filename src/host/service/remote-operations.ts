@@ -7,7 +7,7 @@
 import { randomUUID } from 'node:crypto'
 import { join } from 'node:path'
 import { brandString, type Branded } from '@deepseek-ai/dsh-brand'
-import type { Catalog } from '../catalog.ts'
+import { workspaceBindings, type Catalog } from '../catalog.ts'
 import type {
   AttachSessionRequest, CatalogSnapshot, CreateTaskRequest, CreateVersionRequest, GenerateLockRequest,
   CleanupWorkspaceRequest, PrepareWorkspaceRequest, ProjectConfig, ProjectRecord, RegisterWorkspaceRequest,
@@ -186,7 +186,7 @@ export class RemoteOperations {
     })
   }
 
-  /** Read local branches of one repository. @param request - absolute repository path. @returns current and available branches. */
+  /** List local and refreshed remote branches of one repository. @param request - absolute repository path. @returns current and available branches. */
   repositoryBranches(run: RunCatalog, request: RepositoryBranchesRequest): Promise<{ topLevel: string; current?: string; branches: readonly string[] }> {
     return run(() => repositoryBranches(repositoryBranchesRequest.parse(request).repo))
   }
@@ -325,17 +325,58 @@ export class RemoteOperations {
     return run(async catalog => {
       const parsed = attemptRequest.parse(request)
       const workspaceId = brandString<WorkspaceRecord['id']>(parsed.workspaceId)
-      const record = catalog.snapshot().workspaces.find(candidate => candidate.id === workspaceId)
+      const taskId = brandString<TaskRecord['id']>(parsed.taskId)
+      const state = catalog.snapshot()
+      const record = state.workspaces.find(candidate => candidate.id === workspaceId)
       if (record === undefined) throw serviceError('missing_workspace')
       if (record.cleaned === true) throw serviceError('workspace_cleaned')
       // A partially prepared workspace has no complete worktree set to reconcile.
       if (record.preparation !== undefined && record.preparation.status !== 'ready') throw serviceError('workspace_not_prepared', `preparation is ${record.preparation.status}`)
+      await this.ensureRepositoryCoverage(catalog, state, taskId, record)
       const workspace = await catalog.ensureWorkspaceBranches(workspaceId)
       if (workspace.cleaned === true) throw serviceError('workspace_cleaned')
       if (await catalog.workspaceDirty(workspaceId)) throw serviceError('workspace_changes')
       await catalog.ensureWorkspaceSkillLinks(workspaceId)
-      return catalog.startAttempt(brandString<TaskRecord['id']>(parsed.taskId), workspaceId, parsed.allowBusy === true ? { allowBusy: true } : undefined)
+      return catalog.startAttempt(taskId, workspaceId, parsed.allowBusy === true ? { allowBusy: true } : undefined)
     })
+  }
+
+  /**
+   * Reconcile a workspace with every repository the task needs before a round starts.
+   *
+   * Without this check an Agent's working directory is the workspace root: a
+   * repository the version Lock gained later is absent from that layout, so its
+   * files land in a sibling checkout instead of their own worktree. Managed
+   * workspaces grow a worktree for the missing repositories; direct and linked
+   * workspaces cannot grow silently, so they refuse the round with the exact
+   * repository names.
+   * @param catalog - live catalog.
+   * @param state - snapshot read by the caller.
+   * @param taskId - task about to start.
+   * @param workspace - workspace the round would use.
+   */
+  private async ensureRepositoryCoverage(catalog: Catalog, state: CatalogSnapshot, taskId: TaskRecord['id'], workspace: WorkspaceRecord): Promise<void> {
+    const task = state.tasks.find(candidate => candidate.id === taskId)
+    if (task === undefined) throw serviceError('missing_task')
+    const versionLock = state.locks.filter(lock => lock.versionId === task.versionId).at(-1) ?? await catalog.generateLock(task.versionId)
+    const required = new Set(versionLock.repositories.map(repository => repository.sourceId))
+    for (const moduleId of task.moduleIds ?? []) {
+      for (const project of state.projects) {
+        const module = project.config.modules.find(candidate => candidate.id === moduleId)
+        if (module !== undefined) required.add(module.sourceId)
+      }
+    }
+    const bindings = workspaceBindings(state, workspace)
+    const missing = [...required].filter(sourceId => !bindings.some(binding => binding.sourceId === sourceId))
+    if (missing.length === 0) return
+    // A task may name a module from a repository the version Lock never resolved;
+    // no workspace layout can cover that until the version itself grows the ref.
+    const locked = new Set(versionLock.repositories.map(repository => repository.sourceId))
+    const lagging = missing.filter(sourceId => !locked.has(sourceId))
+    if (lagging.length > 0) throw serviceError('version_lagging', lagging.join(', '))
+    const mode = workspace.mode ?? (workspace.managed === true ? 'managed' : 'direct')
+    if (mode !== 'managed') throw serviceError('workspace_incomplete', missing.join(', '))
+    await catalog.extendWorkspace(workspace.id, versionLock.id)
   }
 
   /** Associate another native Session with the current round. @param request - task and Session identities. @returns the updated task. */

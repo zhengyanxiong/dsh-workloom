@@ -12,7 +12,7 @@ import { workspaceIn } from './catalog/selectors.ts'
 import { ensureWorkspaceBranches, ensureWorkspaceSkillLinks, updateWorkspace } from './catalog/workspace-write.ts'
 import { cleanupWorkspace, deleteWorkspace } from './catalog/workspace-lifecycle.ts'
 import { registerPreparedWorkspace } from './catalog/workspace-register.ts'
-import { prepareWorkspace } from './catalog/workspace-prepare.ts'
+import { extendWorkspace, prepareWorkspace } from './catalog/workspace-prepare.ts'
 import { acquireExecution, beginTakeover, cancelExecution, finishTakeover, releaseExecution, releaseSession, reorderExecutionQueue } from './catalog/execution-queue.ts'
 import { attachSession, forgetTemporarySession, registerTemporarySession, startAttempt, suggestTaskOutcome, transitionTask } from './catalog/task-lifecycle.ts'
 import { createProject, createVersion, deleteProject, deleteVersion, generateLock, updateProject, updateVersion } from './catalog/project-version-ops.ts'
@@ -20,6 +20,7 @@ import { createTask, deleteTask, updateTask } from './catalog/task-crud.ts'
 import type { Catalog } from './catalog/contract.ts'
 export type { Catalog, CreateTaskOptions, PrepareWorkspaceInput, RegisterPreparedWorkspaceInput, TaskConfirmation, TaskSuggestion, WorkspaceCommitRepository, WorkspaceCommitResult, WorkspaceStatusRepository } from './catalog/contract.ts'
 export { findSessionAttempt, findWorkspaceByPath } from './catalog/selectors.ts'
+export { workspaceBindings } from './catalog/schema.ts'
 import { migrateCatalog } from './catalog/migrations.ts'
 export { CatalogError } from './catalog/errors.ts'
 export { migrateCatalog } from './catalog/migrations.ts'
@@ -141,6 +142,7 @@ export async function createCatalog(file: string, resolveCommit: (repo: string, 
   }
 
   const workspacePrepare = {
+    snapshot: (): CatalogSnapshot => state,
     transaction: <T,>(operation: (draft: CatalogSnapshot) => Promise<T> | T): Promise<T> => transaction(operation),
     currentWorkspace,
     patchPreparation,
@@ -179,6 +181,7 @@ export async function createCatalog(file: string, resolveCommit: (repo: string, 
 
   const api: Catalog = {
     prepareWorkspace: input => prepareWorkspace(workspacePrepare, input),
+    extendWorkspace: (workspaceId, lockId) => extendWorkspace(workspacePrepare, workspaceId, lockId),
     ensureWorkspaceBranches: workspaceId => ensureWorkspaceBranches(workspaceWrite, workspaceId),
     ensureWorkspaceSkillLinks: workspaceId => ensureWorkspaceSkillLinks(workspaceWrite, workspaceId),
     workspaceChanges: (workspaceId, attemptId) => workspaceChanges(state, workspaceId, attemptId),

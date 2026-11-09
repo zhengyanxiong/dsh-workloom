@@ -46,6 +46,21 @@ it('prepares two detached worktrees under nested directories and reports changes
   expect(await workingTreeStatus(join(f.root, 'apps/frontend'))).toContain(' M file.txt')
   expect(await resolveCommit(join(f.root, 'services/backend'), 'HEAD')).toBe(two)
 })
+it('refreshes remote branches and resolves a branch name from the remote tip', async () => {
+  const f = await fixture()
+  const clone = join(f.base, 'clone')
+  await exec('git', ['clone', '--quiet', f.first, clone])
+  const branch = (await exec('git', ['-C', f.first, 'symbolic-ref', '--quiet', '--short', 'HEAD'])).stdout.trim()
+  const stale = (await exec('git', ['-C', clone, 'rev-parse', 'HEAD'])).stdout.trim()
+  await writeFile(join(f.first, 'file.txt'), 'newer')
+  await exec('git', ['-C', f.first, 'commit', '--quiet', '-am', 'advance'])
+  const remoteTip = (await exec('git', ['-C', f.first, 'rev-parse', 'HEAD'])).stdout.trim()
+  expect(remoteTip).not.toBe(stale)
+  const branches = await repositoryBranches(clone)
+  expect(branches.branches).toContain(`origin/${branch}`)
+  expect(await resolveCommit(clone, branch)).toBe(remoteTip)
+})
+
 it('prepares a workspace from a SHA-256 repository', async () => {
   const f = await fixture('sha256')
   const commit = await resolveCommit(f.first, 'HEAD')

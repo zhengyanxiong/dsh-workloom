@@ -296,3 +296,37 @@ it('keeps only one branch dropdown open across sibling pickers', async () => {
   // The first menu closes when the second opens, so only one menu's items exist.
   expect(document.querySelectorAll('[role="menuitem"]')).toHaveLength(2)
 })
+
+it('offers reuse of a finished direct workspace while editing a version', async () => {
+  ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
+  const project: ProjectRecord = {
+    id: brandString<ProjectRecord['id']>('p1'),
+    config: { name: 'Shop', sources: [{ id: brandString<'loom.source'>('web'), repo: '/repo/shop', path: 'shop' }], modules: [] },
+  }
+  const version: VersionRecord = { id: brandString<VersionRecord['id']>('v1'), projectId: project.id, name: 'v2', sources: [{ sourceId: brandString<'loom.source'>('web'), ref: 'main' }] }
+  let reused = ''
+  container = document.createElement('div')
+  document.body.append(container)
+  root = createRoot(container)
+  await act(async () => {
+    root?.render(createElement(VersionForm, {
+      t, open: true, project, version,
+      addWorkspace: async () => ({ ok: false, error: { code: 'unused', message: 'unused' } }),
+      reuseWorkspace: async (workspaceId: string) => { reused = workspaceId; return { ok: false, error: { code: 'unused', message: 'unused' } } },
+      reuseCandidates: [{ id: 'ws-1', label: 'v1 · v1-auto', detail: '/work/v1-auto' }],
+      create: async () => ({ ok: false, error: { code: 'unused', message: 'unused' } }),
+      update: async () => ({ ok: false, error: { code: 'unused', message: 'unused' } }),
+      onCreated: () => undefined,
+    }))
+  })
+  const add = [...container.querySelectorAll('button')].find(button => button.textContent === en['version.workspaceAdd'])
+  await act(async () => { add?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true })) })
+  const reuseMode = [...container.querySelectorAll('button')].find(button => button.textContent === en['version.workspaceReuse'])
+  expect(reuseMode).toBeDefined()
+  await act(async () => { reuseMode?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true })) })
+  expect(container.querySelector(`[aria-label^="${en['version.workspaceReusePick']}"]`)).not.toBeNull()
+  expect(container.textContent).toContain(en['version.workspaceReuseNote'])
+  const action = [...container.querySelectorAll('button')].find(button => button.textContent === en['version.workspaceReuseAction'])
+  expect(action?.hasAttribute('disabled')).toBe(true)
+  expect(reused).toBe('')
+})

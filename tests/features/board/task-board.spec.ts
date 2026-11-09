@@ -27,6 +27,23 @@ function kanbanHtml(snapshot: CatalogSnapshot, overrides: { liveTaskIds?: Readon
   }))
 }
 
+it('orders board columns from pending through completed', () => {
+  const order = ['Pending', 'Running', 'In review', 'Completed', 'Failed']
+  const tasks = (['pending', 'running', 'review', 'completed', 'failed'] as const).map((status, index): TaskRecord => ({
+    id: brandString<TaskRecord['id']>(`t${String(index)}`),
+    versionId: version.id,
+    title: `${status} task`,
+    status,
+    attempts: [],
+  }))
+  const html = kanbanHtml(snapshotOf(tasks))
+  const positions = order.map(label => html.indexOf(`role="group" aria-label="${label}"`))
+  for (const [index, position] of positions.entries()) {
+    expect(position, order[index]).toBeGreaterThan(-1)
+    if (index > 0) expect(position, order[index]).toBeGreaterThan(positions[index - 1]!)
+  }
+})
+
 it('renders five labeled business columns and a real task selection button', () => {
   const task: BoardTask = { id: brandString<BoardTask['id']>('t1'), versionId: brandString<BoardTask['versionId']>('v1'), title: '<Checkout>', status: 'pending', attempts: [] }
   const html = renderToStaticMarkup(createElement(TaskBoard, { tasks: [task], filter: {}, t, onSelect: () => {} }))

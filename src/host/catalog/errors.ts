@@ -29,6 +29,7 @@ const CATALOG_ERROR_DESCRIPTION: Readonly<Record<string, string>> = {
   workspace_cleaned: 'the workspace has already been cleaned',
   workspace_unpushed: 'the workspace has unpushed commits',
   workspace_not_prepared: 'the workspace preparation is not ready',
+  workspace_incomplete: 'the workspace does not cover every repository this version needs',
   execution_not_owned: 'the session does not own this workspace execution',
   task_not_active: 'the task is not in an active round',
   project_has_versions: 'the project still has versions',
@@ -42,7 +43,7 @@ const CATALOG_ERROR_DESCRIPTION: Readonly<Record<string, string>> = {
  */
 export class CatalogError extends Error {
   constructor(
-    readonly code: 'missing_project' | 'missing_version' | 'invalid_version' | 'invalid_catalog' | 'missing_lock' | 'missing_task' | 'missing_workspace' | 'workspace_mismatch' | 'workspace_path_registered' | 'invalid_workspace_path' | 'workspace_busy' | 'workspace_task_running' | 'workspace_branch_failed' | 'workspace_parent_missing' | 'workspace_in_use' | 'invalid_workspace_label' | 'invalid_task' | 'workspace_changes' | 'workspace_cleanup_failed' | 'workspace_cleaned' | 'workspace_unpushed' | 'workspace_not_prepared' | 'execution_not_owned' | 'task_not_active' | 'project_has_versions' | 'version_has_tasks' | 'version_has_workspaces' | 'task_busy' | 'task_workspace_uncleaned',
+    readonly code: 'missing_project' | 'missing_version' | 'invalid_version' | 'invalid_catalog' | 'missing_lock' | 'missing_task' | 'missing_workspace' | 'workspace_mismatch' | 'workspace_path_registered' | 'invalid_workspace_path' | 'workspace_busy' | 'workspace_task_running' | 'workspace_branch_failed' | 'workspace_parent_missing' | 'workspace_in_use' | 'workspace_incomplete' | 'invalid_workspace_label' | 'invalid_task' | 'workspace_changes' | 'workspace_cleanup_failed' | 'workspace_cleaned' | 'workspace_unpushed' | 'workspace_not_prepared' | 'execution_not_owned' | 'task_not_active' | 'project_has_versions' | 'version_has_tasks' | 'version_has_workspaces' | 'task_busy' | 'task_workspace_uncleaned',
     /**
      * Optional concrete diagnostic naming the task, owner or step that blocked the operation.
      */

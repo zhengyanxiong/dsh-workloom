@@ -15,7 +15,7 @@ function trustTarget(args: readonly string[]): string[] {
   return directory === undefined ? [] : ['-c', `safe.directory=${safeDirectory(directory)}`]
 }
 
-async function execFile(command: string, args: string[], options: { windowsHide: boolean }) {
+async function execFile(command: string, args: string[], options: { windowsHide: boolean; timeout?: number }) {
   // Git diff output can legitimately exceed Node's 1 MB default; a direct
   // workspace may show a large branch diff without being an error.
   const maxBuffer = 64 * 1024 * 1024
@@ -140,12 +140,21 @@ async function localRepository(repo: string): Promise<string> {
 export async function resolveCommit(repo: string, ref: string): Promise<string> {
   const top = await localRepository(repo)
   if (ref.startsWith('-')) throw new WorkspacePreparationError('invalid_ref', [], undefined, ref)
+  // A plain branch, tag or other simple ref is resolved against the default
+  // remote first: a local branch may lag the commit the user means by it.
+  const remoteFirst = /^[A-Za-z0-9._/-]+$/u.test(ref) && ref !== 'HEAD' && !/^[0-9a-f]{7,64}$/iu.test(ref)
+  if (remoteFirst) {
+    const fetched = await fetchCommit(top, ref)
+    if (fetched !== undefined) return fetched
+  }
   try {
     return await verifyCommit(top, ref)
   } catch (error) {
     if (error instanceof WorkspacePreparationError && error.code !== 'invalid_commit') throw error
-    const fetched = await fetchCommit(top, ref)
-    if (fetched !== undefined) return fetched
+    if (!remoteFirst) {
+      const fetched = await fetchCommit(top, ref)
+      if (fetched !== undefined) return fetched
+    }
     if (error instanceof WorkspacePreparationError) throw error
     const detail = gitDetail(error)
     throw new WorkspacePreparationError('invalid_commit', [], error, `${repo} @ ${ref}${detail === undefined ? '' : ` (${detail})`}`)
@@ -185,6 +194,9 @@ async function fetchCommit(repo: string, ref: string): Promise<string | undefine
   const names = remotes.split(/\r?\n/u).map(name => name.trim()).filter(name => name !== '')
   const remote = names.includes('origin') ? 'origin' : names[0]
   if (remote === undefined) return undefined
+  // A remote-tracking expression already names the fetched commit; re-fetching
+  // it would just be a slower way to read the same ref.
+  if (names.some(name => ref === name || ref.startsWith(`${name}/`))) return undefined
   try {
     await execFile('git', ['-C', repo, 'fetch', '--no-tags', '--quiet', remote, ref], { windowsHide: true })
     return await verifyCommit(repo, 'FETCH_HEAD')
@@ -694,33 +706,71 @@ function parseDiff(text: string): WorkspaceFileChange[] {
   return files
 }
 
-/** Local branches and checked-out branch of one Git repository. */
+/**
+ * Local and remote-tracking branches plus checked-out branch of one Git repository.
+ */
 export interface RepositoryBranches {
   /** Absolute repository root Git resolved for the requested path. */
   readonly topLevel: string
   /** Checked-out branch, absent for a detached HEAD. */
   readonly current?: string
-  /** Local branch names, sorted. */
+  /**
+   * Local branch names first, then remote-tracking refs such as `origin/main`,
+   * each group sorted; a remote ref is a usable baseline expression.
+   */
   readonly branches: readonly string[]
 }
 
+/** Wall-clock budget for one best-effort remote refresh before listing branches. */
+const BRANCH_FETCH_TIMEOUT_MS = 20_000
+
 /**
- * Read local branches from one repository without changing its worktree.
+ * Refresh one repository's remote-tracking refs without touching its worktree.
+ *
+ * A stale clone lists stale branches, so reading the picker refreshes the
+ * default remote first. Offline or unauthenticated repositories keep working:
+ * every failure is swallowed and the existing refs are listed as-is.
+ * @param repo - absolute repository root.
+ */
+async function refreshRemoteRefs(repo: string): Promise<void> {
+  let remotes: string
+  try { remotes = (await execFile('git', ['-C', repo, 'remote'], { windowsHide: true })).stdout } catch { return }
+  const names = remotes.split(/\r?\n/u).map(name => name.trim()).filter(name => name !== '')
+  const remote = names.includes('origin') ? 'origin' : names[0]
+  if (remote === undefined) return
+  try {
+    await execFile('git', ['-C', repo, 'fetch', '--prune', '--no-tags', '--quiet', remote], { windowsHide: true, timeout: BRANCH_FETCH_TIMEOUT_MS })
+  } catch { /* offline, unauthenticated or slow remotes still list local branches. */ }
+}
+
+/**
+ * List one repository's local and remote-tracking branches.
+ *
+ * Reading branches is an explicit user action, so this refreshes the default
+ * remote first and returns its fetched refs alongside local branches; a base
+ * branch picked from the list then reflects the remote rather than a stale
+ * local clone.
  * @param repo - Absolute local Git repository path or a directory inside it.
- * @returns resolved root, current branch and sorted local branch names.
+ * @returns resolved root, current branch and sorted branch names.
  */
 export async function repositoryBranches(repo: string): Promise<RepositoryBranches> {
   const topLevel = await localRepository(repo)
-  let names: string
-  try {
-    names = (await execFile('git', ['-C', topLevel, 'for-each-ref', '--format=%(refname:short)', 'refs/heads'], { windowsHide: true })).stdout
-  } catch (error) { throw new WorkspacePreparationError('branches_failed', [], error) }
+  await refreshRemoteRefs(topLevel)
+  const refs = async (prefix: string): Promise<string[]> => {
+    try {
+      const result = await execFile('git', ['-C', topLevel, 'for-each-ref', '--format=%(refname:short)', prefix], { windowsHide: true })
+      return result.stdout.split(/\r?\n/u).map(name => name.trim()).filter(name => name !== '')
+    } catch (error) { throw new WorkspacePreparationError('branches_failed', [], error) }
+  }
+  const local = await refs('refs/heads')
+  const remote = (await refs('refs/remotes')).filter(name => !name.endsWith('/HEAD'))
   let current: string | undefined
   try {
     const value = (await execFile('git', ['-C', topLevel, 'symbolic-ref', '--quiet', '--short', 'HEAD'], { windowsHide: true })).stdout.trim()
     if (value !== '') current = value
   } catch { /* A detached HEAD is a valid workspace state and has no branch name. */ }
-  const branches = [...new Set(names.split(/\r?\n/u).map(name => name.trim()).filter(name => name !== ''))].sort((a, b) => a.localeCompare(b))
+  const sorted = (names: readonly string[]): string[] => [...new Set(names)].sort((a, b) => a.localeCompare(b))
+  const branches = [...sorted(local), ...sorted(remote)]
   return { topLevel, ...(current === undefined ? {} : { current }), branches }
 }
 

@@ -43,6 +43,7 @@ import { LoomCommandPalette } from './features/palette/LoomCommandPalette.tsx'
 import { LoomTemporaryDialog, type LoomTemporaryActions } from './features/dialogs/LoomTemporaryDialog.tsx'
 import { LoomArchiveDialog } from './features/dialogs/LoomArchiveDialog.tsx'
 import { useLoomSessionArchive } from './shell/useLoomSessionArchive.ts'
+import { useLoomApprovalAttention } from './shell/useLoomApprovalAttention.ts'
 import { LoomSessionActivity, type LoomSubagentRow } from './features/session/LoomSessionActivity.tsx'
 import { LoomVersionGraph } from './features/version/LoomVersionGraph.tsx'
 import { LoomSessionGraph, type LoomTaskSessionRow } from './features/session/LoomSessionGraph.tsx'
@@ -55,6 +56,7 @@ import { failureReport, thrownFailureReport } from './ui/failure.ts'
 import type { WorkspaceCreateOutcome, WorkspaceCreationInput } from './features/workspace/WorkspaceChoice.tsx'
 import { workspaceBranch } from './features/workspace/workspace-refs.ts'
 import { registerDirectoryWorkspace } from './features/workspace/register-directory.ts'
+import { reuseWorkspace } from './features/version/reuse-workspace.ts'
 import type { FailureReport } from './ui/failure.ts'
 import { metaLine } from './ui/styles.ts'
 import { reportLoomFailure } from './shared/feedback.ts'
@@ -79,7 +81,7 @@ type CatalogState =
  * @param props - locale, native catalog, session acquisition, catalog actions, and renderer seats.
  * @returns the whole Loom page.
  */
-export function LoomPanel({ t, useSessions, retainSession, openResource, loadSnapshot, createProject, updateProject, deleteProject, createVersion, updateVersion, deleteVersion, createTask, updateTask, deleteTask, generateLock, prepareWorkspace, prepareWorkspaceSilent, registerWorkspace, repositoryBranches, inspectWorkspace, pickDirectory, listDirectory, requestDraftInitialization, startAttempt, attachSession, registerTemporarySession, listAgentPresets, transitionTask, createSessionInWorkspace, openPath, openPathApplications, openPathWith, workspaceChanges, workspaceChangeCount, workspaceStatus, readFile, readBytes, commitWorkspace, updateWorkspace, deleteWorkspace, cleanupWorkspace, cleanupWorkspaceSilent, acquireExecution, cancelExecution, reorderExecutionQueue, releaseExecution, takeoverExecution, forkSession, archivedSessionIds: readArchivedSessionIds, archiveSession, unarchiveSession, jobs, SessionProvider, renderSlot }: LoomPanelProps) {
+export function LoomPanel({ t, useSessions, useSessionStatus, retainSession, openResource, loadSnapshot, createProject, updateProject, deleteProject, createVersion, updateVersion, deleteVersion, createTask, updateTask, deleteTask, generateLock, prepareWorkspace, prepareWorkspaceSilent, registerWorkspace, repositoryBranches, inspectWorkspace, pickDirectory, listDirectory, requestDraftInitialization, startAttempt, attachSession, registerTemporarySession, listAgentPresets, transitionTask, createSessionInWorkspace, openPath, openPathApplications, openPathWith, workspaceChanges, workspaceChangeCount, workspaceStatus, readFile, readBytes, commitWorkspace, updateWorkspace, deleteWorkspace, cleanupWorkspace, cleanupWorkspaceSilent, acquireExecution, cancelExecution, reorderExecutionQueue, releaseExecution, takeoverExecution, forkSession, archivedSessionIds: readArchivedSessionIds, archiveSession, unarchiveSession, jobs, SessionProvider, renderSlot }: LoomPanelProps) {
   const sessions = useSessions(state => state)
   const [preferences, setPreferences] = useLoomPreferences()
   const { route, setRoute, view, setView } = useLoomRoute(preferences.view)
@@ -505,6 +507,31 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
     if (input.mode !== 'auto') throw new Error(t('workspace.auto'))
     return prepareAutoWorkspace(displayVersion, displayVersionProject, input)
   }
+  /**
+   * Move a finished direct workspace onto the version being edited.
+   * @param workspaceId - workspace record to retire and re-register.
+   * @returns the workspace record newly bound to this version.
+   */
+  async function reuseVersionWorkspace(workspaceId: string): Promise<RemoteResult<WorkspaceRecord>> {
+    if (displayVersion === undefined) throw new Error(t('state.error'))
+    const lock = snapshot?.locks.filter(candidate => candidate.versionId === displayVersion.id).at(-1)
+    if (lock === undefined) throw new Error(t('lock.generateFirst'))
+    const workspace = snapshot?.workspaces.find(candidate => candidate.id === workspaceId)
+    if (workspace === undefined) throw new Error(t('state.error'))
+    const ownerProjectId = workspace.projectId ?? snapshot?.versions.find(candidate => candidate.id === workspace.versionId)?.projectId
+    const outcome = await reuseWorkspace(
+      { cleanupWorkspace: cleanupWorkspaceSilent ?? cleanupWorkspace, registerWorkspace, workspaceStatus },
+      {
+        workspace: { id: workspace.id, path: workspace.path, rootPath: workspace.rootPath, versionId: workspace.versionId, projectId: ownerProjectId, repositories: workspace.repositories },
+        versionId: displayVersion.id,
+        projectId: ownerProjectId,
+        lockId: lock.id,
+      },
+    )
+    if (!outcome.ok) throw new Error(`${outcome.code}: ${outcome.message}`)
+    setAttempt(current => current + 1)
+    return { ok: true, value: outcome.workspace }
+  }
   async function createTaskWorkspace(input: WorkspaceCreationInput): Promise<WorkspaceCreateOutcome> {
     try {
       if (currentVersion === undefined || currentVersionProject === undefined) throw new Error(t('state.error'))
@@ -579,6 +606,21 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
     setSelected(id); setView('workbench')
     navigate('session')
   }
+
+  // An approval blocks its round until a human answers, so a Loom Session that
+  // is waiting needs a signal outside the tab showing the conversation.
+  const loomSessionIds = new Set<SessionId>([...boundIds, ...temporaryIds] as SessionId[])
+  const approvalSignature = useSessionStatus(state => {
+    const parts: string[] = []
+    for (const [id, status] of state) {
+      const interaction = status.pendingInteraction
+      if (interaction === undefined || interaction.kind !== 'approval') continue
+      if (!loomSessionIds.has(id)) continue
+      parts.push(`${id}\u0000${interaction.key}`)
+    }
+    return parts.sort().join('|')
+  })
+  useLoomApprovalAttention({ t, signature: approvalSignature, labelOf: sessionLabel, selectedSessionId: selected, onOpenSession: selectSession })
 
   /** Jump to the destination chosen in the command palette. */
   const activatePaletteItem = (item: LoomPaletteItem): void => {
@@ -897,6 +939,6 @@ export function LoomPanel({ t, useSessions, retainSession, openResource, loadSna
       onCancel={sessionArchive.cancelConfirm}
       onConfirm={sessionArchive.confirmArchive}
     />
-    <LoomFormDialogs createTaskWorkspace={createTaskWorkspace} registerTaskDirectory={registerTaskDirectory} t={t} create={create} edit={edit} versionStep={versionStep} currentProject={currentProject} currentVersion={currentVersion} currentVersionProject={currentVersionProject} displayProject={displayProject} displayVersion={displayVersion} displayVersionProject={displayVersionProject} detailTask={detailTask} snapshot={snapshot} agentPresets={agentPresets} createProject={createProject} createVersion={createVersion} createTask={createTask} updateProject={updateProject} updateVersion={updateVersion} updateTask={updateTask} repositoryBranches={repositoryBranches} chooseDirectory={chooseDirectory} addVersionWorkspace={addVersionWorkspace} renameVersionWorkspace={renameVersionWorkspace} removeVersionWorkspace={removeVersionWorkspace} directoryRequest={directoryRequest} finishDirectory={finishDirectory} listDirectory={listDirectory} treeDelete={treeDelete} treeDeleting={treeDeleting} treeDeleteFailure={treeDeleteFailure} confirmTreeDelete={confirmTreeDelete} setCreate={setCreate} setEdit={setEdit} setModalBusy={setModalBusy} setVersionStep={setVersionStep} setProject={setProject} setVersion={setVersion} setTask={setTask} setSelected={setSelected} setAttempt={setAttempt} setView={setView} setTreeDelete={setTreeDelete} setTreeDeleteFailure={setTreeDeleteFailure} navigate={navigate} />
+    <LoomFormDialogs createTaskWorkspace={createTaskWorkspace} registerTaskDirectory={registerTaskDirectory} t={t} create={create} edit={edit} versionStep={versionStep} currentProject={currentProject} currentVersion={currentVersion} currentVersionProject={currentVersionProject} displayProject={displayProject} displayVersion={displayVersion} displayVersionProject={displayVersionProject} detailTask={detailTask} snapshot={snapshot} agentPresets={agentPresets} createProject={createProject} createVersion={createVersion} createTask={createTask} updateProject={updateProject} updateVersion={updateVersion} updateTask={updateTask} repositoryBranches={repositoryBranches} chooseDirectory={chooseDirectory} addVersionWorkspace={addVersionWorkspace} reuseVersionWorkspace={reuseVersionWorkspace} renameVersionWorkspace={renameVersionWorkspace} removeVersionWorkspace={removeVersionWorkspace} directoryRequest={directoryRequest} finishDirectory={finishDirectory} listDirectory={listDirectory} treeDelete={treeDelete} treeDeleting={treeDeleting} treeDeleteFailure={treeDeleteFailure} confirmTreeDelete={confirmTreeDelete} setCreate={setCreate} setEdit={setEdit} setModalBusy={setModalBusy} setVersionStep={setVersionStep} setProject={setProject} setVersion={setVersion} setTask={setTask} setSelected={setSelected} setAttempt={setAttempt} setView={setView} setTreeDelete={setTreeDelete} setTreeDeleteFailure={setTreeDeleteFailure} navigate={navigate} />
   </div>
 }

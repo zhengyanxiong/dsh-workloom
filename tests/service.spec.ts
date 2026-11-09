@@ -742,3 +742,93 @@ it('cleans a workspace after its Lock advances past the preparation baseline', a
   expect(await call('snapshot')).toMatchObject({ workspaces: [] })
   await expect(readFile(join(root, 'web', 'file'), 'utf8')).rejects.toThrow()
 })
+
+it('extends a managed workspace with a repository the version gained before it starts', async () => {
+  const { call, dir } = await setup()
+  const exec = promisify(execFile)
+  const commitRepo = async (name: string): Promise<string> => {
+    const repo = join(dir, name)
+    await mkdir(repo)
+    await exec('git', ['init', '--quiet', repo])
+    await writeFile(join(repo, 'file'), `${name}\n`)
+    await exec('git', ['-C', repo, 'add', 'file'])
+    await exec('git', ['-C', repo, '-c', 'user.name=Loom Test', '-c', 'user.email=loom@example.invalid', 'commit', '-qm', 'initial'])
+    return repo
+  }
+  const web = await commitRepo('web')
+  const api = await commitRepo('api')
+  const project = await call('createProject', { request: { name: 'Grow', sources: [{ id: 'web', repo: web, path: 'web' }, { id: 'api', repo: api, path: 'api' }], modules: [] } }) as { id: string }
+  const version = await call('createVersion', { request: { projectId: project.id, name: 'v1', sources: [{ sourceId: 'web', ref: 'HEAD' }] } }) as { id: string }
+  const firstLock = await call('generateLock', { request: { versionId: version.id } }) as { id: string }
+  const root = join(dir, 'workspace')
+  await call('prepareWorkspace', { request: { path: root, versionId: version.id, lockId: firstLock.id } })
+  await call('updateVersion', { request: { versionId: version.id, name: 'v1', sources: [{ sourceId: 'web', ref: 'HEAD' }, { sourceId: 'api', ref: 'HEAD' }] } })
+  await call('generateLock', { request: { versionId: version.id } })
+  const task = await call('createTask', { request: { versionId: version.id, title: 'Touch both repos' } }) as { id: string }
+  const workspace = await call('snapshot').then(snapshot => (snapshot as { workspaces: { id: string }[] }).workspaces[0]!)
+  const started = await call('startAttempt', { request: { taskId: task.id, workspaceId: workspace.id } }) as { status: string }
+  expect(started.status).toBe('running')
+  expect(await readFile(join(root, 'api', 'file'), 'utf8')).toBe('api\n')
+  const snapshot = await call('snapshot') as { workspaces: { repositories: { sourceId: string }[]; lockId: string }[] }
+  expect(snapshot.workspaces[0]!.repositories.map(repository => repository.sourceId).sort()).toEqual(['api', 'web'])
+})
+
+it('refuses a direct workspace that cannot map every repository and reports a lagging Lock', async () => {
+  const { call, dir } = await setup()
+  const exec = promisify(execFile)
+  const commitRepo = async (name: string): Promise<string> => {
+    const repo = join(dir, name)
+    await mkdir(repo)
+    await exec('git', ['init', '--quiet', repo])
+    await writeFile(join(repo, 'file'), `${name}\n`)
+    await exec('git', ['-C', repo, 'add', 'file'])
+    await exec('git', ['-C', repo, '-c', 'user.name=Loom Test', '-c', 'user.email=loom@example.invalid', 'commit', '-qm', 'initial'])
+    return repo
+  }
+  const web = await commitRepo('web')
+  const api = await commitRepo('api')
+  const project = await call('createProject', { request: { name: 'Direct', sources: [{ id: 'web', repo: web, path: 'web' }, { id: 'api', repo: api, path: 'api' }], modules: [{ id: 'api-module', sourceId: 'api', path: 'src' }] } }) as { id: string }
+  const version = await call('createVersion', { request: { projectId: project.id, name: 'v1', sources: [{ sourceId: 'web', ref: 'HEAD' }] } }) as { id: string }
+  const firstLock = await call('generateLock', { request: { versionId: version.id } }) as { id: string }
+  const existing = join(dir, 'existing')
+  await mkdir(existing)
+  await exec('git', ['-C', web, 'worktree', 'add', '--quiet', join(existing, 'web'), 'HEAD'])
+  const direct = await call('registerWorkspace', { request: { path: existing, versionId: version.id, lockId: firstLock.id, mode: 'direct', repositories: [{ sourceId: 'web', path: 'web', targetPath: join(existing, 'web') }] } }) as { id: string }
+  // The version Lock has not resolved the module's repository yet, so no
+  // workspace can cover it and the round must name the version problem.
+  const laggingTask = await call('createTask', { request: { versionId: version.id, title: 'Needs module', moduleIds: ['api-module'] } }) as { id: string }
+  await expect(call('startAttempt', { request: { taskId: laggingTask.id, workspaceId: direct.id } })).rejects.toThrow('version_lagging')
+  await call('updateVersion', { request: { versionId: version.id, name: 'v1', sources: [{ sourceId: 'web', ref: 'HEAD' }, { sourceId: 'api', ref: 'HEAD' }] } })
+  await call('generateLock', { request: { versionId: version.id } })
+  const needsApi = await call('createTask', { request: { versionId: version.id, title: 'Needs api' } }) as { id: string }
+  await expect(call('startAttempt', { request: { taskId: needsApi.id, workspaceId: direct.id } })).rejects.toThrow('workspace_incomplete')
+})
+
+it('retires a direct workspace and re-registers its directories for another version', async () => {
+  const { call, dir } = await setup()
+  const exec = promisify(execFile)
+  const repo = join(dir, 'repo'); await mkdir(repo)
+  await exec('git', ['init', '--quiet', repo])
+  await writeFile(join(repo, 'file'), 'content\n')
+  await exec('git', ['-C', repo, 'add', 'file'])
+  await exec('git', ['-C', repo, '-c', 'user.name=Loom Test', '-c', 'user.email=loom@example.invalid', 'commit', '-qm', 'initial'])
+  const project = await call('createProject', { request: { name: 'Reuse', sources: [{ id: 'web', repo, path: 'web' }], modules: [] } }) as { id: string }
+  const oldVersion = await call('createVersion', { request: { projectId: project.id, name: 'v1', sources: [{ sourceId: 'web', ref: 'HEAD' }] } }) as { id: string }
+  const newVersion = await call('createVersion', { request: { projectId: project.id, name: 'v2', sources: [{ sourceId: 'web', ref: 'HEAD' }] } }) as { id: string }
+  const oldLock = await call('generateLock', { request: { versionId: oldVersion.id } }) as { id: string }
+  const newLock = await call('generateLock', { request: { versionId: newVersion.id } }) as { id: string }
+  const existing = join(dir, 'existing'); await mkdir(existing)
+  await exec('git', ['-C', repo, 'worktree', 'add', '--quiet', join(existing, 'web'), 'HEAD'])
+  const first = await call('registerWorkspace', { request: { path: existing, versionId: oldVersion.id, lockId: oldLock.id } }) as { id: string }
+  const task = await call('createTask', { request: { versionId: oldVersion.id, title: 'Old round', workspaceId: first.id } }) as { id: string }
+  await call('startAttempt', { request: { taskId: task.id, workspaceId: first.id } })
+  await call('transitionTask', { request: { taskId: task.id, target: 'review', actor: 'human' } })
+  await call('transitionTask', { request: { taskId: task.id, target: 'completed', actor: 'human' } })
+  await call('cleanupWorkspace', { request: { workspaceId: first.id } })
+  const reused = await call('registerWorkspace', { request: { path: existing, rootPath: existing, versionId: newVersion.id, lockId: newLock.id, mode: 'direct', rootOwner: 'user', repositories: [{ sourceId: 'web', path: 'web', targetPath: join(existing, 'web') }] } }) as { id: string; versionId: string }
+  expect(reused.id).not.toBe(first.id)
+  expect(reused.versionId).toBe(newVersion.id)
+  const snapshot = await call('snapshot') as { workspaces: { id: string; versionId: string; cleaned?: boolean }[] }
+  expect(snapshot.workspaces.find(workspace => workspace.id === first.id)).toMatchObject({ cleaned: true })
+  expect(snapshot.workspaces.find(workspace => workspace.id === reused.id)).toMatchObject({ versionId: newVersion.id })
+})

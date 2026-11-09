@@ -17,6 +17,9 @@ const SERVICE_ERROR_DESCRIPTION: Readonly<Record<string, string>> = {
   workspace_changes: 'the workspace has uncommitted changes',
   stale_owner: 'the execution owner token is stale',
   detached_head: 'the directory is on a detached HEAD; choose a branch',
+  workspace_incomplete: 'the workspace does not map every repository this task needs',
+  version_lagging: 'the version Lock does not include every repository this task needs',
+
 }
 export function serviceError(code: string, detail?: string): Error {
   const description = SERVICE_ERROR_DESCRIPTION[code] ?? 'the Loom operation failed'

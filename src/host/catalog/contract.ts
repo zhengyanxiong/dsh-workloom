@@ -122,6 +122,11 @@ export interface Catalog {
   updateTask(taskId: TaskRecord['id'], title: string, options?: CreateTaskOptions): Promise<TaskRecord>
   deleteTask(taskId: TaskRecord['id']): Promise<void>
   prepareWorkspace(input: PrepareWorkspaceInput): Promise<WorkspaceRecord>
+  /**
+   * Materialize repositories a version Lock gained after this managed workspace
+   * was prepared, recording the new bindings only after every worktree exists.
+   */
+  extendWorkspace(workspaceId: WorkspaceRecord['id'], lockId: Lock['id']): Promise<WorkspaceRecord>
   workspaceChanges(workspaceId: WorkspaceRecord['id'], attemptId?: Branded<'loom.attempt'>): Promise<{ repositories: WorkspaceRepositoryChanges[] }>
   workspaceChangeCount(workspaceId: WorkspaceRecord['id'], attemptId?: Branded<'loom.attempt'>): Promise<number>
   workspaceStatus(workspaceId: WorkspaceRecord['id'], attemptId?: Branded<'loom.attempt'>): Promise<{ running: boolean; repositories: WorkspaceStatusRepository[] }>

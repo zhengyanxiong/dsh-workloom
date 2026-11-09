@@ -202,6 +202,10 @@ export interface RepositoryBranchesRequest {
 export interface RepositoryBranches {
   readonly topLevel: string
   readonly current?: string
+  /**
+   * Local branches first, then remote-tracking refs such as `origin/main`, each
+   * group sorted. Reading the list refreshes the default remote first.
+   */
   readonly branches: readonly string[]
 }
 /**

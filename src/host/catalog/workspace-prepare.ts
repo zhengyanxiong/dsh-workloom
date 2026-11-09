@@ -7,16 +7,17 @@
  */
 import { randomUUID } from 'node:crypto'
 import { lstat } from 'node:fs/promises'
-import { isAbsolute, normalize, resolve } from 'node:path'
+import { isAbsolute, join, normalize, resolve } from 'node:path'
 import { brandString, type Branded } from '@deepseek-ai/dsh-brand'
-import { admitWorkspaceLayout, WorkspaceLayoutError, type WorkspaceLayout, type WorkspaceMode, type WorkspaceRepositoryBinding } from '../../domain/workspace.ts'
+import { admitWorkspaceLayout, autoWorkspaceRepositoryPath, WorkspaceLayoutError, type WorkspaceLayout, type WorkspaceMode, type WorkspaceRepositoryBinding } from '../../domain/workspace.ts'
 import type { AuditEntry, AuditEvent } from '../../domain/audit.ts'
 import type { CatalogSnapshot, WorkspacePreparation, WorkspaceRecord } from '../../api/records.ts'
 import {
-  addLinkedWorkspaceLink, addWorkspaceWorktree, createWorkspaceRoot, linkWorkspaceSkills,
+  addLinkedWorkspaceLink, addWorkspaceWorktree, createWorkspaceRoot, linkWorkspaceSkills, removeWorkspaceWorktree,
   planLinkedWorkspace, planWorkspace,
-  type LinkedRepositoryPlan, type WorkspaceRepositoryPlan,
+  type AddedWorkspaceWorktree, type LinkedRepositoryPlan, type WorkspaceRepositoryPlan,
 } from '../../git/workspace.ts'
+import type { Lock } from '../../domain/task.ts'
 import type { PrepareWorkspaceInput } from './contract.ts'
 import { CatalogError } from './errors.ts'
 import { nowIso, workspaceBindings } from './schema.ts'
@@ -27,6 +28,7 @@ import { pathExists, preparationFailure, repositoryRequests } from './workspace-
  * The catalog transaction surface required by workspace preparation.
  */
 export interface WorkspacePrepareRuntime {
+  snapshot(): CatalogSnapshot
   transaction<T>(operation: (draft: CatalogSnapshot) => Promise<T> | T): Promise<T>
   currentWorkspace(workspaceId: WorkspaceRecord['id']): WorkspaceRecord
   patchPreparation(
@@ -291,3 +293,93 @@ export async function prepareWorkspace(runtime: WorkspacePrepareRuntime, input: 
       return updated
     })
   }
+
+
+/**
+ * Materialize the repositories a version Lock gained after a managed workspace
+ * was prepared.
+ *
+ * Workflows create a managed workspace from the Lock of the version they start
+ * in. When the project or version later adds a repository and the Lock advances,
+ * the existing workspace would otherwise keep a layout that cannot see the new
+ * repository, and an Agent would write those files into a sibling checkout. This
+ * extends the workspace instead: worktrees are created first, and only a
+ * completely successful run records the new bindings, so a failure leaves the
+ * workspace exactly as it was.
+ * @param runtime - Catalog transaction, preparation and audit surface.
+ * @param workspaceId - managed workspace to extend.
+ * @param lockId - the version Lock whose repository set is the target coverage.
+ * @returns the workspace with the new repository bindings recorded.
+ */
+export async function extendWorkspace(
+  runtime: WorkspacePrepareRuntime,
+  workspaceId: WorkspaceRecord['id'],
+  lockId: Lock['id'],
+): Promise<WorkspaceRecord> {
+  const state = runtime.snapshot()
+  const workspace = workspaceIn(state, workspaceId)
+  if (workspace.cleaned === true) throw new CatalogError('workspace_cleaned')
+  const mode = workspace.mode ?? (workspace.managed === true ? 'managed' : 'direct')
+  if (mode !== 'managed') throw new CatalogError('workspace_incomplete', 'only a managed workspace can grow a repository worktree')
+  const version = versionIn(state, workspace.versionId)
+  const project = state.projects.find(item => item.id === version.projectId)
+  if (project === undefined) throw new CatalogError('missing_project')
+  const lock = state.locks.find(item => item.id === lockId)
+  if (lock === undefined) throw new CatalogError('missing_lock')
+  if (lock.versionId !== version.id) throw new CatalogError('workspace_mismatch')
+  const existing = workspaceBindings(state, workspace)
+  const covered = new Set(existing.map(binding => binding.sourceId))
+  const missing = project.config.sources.filter(source => lock.repositories.some(repository => repository.sourceId === source.id) && !covered.has(source.id))
+  if (missing.length === 0) return workspace
+  const root = workspace.rootPath ?? workspace.path
+  // A workspace that records a branch extends that branch; a detached workspace
+  // stays detached so the extension never invents branch semantics on its own.
+  const branch = existing.find(binding => binding.branch !== undefined && binding.branch !== '')?.branch
+  const additions: WorkspaceRepositoryBinding[] = missing.map(source => {
+    const pinned = lock.repositories.find(repository => repository.sourceId === source.id)!
+    const path = autoWorkspaceRepositoryPath(String(pinned.subProjectId ?? 'default'), source)
+    return {
+      sourceId: source.id,
+      ...(pinned.subProjectId === undefined ? {} : { subProjectId: pinned.subProjectId }),
+      path,
+      targetPath: join(root, path),
+      kind: 'worktree' as const,
+      ...(branch === undefined ? {} : { branch }),
+      commit: pinned.commit,
+    }
+  })
+  const plans = (await planWorkspace(root, repositoryRequests(project, lock, additions), { existingRoot: true })).plans
+  const added: AddedWorkspaceWorktree[] = []
+  try {
+    for (const plan of plans) added.push(await addWorkspaceWorktree(root, plan))
+  } catch (error) {
+    for (const item of added.reverse()) {
+      await removeWorkspaceWorktree(item.plan.repo, item.plan.target, item.createdBranch ? item.plan.branch : undefined)
+    }
+    const failure = preparationFailure(error)
+    throw new CatalogError('workspace_incomplete', failure.error)
+  }
+  const skillLinks = await linkWorkspaceSkills(root, [...existing, ...additions].map(binding => binding.targetPath))
+  return runtime.transaction(draft => {
+    const current = workspaceIn(draft, workspaceId)
+    const bindings = [...workspaceBindings(draft, current), ...additions]
+    const preparation = current.preparation
+    const updated = runtime.updateWorkspaceIn(draft, workspaceId, workspace => ({
+      ...workspace,
+      lockId: lock.id,
+      repositories: bindings,
+      ...(branch === undefined ? {} : { branches: { ...(workspace.branches ?? {}), ...Object.fromEntries(additions.map(binding => [binding.sourceId, branch])) } }),
+      ...(skillLinks.length === 0 ? {} : { skillLinks: [...new Set([...(workspace.skillLinks ?? []), ...skillLinks])] }),
+      ...(preparation === undefined ? {} : {
+        preparation: {
+          ...preparation,
+          status: 'ready' as const,
+          error: undefined,
+          repositories: [...preparation.repositories, ...additions.map(binding => ({ sourceId: binding.sourceId, status: 'done' as const, path: binding.targetPath }))],
+        },
+      }),
+    }))
+    runtime.recordAudit(draft, 'workspace.updated', 'human', { workspaceId, detail: `repositories added: ${additions.map(binding => String(binding.sourceId)).join(', ')}` })
+    return updated
+  })
+}
