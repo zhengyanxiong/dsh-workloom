@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import type { WorkspaceRecord, WorkspaceStatusResult, WorkspaceStatusRepository } from 'dsh-workloom/types'
-import { reuseWorkspace, type ReuseWorkspaceDeps } from '../../../src/client/features/version/reuse-workspace.ts'
+import { reuseTargetOf, reuseWorkspace, type ReuseWorkspaceDeps } from '../../../src/client/features/version/reuse-workspace.ts'
 
 const workspace = {
   id: 'ws-old',
@@ -47,6 +47,11 @@ function deps(overrides: {
 }
 
 const input = { workspace, versionId: 'v-new', projectId: 'p1', lockId: 'lock-new' }
+
+it('keeps the cleaned flag when projecting a workspace record into a reuse target', () => {
+  expect(reuseTargetOf({ ...workspace, cleaned: true })).toMatchObject({ id: 'ws-old', cleaned: true })
+  expect(reuseTargetOf(workspace).cleaned).toBeUndefined()
+})
 
 it('refuses to reuse a running, dirty, same-version or mapping-less workspace', async () => {
   const running = deps({ running: true })

@@ -56,7 +56,7 @@ import { failureReport, thrownFailureReport } from './ui/failure.ts'
 import type { WorkspaceCreateOutcome, WorkspaceCreationInput } from './features/workspace/WorkspaceChoice.tsx'
 import { workspaceBranch } from './features/workspace/workspace-refs.ts'
 import { registerDirectoryWorkspace } from './features/workspace/register-directory.ts'
-import { reuseWorkspace, type ReuseWorkspaceOutcome } from './features/version/reuse-workspace.ts'
+import { reuseWorkspace, reuseTargetOf, type ReuseWorkspaceOutcome } from './features/version/reuse-workspace.ts'
 import { createVersionAdoptingLinkedDirectory, createVersionReusingWorkspace as createVersionReusingWorkspaceRemote } from './features/version/create-version-reuse.ts'
 import type { FailureReport } from './ui/failure.ts'
 import { metaLine } from './ui/styles.ts'
@@ -527,7 +527,7 @@ export function LoomPanel({ t, useSessions, useSessionStatus, retainSession, ope
     return reuseWorkspace(
       { cleanupWorkspace: cleanupWorkspaceSilent ?? cleanupWorkspace, registerWorkspace, workspaceStatus },
       {
-        workspace: { id: workspace.id, path: workspace.path, rootPath: workspace.rootPath, versionId: workspace.versionId, projectId: ownerProjectId, repositories: workspace.repositories },
+        workspace: { ...reuseTargetOf(workspace), projectId: ownerProjectId },
         versionId: version.id,
         projectId: ownerProjectId,
         lockId,

@@ -50,6 +50,9 @@ Releases start at 0.1.8 in this repository.
 - The reuse section names the existing workspaces it cannot offer yet and why
   (a Session holds execution, or a running/under-review task uses them), so a
   disabled reuse button is actionable instead of silent.
+- Reusing an already cleaned direct workspace no longer re-runs the active-record
+  checks: the record is re-registered as-is instead of failing with an
+  uncommitted-changes error and rolling the half-created version back.
 - Starting a round now verifies that the workspace maps every repository the
   task needs: a managed workspace materializes the worktrees it was missing,
   while a direct or linked workspace refuses with the repository names instead

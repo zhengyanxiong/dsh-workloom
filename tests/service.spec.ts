@@ -832,3 +832,30 @@ it('retires a direct workspace and re-registers its directories for another vers
   expect(snapshot.workspaces.find(workspace => workspace.id === first.id)).toMatchObject({ cleaned: true })
   expect(snapshot.workspaces.find(workspace => workspace.id === reused.id)).toMatchObject({ versionId: newVersion.id })
 })
+
+it('re-binds a cleaned direct workspace to another version without a clean check', async () => {
+  const { call, dir } = await setup()
+  const exec = promisify(execFile)
+  const repo = join(dir, 'repo'); await mkdir(repo)
+  await exec('git', ['init', '--quiet', repo])
+  await writeFile(join(repo, 'file'), 'content\n')
+  await exec('git', ['-C', repo, 'add', 'file'])
+  await exec('git', ['-C', repo, '-c', 'user.name=Loom Test', '-c', 'user.email=loom@example.invalid', 'commit', '-qm', 'initial'])
+  const project = await call('createProject', { request: { name: 'Cleaned', sources: [{ id: 'web', repo, path: '.' }], modules: [] } }) as { id: string }
+  const first = await call('createVersion', { request: { projectId: project.id, name: 'v1', sources: [{ sourceId: 'web', ref: 'HEAD' }] } }) as { id: string }
+  const firstLock = await call('generateLock', { request: { versionId: first.id } }) as { id: string }
+  const workspace = await call('registerWorkspace', { request: { path: repo, rootPath: repo, versionId: first.id, lockId: firstLock.id, mode: 'direct', rootOwner: 'user', repositories: [{ sourceId: 'web', path: '.', targetPath: repo }] } }) as { id: string }
+  const task = await call('createTask', { request: { versionId: first.id, title: 'Round', workspaceId: workspace.id } }) as { id: string }
+  await call('startAttempt', { request: { taskId: task.id, workspaceId: workspace.id } })
+  await call('transitionTask', { request: { taskId: task.id, target: 'review', actor: 'human' } })
+  await call('transitionTask', { request: { taskId: task.id, target: 'completed', actor: 'human' } })
+  await call('cleanupWorkspace', { request: { workspaceId: workspace.id } })
+  const cleaned = await call('snapshot') as { workspaces: { id: string; cleaned?: boolean }[] }
+  expect(cleaned.workspaces.find(candidate => candidate.id === workspace.id)?.cleaned).toBe(true)
+  const second = await call('createVersion', { request: { projectId: project.id, name: 'v2', sources: [{ sourceId: 'web', ref: 'HEAD' }] } }) as { id: string }
+  const secondLock = await call('generateLock', { request: { versionId: second.id } }) as { id: string }
+  // This is the order the client reuse flow performs for a cleaned record.
+  const rebound = await call('registerWorkspace', { request: { path: repo, rootPath: repo, versionId: second.id, lockId: secondLock.id, mode: 'direct', rootOwner: 'user', repositories: [{ sourceId: 'web', path: '.', targetPath: repo }] } }) as { id: string; versionId: string }
+  expect(rebound.id).not.toBe(workspace.id)
+  expect(rebound.versionId).toBe(second.id)
+})

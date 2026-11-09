@@ -38,6 +38,31 @@ export interface ReuseWorkspaceInput {
   readonly lockId: string
 }
 
+/**
+ * Project one workspace record into the reuse target.
+ * @param workspace - catalog record to retire and re-register.
+ * @returns the fields the reuse flow needs, including whether it is cleaned.
+ */
+export function reuseTargetOf(workspace: {
+  readonly id: string
+  readonly path: string
+  readonly rootPath?: string | undefined
+  readonly versionId: string
+  readonly projectId?: string | undefined
+  readonly repositories?: readonly WorkspaceRepositoryBinding[] | undefined
+  readonly cleaned?: boolean | undefined
+}): ReuseWorkspaceInput['workspace'] {
+  return {
+    id: workspace.id,
+    path: workspace.path,
+    rootPath: workspace.rootPath,
+    versionId: workspace.versionId,
+    projectId: workspace.projectId,
+    repositories: workspace.repositories,
+    cleaned: workspace.cleaned,
+  }
+}
+
 /** Either the adopted workspace record or a wire-shaped failure code and message. */
 export type ReuseWorkspaceOutcome =
   | { readonly ok: true; readonly workspace: WorkspaceRecord }
