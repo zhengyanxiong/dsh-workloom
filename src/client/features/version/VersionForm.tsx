@@ -108,6 +108,9 @@ export function VersionForm({ t, project, listBranches, pickDirectory, boundWork
     if (candidate === 'name') return true
     if (candidate === 'refs') return nameReady
     if (candidate === 'workspace') return versionRequest(project, name, refs, description, [], selectedSubProjects) !== undefined
+    // Creating a version binds at least one workspace (the copy says so), and
+    // an empty workspace draft would leave the version with no place to run.
+    if (candidate === 'preview') return request !== undefined && (editing || workspaceInput !== undefined)
     return request !== undefined
   }
   function goTo(candidate: VersionStep): void {

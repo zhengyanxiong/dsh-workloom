@@ -373,3 +373,72 @@ it('binds a ready version workspace as the task default and picks it up when it 
   expect(container.textContent).toContain('/work/v1-auto')
   expect(container.textContent).not.toContain(en['task.workspaceRequired'])
 })
+
+it('keeps the version wizard on the workspace step until a workspace draft exists', async () => {
+  ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
+  const project: ProjectRecord = {
+    id: brandString<ProjectRecord['id']>('p1'),
+    config: { name: 'Shop', sources: [{ id: brandString<'loom.source'>('web'), repo: '/repo/shop', path: 'shop' }], modules: [] },
+  }
+  const version: VersionRecord = { id: brandString<VersionRecord['id']>('v1'), projectId: project.id, name: 'v1', sources: [] }
+  container = document.createElement('div')
+  document.body.append(container)
+  root = createRoot(container)
+  await act(async () => {
+    root?.render(createElement(VersionForm, { t, open: true, project, create: async () => ({ ok: true, value: version }), onCreated: () => undefined }))
+  })
+  const setValue = async (input: HTMLInputElement | null, value: string): Promise<void> => {
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set
+    await act(async () => {
+      setter?.call(input, value)
+      input?.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+  }
+  const click = async (label: string): Promise<void> => {
+    const target = [...(container?.querySelectorAll('button') ?? [])].find(button => button.textContent === label)
+    await act(async () => { target?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true })) })
+  }
+  await setValue(container.querySelector<HTMLInputElement>(`input[aria-label="${en['version.name']}"]`), 'v2')
+  await click(en['form.next'])
+  await setValue(container.querySelector<HTMLInputElement>(`input[aria-label^="${en['source.branch']}"]`), 'main')
+  await click(en['form.next'])
+  expect(container.textContent).toContain(en['version.workspaceAuto'])
+  await click(en['form.next'])
+  expect(container.textContent).toContain(en['version.workspaceAuto'])
+  expect(container.textContent).not.toContain(en['version.previewHint'])
+})
+
+it('explains a version whose workspaces are bound but not ready and offers a refresh', async () => {
+  ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
+  const project: ProjectRecord = {
+    id: brandString<ProjectRecord['id']>('p1'),
+    config: { name: 'Shop', sources: [{ id: brandString<'loom.source'>('web'), repo: '/repo/shop', path: 'shop' }], modules: [] },
+  }
+  const version: VersionRecord = { id: brandString<VersionRecord['id']>('v1'), projectId: project.id, name: 'v2', sources: [] }
+  let refreshed = 0
+  container = document.createElement('div')
+  document.body.append(container)
+  root = createRoot(container)
+  await act(async () => {
+    root?.render(createElement(TaskForm, {
+      t, open: true, project, version, workspaces: [],
+      versionWorkspaces: [{ id: 'ws-1', label: 'v1-auto', status: 'workspace.statePending' }],
+      onRefresh: () => { refreshed += 1 },
+      createWorkspace: async () => ({ ok: false, error: { message: 'delete.unknownFailure' } }),
+      create: async () => ({ ok: false, error: { code: 'unused', message: 'unused' } }),
+      onCreated: () => undefined,
+    }))
+  })
+  const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set
+  const name = container.querySelector<HTMLInputElement>(`input[aria-label="${en['task.name']}"]`)
+  await act(async () => {
+    setter?.call(name, 'Ship')
+    name?.dispatchEvent(new Event('input', { bubbles: true }))
+  })
+  const next = [...(container.querySelectorAll('button') ?? [])].find(button => button.textContent === en['form.next'])
+  await act(async () => { next?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true })) })
+  expect(container.textContent).toContain(en['task.workspaceNotReady'])
+  const refresh = [...(container.querySelectorAll('button') ?? [])].find(button => button.textContent === en['task.workspaceRefresh'])
+  await act(async () => { refresh?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true })) })
+  expect(refreshed).toBe(1)
+})

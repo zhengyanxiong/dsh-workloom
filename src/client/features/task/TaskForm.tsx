@@ -20,6 +20,13 @@ interface TaskFormProps {
   project: ProjectRecord
   /** Ready workspaces bound to the version. */
   workspaces?: readonly { readonly id: string; readonly label?: string | undefined; readonly rootPath?: string | undefined; readonly path: string }[] | undefined
+  /**
+   * Every workspace bound to the version with its lifecycle; explains an empty
+   * ready list instead of leaving it ambiguous.
+   */
+  versionWorkspaces?: readonly { readonly id: string; readonly label: string; readonly status: LoomKey }[] | undefined
+  /** Re-read the catalog when the workspace list looks stale. */
+  onRefresh?: (() => void) | undefined
   /** Create an independent workspace from the task form. */
   createWorkspace?: ((input: WorkspaceCreationInput) => Promise<WorkspaceCreateOutcome>) | undefined
   /** Register an existing directory as a direct workspace. */
@@ -48,7 +55,7 @@ const TASK_STEPS: readonly { readonly key: TaskStep; readonly label: LoomKey }[]
 const PRIORITY_LABEL: Readonly<Record<TaskPriority, LoomKey>> = { low: 'task.priority.low', normal: 'task.priority.normal', high: 'task.priority.high' }
 
 /** Create or edit one task under the selected version. */
-export function TaskForm({ t, version, project, workspaces, createWorkspace, useWorkspaceDirectory, pickDirectory, agentPresets = [], create, update, task, onCreated, open: controlledOpen, onOpenChange, onBusyChange }: TaskFormProps) {
+export function TaskForm({ t, version, project, workspaces, versionWorkspaces, onRefresh, createWorkspace, useWorkspaceDirectory, pickDirectory, agentPresets = [], create, update, task, onCreated, open: controlledOpen, onOpenChange, onBusyChange }: TaskFormProps) {
   const editing = task !== undefined
   const [internalOpen, setInternalOpen] = useState(false)
   const open = controlledOpen ?? internalOpen
@@ -140,7 +147,7 @@ export function TaskForm({ t, version, project, workspaces, createWorkspace, use
     </section>}
     {(editing || step === 'scope') && <section style={stack}>
       <p style={hint}>{t('task.draftHint')}</p>
-      {!editing && <label style={field}><span style={fieldLabel}>{t('task.workspace')}</span>
+      {!editing && <label style={field}><span style={fieldLabel}>{`${t('task.workspace')} · ${version.name}`}</span>
         <WorkspaceChoice
           t={t}
           ariaLabel={t('task.workspace')}
@@ -154,7 +161,10 @@ export function TaskForm({ t, version, project, workspaces, createWorkspace, use
           defaultName={`task-${version.name}`}
           sourceGroups={workspaceSourceGroups(version, project)}
         />
-        {workspaceOptions.length === 0 && <p style={hint}>{t('task.workspaceRequired')}</p>}
+        {workspaceOptions.length === 0 && (versionWorkspaces === undefined || versionWorkspaces.length === 0
+          ? <p style={hint}>{t('task.workspaceNoneBound', { version: version.name })}</p>
+          : <p style={hint}>{t('task.workspaceNotReady', { version: version.name, items: versionWorkspaces.map(workspace => `${workspace.label}（${t(workspace.status)}）`).join(t('task.workspaceListSeparator')) })}</p>)}
+        {workspaceOptions.length === 0 && onRefresh !== undefined && <Button type="button" size="sm" variant="outline" style={{ alignSelf: 'flex-start' }} onClick={onRefresh}>{t('task.workspaceRefresh')}</Button>}
         {workspaceOptions.length === 1 && <p style={hint}>{t('task.workspaceConcurrentHint')}</p>}
       </label>}
       <label style={field}><span style={fieldLabel}>{t('task.priority')}</span>

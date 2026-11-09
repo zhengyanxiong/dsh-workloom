@@ -32,6 +32,12 @@ Releases start at 0.1.8 in this repository.
 - A new task is bound to the version's first ready workspace by default,
   including when that workspace list arrives after the dialog opened; the
   workspace control no longer defaults to creating or locating one.
+- The task dialog names the target project and version, and an empty workspace
+  list now says whether the version binds nothing or which bound workspaces are
+  still preparing, failed or cleaned, with a refresh action.
+- The version wizard refuses to advance to the preview until its workspace
+  draft exists; it previously showed a required hint but still created a version
+  with no place to run tasks.
 - Starting a round now verifies that the workspace maps every repository the
   task needs: a managed workspace materializes the worktrees it was missing,
   while a direct or linked workspace refuses with the repository names instead
