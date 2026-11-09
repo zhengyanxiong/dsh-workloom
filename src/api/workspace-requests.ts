@@ -204,7 +204,9 @@ export interface RepositoryBranches {
   readonly current?: string
   /**
    * Local branches first, then remote-tracking refs such as `origin/main`, each
-   * group sorted. Reading the list refreshes the default remote first.
+   * group sorted. The reply never waits for the network: the Host refreshes the
+   * default remote in the background, and Lock resolution re-fetches the chosen
+   * ref so a stale clone cannot pin an old commit.
    */
   readonly branches: readonly string[]
 }

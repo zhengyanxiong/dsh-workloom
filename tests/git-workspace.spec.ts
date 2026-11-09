@@ -59,6 +59,10 @@ it('refreshes remote branches and resolves a branch name from the remote tip', a
   const branches = await repositoryBranches(clone)
   expect(branches.branches).toContain(`origin/${branch}`)
   expect(await resolveCommit(clone, branch)).toBe(remoteTip)
+  // A remote-tracking expression resolves through the branch it tracks, so a
+  // stale clone cannot pin the commit it last saw either.
+  await exec('git', ['-C', clone, 'update-ref', `refs/remotes/origin/${branch}`, stale])
+  expect(await resolveCommit(clone, `origin/${branch}`)).toBe(remoteTip)
 })
 
 it('prepares a workspace from a SHA-256 repository', async () => {

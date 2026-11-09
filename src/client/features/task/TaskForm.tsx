@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { Button, IconChevronLeftOutlineRegular, IconPlusOutlineRegular } from '../../ui/primitives.ts'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import type { AgentPresetOption } from '../../../api/agent.ts'
@@ -66,6 +66,15 @@ export function TaskForm({ t, version, project, workspaces, createWorkspace, use
   const workspaceOptions = createdWorkspace === undefined || (workspaces ?? []).some(workspace => workspace.id === createdWorkspace.id)
     ? workspaces ?? []
     : [...(workspaces ?? []), createdWorkspace]
+  // The version may gain its workspaces after this dialog mounted (the catalog
+  // refresh that follows version creation is asynchronous); bind the default
+  // workspace as soon as the ready list arrives instead of leaving the form on
+  // the directory/create tabs.
+  useEffect(() => {
+    if (editing || workspaceId !== '') return
+    const first = workspaces?.[0]
+    if (first !== undefined) setWorkspaceId(first.id)
+  }, [editing, workspaceId, workspaces])
   const [busy, setBusy] = useState(false)
   const reportBusy = (value: boolean): void => { setBusy(value); onBusyChange?.(value) }
   const [failure, setFailure] = useState<string>()
@@ -145,6 +154,7 @@ export function TaskForm({ t, version, project, workspaces, createWorkspace, use
           defaultName={`task-${version.name}`}
           sourceGroups={workspaceSourceGroups(version, project)}
         />
+        {workspaceOptions.length === 0 && <p style={hint}>{t('task.workspaceRequired')}</p>}
         {workspaceOptions.length === 1 && <p style={hint}>{t('task.workspaceConcurrentHint')}</p>}
       </label>}
       <label style={field}><span style={fieldLabel}>{t('task.priority')}</span>

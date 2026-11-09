@@ -192,15 +192,25 @@ async function fetchCommit(repo: string, ref: string): Promise<string | undefine
   let remotes: string
   try { remotes = (await execFile('git', ['-C', repo, 'remote'], { windowsHide: true })).stdout } catch { return undefined }
   const names = remotes.split(/\r?\n/u).map(name => name.trim()).filter(name => name !== '')
-  const remote = names.includes('origin') ? 'origin' : names[0]
-  if (remote === undefined) return undefined
-  // A remote-tracking expression already names the fetched commit; re-fetching
-  // it would just be a slower way to read the same ref.
-  if (names.some(name => ref === name || ref.startsWith(`${name}/`))) return undefined
-  try {
-    await execFile('git', ['-C', repo, 'fetch', '--no-tags', '--quiet', remote, ref], { windowsHide: true })
-    return await verifyCommit(repo, 'FETCH_HEAD')
-  } catch { return undefined }
+  if (names.length === 0) return undefined
+  // A remote-tracking expression names the branch it tracks, so its freshness
+  // comes from fetching that underlying branch from the same remote.
+  const tracking = names.find(name => ref.startsWith(`${name}/`))
+  const source = tracking === undefined ? (names.includes('origin') ? 'origin' : names[0]!) : tracking
+  const target = tracking === undefined ? ref : ref.slice(tracking.length + 1)
+  if (target === '' || target === 'HEAD') return undefined
+  // A concurrent background refresh can hold a ref lock for a moment, so one
+  // failed fetch is retried before the caller falls back to the local ref.
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      await execFile('git', ['-C', repo, 'fetch', '--no-tags', '--quiet', source, target], { windowsHide: true })
+      return await verifyCommit(repo, 'FETCH_HEAD')
+    } catch {
+      if (attempt === 1) return undefined
+      await new Promise(resolve => setTimeout(resolve, 150))
+    }
+  }
+  return undefined
 }
 
 /**
@@ -721,15 +731,19 @@ export interface RepositoryBranches {
   readonly branches: readonly string[]
 }
 
-/** Wall-clock budget for one best-effort remote refresh before listing branches. */
-const BRANCH_FETCH_TIMEOUT_MS = 20_000
+/** Wall-clock budget for one background remote refresh of the branch list. */
+const BRANCH_REFRESH_TIMEOUT_MS = 20_000
+/** Minimum gap between two background refreshes of the same repository. */
+const BRANCH_REFRESH_INTERVAL_MS = 5 * 60_000
+/** Repository roots with a background refresh in flight or recently finished. */
+const branchRefreshes = new Map<string, { readonly at: number; readonly promise?: Promise<void> }>()
 
 /**
  * Refresh one repository's remote-tracking refs without touching its worktree.
  *
- * A stale clone lists stale branches, so reading the picker refreshes the
- * default remote first. Offline or unauthenticated repositories keep working:
- * every failure is swallowed and the existing refs are listed as-is.
+ * A stale clone lists stale branches, so the branch picker refreshes the
+ * default remote. Failures stay silent: offline or unauthenticated
+ * repositories keep showing the refs they already have.
  * @param repo - absolute repository root.
  */
 async function refreshRemoteRefs(repo: string): Promise<void> {
@@ -739,23 +753,39 @@ async function refreshRemoteRefs(repo: string): Promise<void> {
   const remote = names.includes('origin') ? 'origin' : names[0]
   if (remote === undefined) return
   try {
-    await execFile('git', ['-C', repo, 'fetch', '--prune', '--no-tags', '--quiet', remote], { windowsHide: true, timeout: BRANCH_FETCH_TIMEOUT_MS })
+    await execFile('git', ['-C', repo, 'fetch', '--prune', '--no-tags', '--quiet', remote], { windowsHide: true, timeout: BRANCH_REFRESH_TIMEOUT_MS })
   } catch { /* offline, unauthenticated or slow remotes still list local branches. */ }
 }
 
 /**
- * List one repository's local and remote-tracking branches.
+ * Start one background refresh unless this repository was refreshed recently.
  *
- * Reading branches is an explicit user action, so this refreshes the default
- * remote first and returns its fetched refs alongside local branches; a base
- * branch picked from the list then reflects the remote rather than a stale
- * local clone.
+ * Branch listing must answer immediately, so the fetch never blocks the reply:
+ * the picker shows the refs it already has and a follow-up read sees the
+ * refreshed remote-tracking refs. Lock generation does not depend on this
+ * refresh because ref resolution fetches the chosen ref itself.
+ * @param repo - absolute repository root.
+ */
+function scheduleRemoteRefresh(repo: string): void {
+  const now = Date.now()
+  const previous = branchRefreshes.get(repo)
+  if (previous !== undefined && (previous.promise !== undefined || now - previous.at < BRANCH_REFRESH_INTERVAL_MS)) return
+  const promise = refreshRemoteRefs(repo).catch(() => undefined).then(() => { branchRefreshes.set(repo, { at: Date.now() }) })
+  branchRefreshes.set(repo, { at: now, promise })
+}
+
+/**
+ * List one repository's local and remote-tracking branches immediately.
+ *
+ * The reply never waits for the network: a stale remote is refreshed in the
+ * background so a later read shows it. Whether a chosen ref is fresh is settled
+ * when a Lock resolves it, because that resolution fetches the ref itself.
  * @param repo - Absolute local Git repository path or a directory inside it.
  * @returns resolved root, current branch and sorted branch names.
  */
 export async function repositoryBranches(repo: string): Promise<RepositoryBranches> {
   const topLevel = await localRepository(repo)
-  await refreshRemoteRefs(topLevel)
+  scheduleRemoteRefresh(topLevel)
   const refs = async (prefix: string): Promise<string[]> => {
     try {
       const result = await execFile('git', ['-C', topLevel, 'for-each-ref', '--format=%(refname:short)', prefix], { windowsHide: true })

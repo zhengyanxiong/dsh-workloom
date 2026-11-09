@@ -19,14 +19,19 @@ Releases start at 0.1.8 in this repository.
   the edited version and its Lock, without copying directories.
 - Loom Sessions waiting for an approval keep a title badge and raise a system
   notification; clicking the notification returns to the blocked Session.
-- Reading version branches refreshes the default remote first and lists remote
-  tracking branches, and Lock resolution prefers the remote tip of a base branch
-  so a stale local clone cannot pin an old commit.
+- Reading version branches lists local and remote tracking branches without
+  waiting for the network: the Host refreshes the default remote in the
+  background, the picker quietly re-reads once it finishes, and Lock resolution
+  fetches the chosen branch (or the branch a remote-tracking ref names) so a
+  stale local clone cannot pin an old commit.
 
 ### Fixed
 
 - The Kanban board orders columns as pending, running, in review, completed,
   failed instead of showing running before pending.
+- A new task is bound to the version's first ready workspace by default,
+  including when that workspace list arrives after the dialog opened; the
+  workspace control no longer defaults to creating or locating one.
 - Starting a round now verifies that the workspace maps every repository the
   task needs: a managed workspace materializes the worktrees it was missing,
   while a direct or linked workspace refuses with the repository names instead

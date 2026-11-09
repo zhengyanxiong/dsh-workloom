@@ -330,3 +330,46 @@ it('offers reuse of a finished direct workspace while editing a version', async 
   expect(action?.hasAttribute('disabled')).toBe(true)
   expect(reused).toBe('')
 })
+
+it('binds a ready version workspace as the task default and picks it up when it arrives late', async () => {
+  ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
+  const project: ProjectRecord = {
+    id: brandString<ProjectRecord['id']>('p1'),
+    config: { name: 'Shop', sources: [{ id: brandString<'loom.source'>('web'), repo: '/repo/shop', path: 'shop' }], modules: [] },
+  }
+  const version: VersionRecord = { id: brandString<VersionRecord['id']>('v1'), projectId: project.id, name: 'v1', sources: [] }
+  const workspace = { id: 'ws-1', label: 'v1-auto', rootPath: '/work/v1-auto', path: '/work/v1-auto' }
+  container = document.createElement('div')
+  document.body.append(container)
+  root = createRoot(container)
+  const render = async (workspaces: readonly typeof workspace[]): Promise<void> => {
+    await act(async () => {
+      root?.render(createElement(TaskForm, {
+        t, open: true, project, version, workspaces,
+        createWorkspace: async () => ({ ok: false, error: { message: 'delete.unknownFailure', detail: 'unused' } }),
+        useWorkspaceDirectory: async () => ({ ok: false, error: { message: 'delete.unknownFailure', detail: 'unused' } }),
+        create: async () => ({ ok: false, error: { code: 'unused', message: 'unused' } }),
+        onCreated: () => undefined,
+      }))
+    })
+  }
+  await render([])
+  const setValue = async (input: HTMLInputElement | null, value: string): Promise<void> => {
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set
+    await act(async () => {
+      setter?.call(input, value)
+      input?.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+  }
+  const click = async (label: string): Promise<void> => {
+    const target = [...(container?.querySelectorAll('button') ?? [])].find(button => button.textContent === label)
+    await act(async () => { target?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true })) })
+  }
+  await setValue(container.querySelector<HTMLInputElement>(`input[aria-label="${en['task.name']}"]`), 'Ship')
+  await click(en['form.next'])
+  expect(container.textContent).toContain(en['task.workspaceRequired'])
+  await render([workspace])
+  expect(container.textContent).toContain(en['task.workspaceChoiceExisting'])
+  expect(container.textContent).toContain('/work/v1-auto')
+  expect(container.textContent).not.toContain(en['task.workspaceRequired'])
+})

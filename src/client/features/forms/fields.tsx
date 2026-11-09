@@ -34,6 +34,10 @@ export function BranchPicker({ t, source, value, listBranches, onChange, compact
   const [open, setOpen] = useState(false)
   const [filterText, setFilterText] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
+  // Quiet follow-up reads pick up the remote refs that the Host refreshes in the
+  // background, without ever making the first read wait for the network.
+  const refreshTimers = useRef<number[]>([])
+  useEffect(() => () => { for (const timer of refreshTimers.current) window.clearTimeout(timer) }, [])
   const selfMenu = useRef<{ close: () => void }>({ close: () => setOpen(false) })
   useEffect(() => {
     if (!open) {
@@ -56,6 +60,17 @@ export function BranchPicker({ t, source, value, listBranches, onChange, compact
     observer.observe(input)
     return () => { observer.disconnect() }
   }, [])
+  async function refreshQuietly(): Promise<void> {
+    if (listBranches === undefined) return
+    try {
+      const result = await listBranches({ repo: source.repo })
+      if (result.ok) setBranches(result.value.branches)
+    } catch { /* keep the list already shown when the quiet read fails */ }
+  }
+  function scheduleQuietRefresh(): void {
+    for (const timer of refreshTimers.current) window.clearTimeout(timer)
+    refreshTimers.current = [2_500, 6_000].map(delay => window.setTimeout(() => { void refreshQuietly() }, delay))
+  }
   async function load(openAfter = false): Promise<void> {
     if (listBranches === undefined || loading) return
     setLoading(true); setFailed(false); setFailureMessage(undefined)
@@ -64,6 +79,7 @@ export function BranchPicker({ t, source, value, listBranches, onChange, compact
       if (result.ok) {
         setBranches(result.value.branches)
         if (openAfter) setOpen(true)
+        scheduleQuietRefresh()
       } else {
         setFailed(true); setFailureMessage(result.error.message)
         if (openAfter) setOpen(true)

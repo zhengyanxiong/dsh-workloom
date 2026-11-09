@@ -70,7 +70,10 @@ const monoText: CSSProperties = { minWidth: 0, overflow: 'hidden', textOverflow:
 export function WorkspaceChoice({ t, ariaLabel, workspaces, value, onChange, create, useDirectory, pickDirectory, onCreated, defaultName, sourceRefs, sourceGroups }: WorkspaceChoiceProps): JSX.Element {
   const [created, setCreated] = useState<readonly WorkspaceRecord[]>([])
   const options = [...workspaces, ...created.filter(workspace => !workspaces.some(candidate => candidate.id === workspace.id))]
-  const [mode, setMode] = useState<'existing' | 'directory' | 'create'>(options.length === 0 && create !== undefined ? 'create' : options.length === 0 && useDirectory !== undefined ? 'directory' : 'existing')
+  // No explicit mode until the user picks one, so a version whose workspace
+  // list arrives after this control mounted still opens on the ready workspace
+  // instead of leaving the user to bind a new one.
+  const [modeChoice, setModeChoice] = useState<'existing' | 'directory' | 'create'>()
   const [directoryPath, setDirectoryPath] = useState('')
   const [directoryFailure, setDirectoryFailure] = useState<FailureReport>()
   const [parentPath, setParentPath] = useState('')
@@ -91,7 +94,8 @@ export function WorkspaceChoice({ t, ariaLabel, workspaces, value, onChange, cre
     ...(useDirectory === undefined ? [] : [{ value: 'directory' as const, label: t('task.workspaceChoiceDirectory') }]),
     ...(create === undefined ? [] : [{ value: 'create' as const, label: t('task.workspaceChoiceCreate') }]),
   ]
-  const activeMode = modes.some(entry => entry.value === mode) ? mode : modes[0]?.value
+  const defaultMode = options.length > 0 ? 'existing' : create !== undefined ? 'create' : useDirectory !== undefined ? 'directory' : 'existing'
+  const activeMode = modeChoice !== undefined && modes.some(entry => entry.value === modeChoice) ? modeChoice : defaultMode
   async function browse(): Promise<void> {
     if (pickDirectory === undefined) return
     try {
@@ -108,7 +112,7 @@ export function WorkspaceChoice({ t, ariaLabel, workspaces, value, onChange, cre
       setCreated(current => [...current, outcome.workspace])
       onCreated?.(outcome.workspace)
       onChange(outcome.workspace.id)
-      setMode('existing')
+      setModeChoice('existing')
     } catch (error) {
       setDirectoryFailure(failureReport('unknown', error instanceof Error ? error.message : String(error)))
     } finally { setBusy(false) }
@@ -122,7 +126,7 @@ export function WorkspaceChoice({ t, ariaLabel, workspaces, value, onChange, cre
       setCreated(current => [...current, outcome.workspace])
       onCreated?.(outcome.workspace)
       onChange(outcome.workspace.id)
-      setMode('existing')
+      setModeChoice('existing')
     } catch (error) {
       setFailure(failureReport('unknown', error instanceof Error ? error.message : String(error)))
     } finally { setBusy(false) }
@@ -133,7 +137,7 @@ export function WorkspaceChoice({ t, ariaLabel, workspaces, value, onChange, cre
       ariaLabel={ariaLabel}
       value={activeMode}
       options={modes}
-      onChange={next => { if (next === 'existing' || next === 'directory' || next === 'create') setMode(next) }}
+      onChange={next => { if (next === 'existing' || next === 'directory' || next === 'create') setModeChoice(next) }}
       variant="choice"
     />}
     {activeMode === 'existing'
@@ -160,7 +164,7 @@ export function WorkspaceChoice({ t, ariaLabel, workspaces, value, onChange, cre
             {directoryFailure !== undefined && <p role="alert" style={alert}>{t(directoryFailure.message)}{directoryFailure.detail === undefined ? '' : ` · ${directoryFailure.detail}`}</p>}
             <div style={{ display: 'flex', gap: 8 }}>
               <Button type="button" variant="primary" disabled={busy || directoryPath.trim() === ''} onClick={() => { void submitDirectory() }}>{busy ? t('task.workspaceCreating') : t('task.workspaceDirectorySubmit')}</Button>
-              {options.length > 0 && <Button type="button" variant="ghost" disabled={busy} onClick={() => setMode('existing')}>{t('form.cancel')}</Button>}
+              {options.length > 0 && <Button type="button" variant="ghost" disabled={busy} onClick={() => setModeChoice('existing')}>{t('form.cancel')}</Button>}
             </div>
           </div>
         : <div style={createBox}>
@@ -197,7 +201,7 @@ export function WorkspaceChoice({ t, ariaLabel, workspaces, value, onChange, cre
             <Button type="button" variant="primary" disabled={busy || parentPath.trim() === '' || name.trim() === ''} onClick={() => { void submit() }}>
               {busy ? t('task.workspaceCreating') : t('task.workspaceCreateSubmit')}
             </Button>
-            {options.length > 0 && <Button type="button" variant="ghost" disabled={busy} onClick={() => setMode('existing')}>{t('form.cancel')}</Button>}
+            {options.length > 0 && <Button type="button" variant="ghost" disabled={busy} onClick={() => setModeChoice('existing')}>{t('form.cancel')}</Button>}
           </div>
         </div>}
   </div>
