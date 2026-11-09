@@ -8,6 +8,8 @@ Releases start at 0.1.8 in this repository.
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-11-09
+
 ### Added
 
 - Session archive and restore for every Loom Session list: rows hide by default
