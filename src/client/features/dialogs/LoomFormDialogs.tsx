@@ -54,6 +54,7 @@ export interface LoomFormDialogsProps {
   readonly chooseDirectory: (startPath?: string) => Promise<string | null>
   readonly addVersionWorkspace: (input: VersionWorkspaceInput) => Promise<RemoteResult<WorkspaceRecord>>
   readonly reuseVersionWorkspace: (workspaceId: string) => Promise<RemoteResult<WorkspaceRecord>>
+  readonly createVersionReusingWorkspace: (request: CreateVersionRequest, workspaceId: string) => Promise<RemoteResult<VersionRecord>>
   readonly renameVersionWorkspace: (workspaceId: string, label: string) => Promise<RemoteResult<WorkspaceRecord>>
   readonly removeVersionWorkspace: (workspaceId: string, deleteFiles?: boolean, confirmPath?: string) => Promise<RemoteResult<void>>
   readonly directoryRequest: { readonly startPath?: string } | undefined
@@ -92,7 +93,7 @@ const modalSub: CSSProperties = { marginTop: 7, color: COLORS.dim, fontSize: 'va
 const MODAL_WIDTH: Readonly<Record<CreateKind | EditKind, number>> = { project: 760, import: 640, version: 660, task: 660 }
 
 export function LoomFormDialogs(props: LoomFormDialogsProps): JSX.Element {
-  const { t, create, edit, versionStep, currentProject, currentVersion, currentVersionProject, displayProject, displayVersion, displayVersionProject, detailTask, snapshot, agentPresets, createTaskWorkspace, registerTaskDirectory, createProject, createVersion, createTask, updateProject, updateVersion, updateTask, repositoryBranches, chooseDirectory, addVersionWorkspace, reuseVersionWorkspace, renameVersionWorkspace, removeVersionWorkspace, directoryRequest, finishDirectory, listDirectory, treeDelete, treeDeleting, treeDeleteFailure, confirmTreeDelete, setCreate, setEdit, setModalBusy, setVersionStep, setProject, setVersion, setTask, setSelected, setAttempt, setView, setTreeDelete, setTreeDeleteFailure, navigate } = props
+  const { t, create, edit, versionStep, currentProject, currentVersion, currentVersionProject, displayProject, displayVersion, displayVersionProject, detailTask, snapshot, agentPresets, createTaskWorkspace, registerTaskDirectory, createProject, createVersion, createTask, updateProject, updateVersion, updateTask, repositoryBranches, chooseDirectory, addVersionWorkspace, reuseVersionWorkspace, createVersionReusingWorkspace, renameVersionWorkspace, removeVersionWorkspace, directoryRequest, finishDirectory, listDirectory, treeDelete, treeDeleting, treeDeleteFailure, confirmTreeDelete, setCreate, setEdit, setModalBusy, setVersionStep, setProject, setVersion, setTask, setSelected, setAttempt, setView, setTreeDelete, setTreeDeleteFailure, navigate } = props
 
   // Explain an empty ready list instead of only saying the version has no
   // workspace: the bound records and their lifecycle are what the user checks.
@@ -106,19 +107,28 @@ export function LoomFormDialogs(props: LoomFormDialogsProps): JSX.Element {
       return { id: workspace.id, label: workspace.label ?? workspace.rootPath ?? workspace.path, status }
     })
 
-  // Reusable targets are finished direct workspaces of this project owned by
+  // Reusable targets are finished direct workspaces of a project owned by
   // another version, with no live execution and no unfinished round.
-  const reuseCandidates = displayVersion === undefined ? [] : (snapshot?.workspaces ?? [])
-    .filter(workspace => workspace.cleaned !== true && workspace.mode === 'direct' && workspace.versionId !== displayVersion.id)
-    .map(workspace => ({ workspace, projectId: workspace.projectId ?? snapshot?.versions.find(candidate => candidate.id === workspace.versionId)?.projectId }))
-    .filter(entry => entry.projectId === displayVersion.projectId)
-    .filter(entry => snapshot?.executions.find(execution => execution.workspaceId === entry.workspace.id)?.owner === undefined)
-    .filter(entry => (snapshot?.tasks ?? []).every(task => (task.status !== 'running' && task.status !== 'review') || task.attempts.every(attempt => attempt.workspaceId !== entry.workspace.id)))
-    .map(entry => ({
-      id: entry.workspace.id,
-      label: `${snapshot?.versions.find(candidate => candidate.id === entry.workspace.versionId)?.name ?? ''} · ${entry.workspace.label ?? entry.workspace.rootPath ?? entry.workspace.path}`,
-      detail: entry.workspace.rootPath ?? entry.workspace.path,
-    }))
+  const reuseOptionsFor = (projectId: string | undefined, excludeVersionId: string | undefined, requiredSourceIds: readonly string[]): { id: string; label: string; detail: string }[] => {
+    if (projectId === undefined) return []
+    return (snapshot?.workspaces ?? [])
+      .filter(workspace => workspace.cleaned !== true && workspace.mode === 'direct' && workspace.versionId !== excludeVersionId)
+      .map(workspace => ({ workspace, projectId: workspace.projectId ?? snapshot?.versions.find(candidate => candidate.id === workspace.versionId)?.projectId }))
+      .filter(entry => entry.projectId === projectId)
+      // A workspace that predates a project repository cannot be reused for a
+      // version that needs it; the round would refuse later anyway.
+      .filter(entry => entry.workspace.repositories !== undefined && requiredSourceIds.every(sourceId => entry.workspace.repositories!.some(binding => binding.sourceId === sourceId)))
+      .filter(entry => snapshot?.executions.find(execution => execution.workspaceId === entry.workspace.id)?.owner === undefined)
+      .filter(entry => (snapshot?.tasks ?? []).every(task => (task.status !== 'running' && task.status !== 'review') || task.attempts.every(attempt => attempt.workspaceId !== entry.workspace.id)))
+      .map(entry => ({
+        id: entry.workspace.id,
+        label: `${snapshot?.versions.find(candidate => candidate.id === entry.workspace.versionId)?.name ?? ''} · ${entry.workspace.label ?? entry.workspace.rootPath ?? entry.workspace.path}`,
+        detail: entry.workspace.rootPath ?? entry.workspace.path,
+      }))
+  }
+  const projectSourceIds = currentProject?.config.sources.map(source => source.id) ?? []
+  const reuseCandidates = reuseOptionsFor(displayVersionProject?.id, displayVersion?.id, displayVersion?.sources.map(source => source.sourceId) ?? [])
+  const createReuseCandidates = reuseOptionsFor(currentProject?.id, undefined, projectSourceIds)
   const note: React.CSSProperties = { padding: 12, borderRadius: 8, color: COLORS.dim, background: COLORS.panel2, lineHeight: 1.6, margin: 0 }
   return <>
     {create !== undefined && <div style={modalOverlay}>
@@ -133,7 +143,7 @@ export function LoomFormDialogs(props: LoomFormDialogsProps): JSX.Element {
         {create !== 'version' && <p style={modalHint}>{create === 'project' ? t('flow.project') : create === 'task' ? t('flow.task') : t('flow.import')}</p>}
         {create === 'project' && <ProjectForm t={t} open onBusyChange={setModalBusy} agentPresets={agentPresets} pickDirectory={chooseDirectory} onOpenChange={value => { if (!value) setCreate(undefined) }} create={createProject} onCreated={created => { setProject(created.id); setVersion(undefined); setTask(undefined); setSelected(undefined); setCreate(undefined); setAttempt(current => current + 1) }} />}
         {create === 'import' && <ImportProjectForm t={t} open onBusyChange={setModalBusy} onOpenChange={value => { if (!value) setCreate(undefined) }} create={createProject} onCreated={created => { setProject(created.id); setVersion(undefined); setTask(undefined); setSelected(undefined); setCreate(undefined); setAttempt(current => current + 1) }} />}
-        {create === 'version' && currentProject !== undefined && <VersionForm t={t} open onBusyChange={setModalBusy} onStepChange={setVersionStep} listBranches={repositoryBranches} onOpenChange={value => { if (!value) setCreate(undefined) }} project={currentProject} pickDirectory={chooseDirectory} create={createVersion} onCreated={created => { setVersion(created.id); setTask(undefined); setSelected(undefined); setCreate(undefined); setAttempt(current => current + 1) }} />}
+        {create === 'version' && currentProject !== undefined && <VersionForm t={t} open onBusyChange={setModalBusy} onStepChange={setVersionStep} listBranches={repositoryBranches} onOpenChange={value => { if (!value) setCreate(undefined) }} project={currentProject} pickDirectory={chooseDirectory} create={createVersion} reuseCandidates={createReuseCandidates} createReusingWorkspace={createVersionReusingWorkspace} onCreated={created => { setVersion(created.id); setTask(undefined); setSelected(undefined); setCreate(undefined); setAttempt(current => current + 1) }} />}
         {create === 'task' && currentVersion !== undefined && currentVersionProject !== undefined && <TaskForm t={t} open onBusyChange={setModalBusy} onOpenChange={value => { if (!value) setCreate(undefined) }} version={currentVersion} project={currentVersionProject} versionWorkspaces={taskVersionWorkspaces} onRefresh={() => setAttempt(current => current + 1)} createWorkspace={createTaskWorkspace} useWorkspaceDirectory={registerTaskDirectory} pickDirectory={chooseDirectory} agentPresets={agentPresets} workspaces={(snapshot?.workspaces ?? []).filter(workspace => workspace.versionId === currentVersion.id && workspace.cleaned !== true && (workspace.preparation === undefined || workspace.preparation.status === 'ready'))} create={createTask} onCreated={created => { setTask(created); setSelected(undefined); setView('workbench'); navigate('task'); setCreate(undefined); setAttempt(current => current + 1) }} />}
         {create === 'version' && currentProject === undefined && <p style={note}>{t('project.select')}</p>}
         {create === 'task' && currentVersion === undefined && <p style={note}>{t('version.select')}</p>}

@@ -56,7 +56,8 @@ import { failureReport, thrownFailureReport } from './ui/failure.ts'
 import type { WorkspaceCreateOutcome, WorkspaceCreationInput } from './features/workspace/WorkspaceChoice.tsx'
 import { workspaceBranch } from './features/workspace/workspace-refs.ts'
 import { registerDirectoryWorkspace } from './features/workspace/register-directory.ts'
-import { reuseWorkspace } from './features/version/reuse-workspace.ts'
+import { reuseWorkspace, type ReuseWorkspaceOutcome } from './features/version/reuse-workspace.ts'
+import { createVersionReusingWorkspace as createVersionReusingWorkspaceRemote } from './features/version/create-version-reuse.ts'
 import type { FailureReport } from './ui/failure.ts'
 import { metaLine } from './ui/styles.ts'
 import { reportLoomFailure } from './shared/feedback.ts'
@@ -512,25 +513,60 @@ export function LoomPanel({ t, useSessions, useSessionStatus, retainSession, ope
    * @param workspaceId - workspace record to retire and re-register.
    * @returns the workspace record newly bound to this version.
    */
+  /**
+   * Retire one finished workspace and bind its directories to a version Lock.
+   * @param version - version adopting the workspace.
+   * @param lockId - Lock of that version the workspace follows.
+   * @param workspaceId - workspace record to reuse.
+   * @returns the new workspace record or the failure that stopped the move.
+   */
+  async function reuseIntoVersion(version: VersionRecord, lockId: string, workspaceId: string): Promise<ReuseWorkspaceOutcome> {
+    const workspace = snapshot?.workspaces.find(candidate => candidate.id === workspaceId)
+    if (workspace === undefined) return { ok: false, code: 'missing_workspace', message: 'the workspace no longer exists', stage: 'check' }
+    const ownerProjectId = workspace.projectId ?? snapshot?.versions.find(candidate => candidate.id === workspace.versionId)?.projectId
+    return reuseWorkspace(
+      { cleanupWorkspace: cleanupWorkspaceSilent ?? cleanupWorkspace, registerWorkspace, workspaceStatus },
+      {
+        workspace: { id: workspace.id, path: workspace.path, rootPath: workspace.rootPath, versionId: workspace.versionId, projectId: ownerProjectId, repositories: workspace.repositories },
+        versionId: version.id,
+        projectId: ownerProjectId,
+        lockId,
+      },
+    )
+  }
   async function reuseVersionWorkspace(workspaceId: string): Promise<RemoteResult<WorkspaceRecord>> {
     if (displayVersion === undefined) throw new Error(t('state.error'))
     const lock = snapshot?.locks.filter(candidate => candidate.versionId === displayVersion.id).at(-1)
     if (lock === undefined) throw new Error(t('lock.generateFirst'))
-    const workspace = snapshot?.workspaces.find(candidate => candidate.id === workspaceId)
-    if (workspace === undefined) throw new Error(t('state.error'))
-    const ownerProjectId = workspace.projectId ?? snapshot?.versions.find(candidate => candidate.id === workspace.versionId)?.projectId
-    const outcome = await reuseWorkspace(
-      { cleanupWorkspace: cleanupWorkspaceSilent ?? cleanupWorkspace, registerWorkspace, workspaceStatus },
-      {
-        workspace: { id: workspace.id, path: workspace.path, rootPath: workspace.rootPath, versionId: workspace.versionId, projectId: ownerProjectId, repositories: workspace.repositories },
-        versionId: displayVersion.id,
-        projectId: ownerProjectId,
-        lockId: lock.id,
-      },
-    )
+    const outcome = await reuseIntoVersion(displayVersion, lock.id, workspaceId)
     if (!outcome.ok) throw new Error(`${outcome.code}: ${outcome.message}`)
     setAttempt(current => current + 1)
     return { ok: true, value: outcome.workspace }
+  }
+  /**
+   * Create a version together with one reused workspace.
+   * @param request - version request without workspace drafts.
+   * @param workspaceId - finished workspace to retire and bind.
+   * @returns the created version.
+   */
+  async function createVersionReusingWorkspace(request: Parameters<LoomInjected['createVersion']>[0], workspaceId: string): Promise<RemoteResult<VersionRecord>> {
+    const outcome = await createVersionReusingWorkspaceRemote(
+      {
+        createVersion,
+        generateLock,
+        deleteVersion,
+        reuse: (version, lockId, reusedId) => reuseIntoVersion(version, lockId, reusedId),
+      },
+      request,
+      workspaceId,
+    )
+    if (!outcome.ok) {
+      const report = failureReport(outcome.code, outcome.message)
+      const detail = [report.detail, outcome.rollbackError === undefined ? undefined : `${t('state.error')}: ${outcome.rollbackError}`].filter((line): line is string => line !== undefined).join(' · ')
+      throw new Error(detail === '' ? t(report.message) : `${t(report.message)} · ${detail}`)
+    }
+    setAttempt(current => current + 1)
+    return { ok: true, value: outcome.version }
   }
   async function createTaskWorkspace(input: WorkspaceCreationInput): Promise<WorkspaceCreateOutcome> {
     try {
@@ -939,6 +975,6 @@ export function LoomPanel({ t, useSessions, useSessionStatus, retainSession, ope
       onCancel={sessionArchive.cancelConfirm}
       onConfirm={sessionArchive.confirmArchive}
     />
-    <LoomFormDialogs createTaskWorkspace={createTaskWorkspace} registerTaskDirectory={registerTaskDirectory} t={t} create={create} edit={edit} versionStep={versionStep} currentProject={currentProject} currentVersion={currentVersion} currentVersionProject={currentVersionProject} displayProject={displayProject} displayVersion={displayVersion} displayVersionProject={displayVersionProject} detailTask={detailTask} snapshot={snapshot} agentPresets={agentPresets} createProject={createProject} createVersion={createVersion} createTask={createTask} updateProject={updateProject} updateVersion={updateVersion} updateTask={updateTask} repositoryBranches={repositoryBranches} chooseDirectory={chooseDirectory} addVersionWorkspace={addVersionWorkspace} reuseVersionWorkspace={reuseVersionWorkspace} renameVersionWorkspace={renameVersionWorkspace} removeVersionWorkspace={removeVersionWorkspace} directoryRequest={directoryRequest} finishDirectory={finishDirectory} listDirectory={listDirectory} treeDelete={treeDelete} treeDeleting={treeDeleting} treeDeleteFailure={treeDeleteFailure} confirmTreeDelete={confirmTreeDelete} setCreate={setCreate} setEdit={setEdit} setModalBusy={setModalBusy} setVersionStep={setVersionStep} setProject={setProject} setVersion={setVersion} setTask={setTask} setSelected={setSelected} setAttempt={setAttempt} setView={setView} setTreeDelete={setTreeDelete} setTreeDeleteFailure={setTreeDeleteFailure} navigate={navigate} />
+    <LoomFormDialogs createTaskWorkspace={createTaskWorkspace} registerTaskDirectory={registerTaskDirectory} t={t} create={create} edit={edit} versionStep={versionStep} currentProject={currentProject} currentVersion={currentVersion} currentVersionProject={currentVersionProject} displayProject={displayProject} displayVersion={displayVersion} displayVersionProject={displayVersionProject} detailTask={detailTask} snapshot={snapshot} agentPresets={agentPresets} createProject={createProject} createVersion={createVersion} createTask={createTask} updateProject={updateProject} updateVersion={updateVersion} updateTask={updateTask} repositoryBranches={repositoryBranches} chooseDirectory={chooseDirectory} addVersionWorkspace={addVersionWorkspace} reuseVersionWorkspace={reuseVersionWorkspace} createVersionReusingWorkspace={createVersionReusingWorkspace} renameVersionWorkspace={renameVersionWorkspace} removeVersionWorkspace={removeVersionWorkspace} directoryRequest={directoryRequest} finishDirectory={finishDirectory} listDirectory={listDirectory} treeDelete={treeDelete} treeDeleting={treeDeleting} treeDeleteFailure={treeDeleteFailure} confirmTreeDelete={confirmTreeDelete} setCreate={setCreate} setEdit={setEdit} setModalBusy={setModalBusy} setVersionStep={setVersionStep} setProject={setProject} setVersion={setVersion} setTask={setTask} setSelected={setSelected} setAttempt={setAttempt} setView={setView} setTreeDelete={setTreeDelete} setTreeDeleteFailure={setTreeDeleteFailure} navigate={navigate} />
   </div>
 }

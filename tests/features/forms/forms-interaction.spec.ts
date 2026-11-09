@@ -442,3 +442,51 @@ it('explains a version whose workspaces are bound but not ready and offers a ref
   await act(async () => { refresh?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true })) })
   expect(refreshed).toBe(1)
 })
+
+it('creates a version by reusing an existing project workspace from the wizard', async () => {
+  ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
+  const project: ProjectRecord = {
+    id: brandString<ProjectRecord['id']>('p1'),
+    config: { name: 'Shop', sources: [{ id: brandString<'loom.source'>('web'), repo: '/repo/shop', path: 'shop' }], modules: [] },
+  }
+  const version: VersionRecord = { id: brandString<VersionRecord['id']>('v2'), projectId: project.id, name: 'v2', sources: [] }
+  let captured: { request: unknown; workspaceId: string } | undefined
+  container = document.createElement('div')
+  document.body.append(container)
+  root = createRoot(container)
+  await act(async () => {
+    root?.render(createElement(VersionForm, {
+      t, open: true, project,
+      reuseCandidates: [{ id: 'ws-1', label: 'v1 · v1-auto', detail: '/work/v1-auto' }],
+      createReusingWorkspace: async (request, workspaceId) => { captured = { request, workspaceId }; return { ok: true, value: version } },
+      create: async () => ({ ok: true, value: version }),
+      onCreated: () => undefined,
+    }))
+  })
+  const setValue = async (input: HTMLInputElement | null, value: string): Promise<void> => {
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set
+    await act(async () => {
+      setter?.call(input, value)
+      input?.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+  }
+  const click = async (target: Element | null | undefined): Promise<void> => {
+    await act(async () => { target?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true })) })
+  }
+  const button = (label: string): Element | undefined => [...(container?.querySelectorAll('button') ?? [])].find(candidate => candidate.textContent === label)
+  await setValue(container.querySelector<HTMLInputElement>(`input[aria-label="${en['version.name']}"]`), 'v2')
+  await click(button(en['form.next']))
+  await setValue(container.querySelector<HTMLInputElement>(`input[aria-label^="${en['source.branch']}"]`), 'main')
+  await click(button(en['form.next']))
+  await click(button(en['version.workspaceReuse']))
+  const trigger = container.querySelector('button[aria-label^="' + en['version.workspaceReusePick'] + '"]')
+  expect(trigger).not.toBeNull()
+  await click(trigger)
+  const option = [...document.querySelectorAll('button')].find(candidate => candidate.textContent?.includes('v1 · v1-auto'))
+  await click(option)
+  await click(button(en['form.next']))
+  expect(container.textContent).toContain(en['version.workspaceReusePreview'])
+  await click(button(en['form.create']))
+  expect(captured?.workspaceId).toBe('ws-1')
+  expect((captured?.request as { workspaces?: unknown }).workspaces).toBeUndefined()
+})

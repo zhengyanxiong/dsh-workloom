@@ -26,6 +26,8 @@ interface VersionFormProps {
   readonly reuseCandidates?: readonly ReuseWorkspaceOption[] | undefined
   /** Retire an old workspace and bind its directories to this version. */
   readonly reuseWorkspace?: ((workspaceId: string) => Promise<RemoteResult<WorkspaceRecord>>) | undefined
+  /** Create the version and bind one reused workspace to its first Lock. */
+  readonly createReusingWorkspace?: ((request: CreateVersionRequest, workspaceId: string) => Promise<RemoteResult<VersionRecord>>) | undefined
   /** Workspaces already bound to the version; shown read-only while editing. */
   boundWorkspaces?: readonly { readonly id: string; readonly label?: string | undefined; readonly mode?: string | undefined; readonly rootPath?: string | undefined; readonly path: string; readonly cleaned?: boolean | undefined; readonly taskCount?: number | undefined; readonly ownerSessionId?: string | undefined; readonly preparation?: { readonly status: string } | undefined }[] | undefined
   create(request: CreateVersionRequest): Promise<RemoteResult<VersionRecord>>
@@ -57,7 +59,7 @@ const VERSION_STEPS: readonly { readonly key: VersionStep; readonly label: LoomK
 ]
 
 /** One workspace draft created together with a version. */
-export function VersionForm({ t, project, listBranches, pickDirectory, boundWorkspaces, otherWorkspaces, reuseCandidates, reuseWorkspace, create, update, version, onCreated, addWorkspace, renameWorkspace, deleteWorkspace, cleanupWorkspace, onWorkspaceAdded, open: controlledOpen, onOpenChange, onBusyChange, onStepChange }: VersionFormProps) {
+export function VersionForm({ t, project, listBranches, pickDirectory, boundWorkspaces, otherWorkspaces, reuseCandidates, reuseWorkspace, createReusingWorkspace, create, update, version, onCreated, addWorkspace, renameWorkspace, deleteWorkspace, cleanupWorkspace, onWorkspaceAdded, open: controlledOpen, onOpenChange, onBusyChange, onStepChange }: VersionFormProps) {
   const editing = version !== undefined
   const [internalOpen, setInternalOpen] = useState(false)
   const open = controlledOpen ?? internalOpen
@@ -110,7 +112,11 @@ export function VersionForm({ t, project, listBranches, pickDirectory, boundWork
     if (candidate === 'workspace') return versionRequest(project, name, refs, description, [], selectedSubProjects) !== undefined
     // Creating a version binds at least one workspace (the copy says so), and
     // an empty workspace draft would leave the version with no place to run.
-    if (candidate === 'preview') return request !== undefined && (editing || workspaceInput !== undefined)
+    if (candidate === 'preview') {
+      if (editing) return request !== undefined
+      if (workspace.mode === 'reuse') return request !== undefined && createReusingWorkspace !== undefined && reuseWorkspaceId !== ''
+      return request !== undefined && workspaceInput !== undefined
+    }
     return request !== undefined
   }
   function goTo(candidate: VersionStep): void {
@@ -142,7 +148,9 @@ export function VersionForm({ t, project, listBranches, pickDirectory, boundWork
       const result = editing
         // An explicit empty string clears the stored description; omitting it would preserve the old one.
         ? update === undefined ? undefined : await update({ versionId: version.id, name: request.name, sources: request.sources, description: description.trim(), ...(request.targets === undefined ? {} : { targets: request.targets }) })
-        : await create(request)
+        : workspace.mode === 'reuse' && createReusingWorkspace !== undefined
+          ? await createReusingWorkspace(request, reuseWorkspaceId)
+          : await create(request)
       if (result === undefined || !result.ok) { setFailure(result === undefined ? t('state.error') : result.error.message); return }
       close(); onCreated(result.value)
     } catch (error) {
@@ -396,8 +404,11 @@ export function VersionForm({ t, project, listBranches, pickDirectory, boundWork
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
         <Button type="button" variant={workspace.mode === 'auto' ? 'primary' : 'outline'} onClick={() => setWorkspace(current => ({ ...current, mode: 'auto' }))}>{t('version.workspaceAuto')}</Button>
         <Button type="button" variant={workspace.mode === 'linked' ? 'primary' : 'outline'} onClick={() => setWorkspace(current => ({ ...current, mode: 'linked' }))}>{t('version.workspaceLinked')}</Button>
+        <Button type="button" variant={workspace.mode === 'reuse' ? 'primary' : 'outline'} disabled={createReusingWorkspace === undefined || (reuseCandidates ?? []).length === 0} onClick={() => setWorkspace(current => ({ ...current, mode: 'reuse' }))}>{t('version.workspaceReuse')}</Button>
       </div>
-      {workspace.mode === 'auto' ? <div style={card}>
+      {workspace.mode === 'reuse'
+        ? <ReuseWorkspacePicker t={t} options={reuseCandidates ?? []} value={reuseWorkspaceId} onChange={value => setReuseWorkspaceId(value)} failure={reuseFailure} />
+        : workspace.mode === 'auto' ? <div style={card}>
         <p style={hint}>{t('version.workspaceAutoHint')}</p>
         <label style={field}><span style={fieldLabel}>{t('version.workspaceParentPath')}</span>
           <div style={{ display: 'flex', gap: 6 }}>
@@ -451,11 +462,15 @@ export function VersionForm({ t, project, listBranches, pickDirectory, boundWork
           </div>)}
         </div>
         <div style={field}><span style={fieldLabel}>{t('version.workspaces')}</span>
-          {(request.workspaces ?? []).map((workspace, index) => <div key={index} style={previewRow}>
-            <span style={{ color: COLORS.text }}>{workspace.mode === 'auto' ? `${workspace.parentPath}/${workspace.name}` : workspace.rootPath}</span>
-            <span style={{ color: COLORS.faint, fontFamily: 'ui-monospace, monospace' }}>{workspace.mode === 'auto' ? `${workspace.branchPrefix ?? 'loom'}/${workspace.name}` : `${String(workspace.repositories.length)} repos`}</span>
+          {workspace.mode === 'reuse' && <div style={previewRow}>
+            <span style={{ color: COLORS.text }}>{reuseCandidates?.find(candidate => candidate.id === reuseWorkspaceId)?.label ?? reuseWorkspaceId}</span>
+            <span style={{ color: COLORS.faint }}>{t('version.workspaceReusePreview')}</span>
+          </div>}
+          {(request.workspaces ?? []).map((workspaceDraft, index) => <div key={index} style={previewRow}>
+            <span style={{ color: COLORS.text }}>{workspaceDraft.mode === 'auto' ? `${workspaceDraft.parentPath}/${workspaceDraft.name}` : workspaceDraft.rootPath}</span>
+            <span style={{ color: COLORS.faint, fontFamily: 'ui-monospace, monospace' }}>{workspaceDraft.mode === 'auto' ? `${workspaceDraft.branchPrefix ?? 'loom'}/${workspaceDraft.name}` : `${String(workspaceDraft.repositories.length)} repos`}</span>
           </div>)}
-          {(request.workspaces ?? []).length === 0 && <span style={hint}>{t('version.workspaceRequired')}</span>}
+          {(request.workspaces ?? []).length === 0 && workspace.mode !== 'reuse' && <span style={hint}>{t('version.workspaceRequired')}</span>}
         </div>
         <div style={field}><span style={fieldLabel}>{t('lock.title')}</span><span style={hint}>{t('version.previewHint')}</span></div>
       </div>}

@@ -16,7 +16,9 @@ Releases start at 0.1.8 in this repository.
   Sessions must release access first.
 - Version editing can reuse a finished direct workspace: an idle, clean
   workspace from another version of the same project is retired and re-bound to
-  the edited version and its Lock, without copying directories.
+  the edited version and its Lock, without copying directories. The new-version
+  wizard offers the same reuse: it creates the version, generates its Lock,
+  binds the workspace, and rolls the version back if a step fails.
 - Loom Sessions waiting for an approval keep a title badge and raise a system
   notification; clicking the notification returns to the blocked Session.
 - Reading version branches lists local and remote tracking branches without
@@ -38,6 +40,9 @@ Releases start at 0.1.8 in this repository.
 - The version wizard refuses to advance to the preview until its workspace
   draft exists; it previously showed a required hint but still created a version
   with no place to run tasks.
+- In a linked version workspace, leaving a repository directory empty or as `.`
+  now means the workspace root is that repository, which is the usual
+  single-repository layout.
 - Starting a round now verifies that the workspace maps every repository the
   task needs: a managed workspace materializes the worktrees it was missing,
   while a direct or linked workspace refuses with the repository names instead

@@ -28,7 +28,7 @@ Workloom 复用 DSH 原生的会话、Diff、输入框、模型选择、审批�
 - **原生 Agent 会话**：在任务工作区内启动 DSH 原生会话，继续使用原生工具、审批、模型选择和上下文压缩。
 - **会话归档**：任务会话可以归档并默认从 Loom 列表收起；归档运行中的会话前会确认停止它的工作，之后可随时还原。
 - **审批提醒**：Loom 会话在等待审批时，标签页标题带计数徽标并发送系统通知；点击通知直接回到该会话。
-- **版本工作区复用**：新版本可复用旧版本已完成的直接工作区（目录不复制）；开始执行前会校验并补齐工作区所需的仓库映射。
+- **版本工作区复用**：新建/编辑版本时可直接复用其它版本已完成的直接工作区（目录不复制）；开始执行前会校验并补齐工作区所需的仓库映射。
 - **原生预览**：Markdown、图片和代码在面板内按原生渲染，Diff 树按目录逐层展开，不再一次性读入全部改动。
 - **Diff 与验收**：对照 Lock 查看工作区改动、未跟踪文件、未推送提交，并按任务状态流转。
 - **执行权**：同一工作区同时只允许一个 Agent 执行；只有实际占用工作区的 Session 会阻止开始，任务状态本身不会；支持等待、显式接管和释放。
@@ -132,7 +132,7 @@ Highlights:
 - Native DSH Sessions run inside a task workspace with the usual tools and approvals; linked workspaces run with full file access because their links target real repositories outside the container.
 - Task Sessions can be archived out of every Loom list; archiving a running Session asks before stopping its work, and restore is one click.
 - Sessions waiting for an approval badge the tab title and raise a system notification; clicking it opens the blocked Session.
-- A new version can reuse a finished direct workspace from another version without copying directories, and round start verifies or extends the workspace repository mappings.
+- A new or edited version can reuse a finished direct workspace from another version without copying directories, and round start verifies or extends the workspace repository mappings.
 - Native file previews (Markdown, images, code) and a diff tree that reads one directory level at a time.
 - Workspace ownership allows one Agent at a time, with waiting, takeover and release.
 - Durable audit history and native token usage reporting.

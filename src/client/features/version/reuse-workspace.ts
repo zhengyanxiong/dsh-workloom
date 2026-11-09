@@ -39,7 +39,13 @@ export interface ReuseWorkspaceInput {
 /** Either the adopted workspace record or a wire-shaped failure code and message. */
 export type ReuseWorkspaceOutcome =
   | { readonly ok: true; readonly workspace: WorkspaceRecord }
-  | { readonly ok: false; readonly code: string; readonly message: string }
+  | {
+    readonly ok: false
+    readonly code: string
+    readonly message: string
+    /** Where the move stopped: checks, cleanup, or re-registration. */
+    readonly stage: 'check' | 'cleanup' | 'register'
+  }
 
 /**
  * Retire a finished direct workspace and bind its directories to another version.
@@ -49,16 +55,16 @@ export type ReuseWorkspaceOutcome =
  */
 export async function reuseWorkspace(deps: ReuseWorkspaceDeps, input: ReuseWorkspaceInput): Promise<ReuseWorkspaceOutcome> {
   const bindings = input.workspace.repositories
-  if (input.workspace.versionId === input.versionId) return failure('workspace_mismatch', 'the workspace already belongs to this version')
-  if (bindings === undefined || bindings.length === 0) return failure('workspace_mismatch', 'the workspace has no repository mapping to reuse')
+  if (input.workspace.versionId === input.versionId) return failure('check', 'workspace_mismatch', 'the workspace already belongs to this version')
+  if (bindings === undefined || bindings.length === 0) return failure('check', 'workspace_mismatch', 'the workspace has no repository mapping to reuse')
   const status = await deps.workspaceStatus({ workspaceId: input.workspace.id })
-  if (!status.ok) return failure(status.error.code, status.error.message)
-  if (status.value.running) return failure('workspace_busy', 'a Session still owns this workspace')
+  if (!status.ok) return failure('check', status.error.code, status.error.message)
+  if (status.value.running) return failure('check', 'workspace_busy', 'a Session still owns this workspace')
   // Direct workspaces keep the user's real repositories, so uncommitted work is
   // the one thing cleanup would silently leave behind in a half-reused layout.
-  if (status.value.repositories.some(repository => repository.files.length > 0)) return failure('workspace_changes', 'commit every workspace change before reusing it')
+  if (status.value.repositories.some(repository => repository.files.length > 0)) return failure('check', 'workspace_changes', 'commit every workspace change before reusing it')
   const cleaned = await deps.cleanupWorkspace({ workspaceId: input.workspace.id, discardChanges: false })
-  if (!cleaned.ok) return failure(cleaned.error.code, cleaned.error.message)
+  if (!cleaned.ok) return failure('cleanup', cleaned.error.code, cleaned.error.message)
   const root = input.workspace.rootPath ?? input.workspace.path
   const registered = await deps.registerWorkspace({
     path: root,
@@ -70,11 +76,11 @@ export async function reuseWorkspace(deps: ReuseWorkspaceDeps, input: ReuseWorks
     ...(input.projectId === undefined ? {} : { projectId: input.projectId }),
     repositories: bindings.map(binding => ({ sourceId: binding.sourceId, path: binding.path, targetPath: binding.targetPath })),
   })
-  if (!registered.ok) return failure(registered.error.code, registered.error.message)
+  if (!registered.ok) return failure('register', registered.error.code, registered.error.message)
   return { ok: true, workspace: registered.value }
 }
 
 /** Build one outcome failure without inventing a Host code. */
-function failure(code: string, message: string): ReuseWorkspaceOutcome {
-  return { ok: false, code, message }
+function failure(stage: 'check' | 'cleanup' | 'register', code: string, message: string): ReuseWorkspaceOutcome {
+  return { ok: false, code, message, stage }
 }

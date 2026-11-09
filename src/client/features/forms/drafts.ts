@@ -228,7 +228,7 @@ export function taskRequest(version: VersionRecord, title: string, metadata?: Ta
 
 
 export interface WorkspaceDraft {
-  readonly mode: 'auto' | 'linked'
+  readonly mode: 'auto' | 'linked' | 'reuse'
   readonly parentPath: string
   readonly name: string
   readonly branchPrefix: string
@@ -242,13 +242,19 @@ export function isAbsolutePath(value: string): boolean {
 
 /** Validate one version workspace draft against the version repositories. */
 export function workspaceDraftInput(draft: WorkspaceDraft, sources: readonly { readonly id: string }[]): VersionWorkspaceInput | undefined {
+  if (draft.mode === 'reuse') return undefined
   if (draft.mode === 'auto') {
     if (!isAbsolutePath(draft.parentPath) || !/^[A-Za-z0-9._-]+$/u.test(draft.name) || draft.name === '.' || draft.name === '..') return undefined
     if (!/^(?![-.])[A-Za-z0-9._/-]+$/u.test(draft.branchPrefix)) return undefined
     return { mode: 'auto', parentPath: draft.parentPath, name: draft.name, branchPrefix: draft.branchPrefix }
   }
   if (!isAbsolutePath(draft.rootPath)) return undefined
-  const repositories = sources.map(source => ({ sourceId: source.id, targetPath: (draft.targets[source.id] ?? '').trim() }))
+  // An empty or `.` repository path means the workspace root already is that
+  // repository, which is the common single-repository direct layout.
+  const repositories = sources.map(source => {
+    const typed = (draft.targets[source.id] ?? '').trim()
+    return { sourceId: source.id, targetPath: typed === '' || typed === '.' ? draft.rootPath : typed }
+  })
   if (repositories.some(repository => !isAbsolutePath(repository.targetPath))) return undefined
   return { mode: 'linked', rootPath: draft.rootPath, repositories }
 }
