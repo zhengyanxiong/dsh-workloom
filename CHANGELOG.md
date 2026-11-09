@@ -21,7 +21,8 @@ Releases start at 0.1.8 in this repository.
   binds the workspace, and rolls the version back if a step fails. A cleaned
   direct workspace keeps its directory, so it can be re-bound too, and the
   candidate list follows the sub-projects selected in the wizard instead of the
-  whole project.
+  whole project. A linked directory that this project already registered is
+  adopted the same way instead of failing the one-record-per-directory rule.
 - Loom Sessions waiting for an approval keep a title badge and raise a system
   notification; clicking the notification returns to the blocked Session.
 - Reading version branches lists local and remote tracking branches without
@@ -46,6 +47,9 @@ Releases start at 0.1.8 in this repository.
 - In a linked version workspace, leaving a repository directory empty or as `.`
   now means the workspace root is that repository, which is the usual
   single-repository layout.
+- The reuse section names the existing workspaces it cannot offer yet and why
+  (a Session holds execution, or a running/under-review task uses them), so a
+  disabled reuse button is actionable instead of silent.
 - Starting a round now verifies that the workspace maps every repository the
   task needs: a managed workspace materializes the worktrees it was missing,
   while a direct or linked workspace refuses with the repository names instead

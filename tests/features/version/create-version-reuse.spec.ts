@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import type { CreateVersionRequest, Lock, VersionRecord } from 'dsh-workloom/types'
-import { createVersionReusingWorkspace, type CreateVersionReuseDeps } from '../../../src/client/features/version/create-version-reuse.ts'
+import { createVersionAdoptingLinkedDirectory, createVersionReusingWorkspace, type CreateVersionReuseDeps } from '../../../src/client/features/version/create-version-reuse.ts'
 import type { ReuseWorkspaceOutcome } from '../../../src/client/features/version/reuse-workspace.ts'
 
 const version = { id: 'v-new', projectId: 'p1', name: 'v2', description: '', sources: [] } as unknown as VersionRecord
@@ -57,4 +57,43 @@ it('reports a rollback failure beside the original failure', async () => {
     deleteVersion: { ok: false, error: { code: 'version_has_tasks', message: 'busy' } as never },
   })
   expect(await createVersionReusingWorkspace(host.deps, request, 'ws-old')).toMatchObject({ ok: false, code: 'workspace_changes', rollbackError: 'busy' })
+})
+
+it('creates normally when the linked directory is not registered yet', async () => {
+  const host = deps()
+  const outcome = await createVersionAdoptingLinkedDirectory({ ...host.deps, findWorkspace: () => undefined }, request, '/work/old')
+  expect(outcome).toMatchObject({ ok: true })
+  expect(host.order).toEqual(['create'])
+})
+
+it('adopts a registered direct directory instead of failing on the path rule', async () => {
+  const calls: { readonly workspaces: unknown }[] = []
+  let adopted = ''
+  const host = {
+    order: [] as string[],
+    deps: {
+      createVersion: async (input: CreateVersionRequest) => {
+        calls.push({ workspaces: input.workspaces })
+        host.order.push('create')
+        if (calls.length === 1) return { ok: false as const, error: { code: 'loom/workspace_path_registered', message: 'workspace_path_registered: registered' } as never }
+        return { ok: true as const, value: version }
+      },
+      generateLock: async () => { host.order.push('lock'); return { ok: true as const, value: { id: 'lock-new' } as Lock } },
+      deleteVersion: async () => { host.order.push('delete'); return { ok: true as const, value: undefined } },
+      reuse: async (_version: VersionRecord, _lockId: string, workspaceId: string) => { host.order.push('reuse'); adopted = workspaceId; return { ok: true as const, workspace: { id: 'ws-new' } as never } },
+      findWorkspace: (rootPath: string) => rootPath === '/work/old' ? { id: 'ws-old' } : undefined,
+    },
+  }
+  const outcome = await createVersionAdoptingLinkedDirectory(host.deps, request, '/work/old')
+  expect(outcome).toMatchObject({ ok: true, version })
+  expect(host.order).toEqual(['create', 'create', 'lock', 'reuse'])
+  expect(calls[1]?.workspaces).toBeUndefined()
+  expect(adopted).toBe('ws-old')
+})
+
+it('keeps the original failure when no registered workspace owns the directory', async () => {
+  const host = deps({ create: { ok: false, error: { code: 'loom/workspace_path_registered', message: 'workspace_path_registered: registered' } as never } })
+  const outcome = await createVersionAdoptingLinkedDirectory({ ...host.deps, findWorkspace: () => undefined }, request, '/work/old')
+  expect(outcome).toMatchObject({ ok: false, code: 'loom/workspace_path_registered' })
+  expect(host.order).toEqual(['create'])
 })

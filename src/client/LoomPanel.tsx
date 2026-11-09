@@ -57,7 +57,7 @@ import type { WorkspaceCreateOutcome, WorkspaceCreationInput } from './features/
 import { workspaceBranch } from './features/workspace/workspace-refs.ts'
 import { registerDirectoryWorkspace } from './features/workspace/register-directory.ts'
 import { reuseWorkspace, type ReuseWorkspaceOutcome } from './features/version/reuse-workspace.ts'
-import { createVersionReusingWorkspace as createVersionReusingWorkspaceRemote } from './features/version/create-version-reuse.ts'
+import { createVersionAdoptingLinkedDirectory, createVersionReusingWorkspace as createVersionReusingWorkspaceRemote } from './features/version/create-version-reuse.ts'
 import type { FailureReport } from './ui/failure.ts'
 import { metaLine } from './ui/styles.ts'
 import { reportLoomFailure } from './shared/feedback.ts'
@@ -544,6 +544,44 @@ export function LoomPanel({ t, useSessions, useSessionStatus, retainSession, ope
     return { ok: true, value: outcome.workspace }
   }
   /**
+   * Create a version, adopting a linked directory this project already owns.
+   *
+   * Linking an existing directory is how a user naturally reuses it; when that
+   * directory is already a direct workspace of the same project, rebind its
+   * record instead of failing on the one-record-per-directory rule.
+   * @param request - version create request, possibly with a linked workspace.
+   * @returns the created version, or a localized failure.
+   */
+  async function createVersionWithAdoption(request: Parameters<LoomInjected['createVersion']>[0]): Promise<RemoteResult<VersionRecord>> {
+    const linkedRoot = request.workspaces?.find(workspace => workspace.mode === 'linked')?.rootPath
+    if (linkedRoot === undefined) return createVersion(request)
+    const outcome = await createVersionAdoptingLinkedDirectory(
+      {
+        createVersion,
+        generateLock,
+        deleteVersion,
+        reuse: (version, lockId, reusedId) => reuseIntoVersion(version, lockId, reusedId),
+        findWorkspace: rootPath => {
+          const found = (snapshot?.workspaces ?? []).find(workspace => workspace.cleaned !== true && workspace.mode === 'direct'
+            && (workspace.rootPath ?? workspace.path) === rootPath)
+          if (found === undefined) return undefined
+          const ownerProjectId = found.projectId ?? snapshot?.versions.find(candidate => candidate.id === found.versionId)?.projectId
+          return ownerProjectId === request.projectId ? { id: found.id } : undefined
+        },
+      },
+      request,
+      linkedRoot,
+    )
+    if (outcome === undefined) return createVersion(request)
+    if (!outcome.ok) {
+      const report = failureReport(outcome.code, outcome.message)
+      const detail = [report.detail, outcome.rollbackError === undefined ? undefined : `${t('state.error')}: ${outcome.rollbackError}`].filter((line): line is string => line !== undefined).join(' · ')
+      throw new Error(detail === '' ? t(report.message) : `${t(report.message)} · ${detail}`)
+    }
+    setAttempt(current => current + 1)
+    return { ok: true, value: outcome.version }
+  }
+  /**
    * Create a version together with one reused workspace.
    * @param request - version request without workspace drafts.
    * @param workspaceId - finished workspace to retire and bind.
@@ -975,6 +1013,6 @@ export function LoomPanel({ t, useSessions, useSessionStatus, retainSession, ope
       onCancel={sessionArchive.cancelConfirm}
       onConfirm={sessionArchive.confirmArchive}
     />
-    <LoomFormDialogs createTaskWorkspace={createTaskWorkspace} registerTaskDirectory={registerTaskDirectory} t={t} create={create} edit={edit} versionStep={versionStep} currentProject={currentProject} currentVersion={currentVersion} currentVersionProject={currentVersionProject} displayProject={displayProject} displayVersion={displayVersion} displayVersionProject={displayVersionProject} detailTask={detailTask} snapshot={snapshot} agentPresets={agentPresets} createProject={createProject} createVersion={createVersion} createTask={createTask} updateProject={updateProject} updateVersion={updateVersion} updateTask={updateTask} repositoryBranches={repositoryBranches} chooseDirectory={chooseDirectory} addVersionWorkspace={addVersionWorkspace} reuseVersionWorkspace={reuseVersionWorkspace} createVersionReusingWorkspace={createVersionReusingWorkspace} renameVersionWorkspace={renameVersionWorkspace} removeVersionWorkspace={removeVersionWorkspace} directoryRequest={directoryRequest} finishDirectory={finishDirectory} listDirectory={listDirectory} treeDelete={treeDelete} treeDeleting={treeDeleting} treeDeleteFailure={treeDeleteFailure} confirmTreeDelete={confirmTreeDelete} setCreate={setCreate} setEdit={setEdit} setModalBusy={setModalBusy} setVersionStep={setVersionStep} setProject={setProject} setVersion={setVersion} setTask={setTask} setSelected={setSelected} setAttempt={setAttempt} setView={setView} setTreeDelete={setTreeDelete} setTreeDeleteFailure={setTreeDeleteFailure} navigate={navigate} />
+    <LoomFormDialogs createTaskWorkspace={createTaskWorkspace} registerTaskDirectory={registerTaskDirectory} t={t} create={create} edit={edit} versionStep={versionStep} currentProject={currentProject} currentVersion={currentVersion} currentVersionProject={currentVersionProject} displayProject={displayProject} displayVersion={displayVersion} displayVersionProject={displayVersionProject} detailTask={detailTask} snapshot={snapshot} agentPresets={agentPresets} createProject={createProject} createVersion={createVersionWithAdoption} createTask={createTask} updateProject={updateProject} updateVersion={updateVersion} updateTask={updateTask} repositoryBranches={repositoryBranches} chooseDirectory={chooseDirectory} addVersionWorkspace={addVersionWorkspace} reuseVersionWorkspace={reuseVersionWorkspace} createVersionReusingWorkspace={createVersionReusingWorkspace} renameVersionWorkspace={renameVersionWorkspace} removeVersionWorkspace={removeVersionWorkspace} directoryRequest={directoryRequest} finishDirectory={finishDirectory} listDirectory={listDirectory} treeDelete={treeDelete} treeDeleting={treeDeleting} treeDeleteFailure={treeDeleteFailure} confirmTreeDelete={confirmTreeDelete} setCreate={setCreate} setEdit={setEdit} setModalBusy={setModalBusy} setVersionStep={setVersionStep} setProject={setProject} setVersion={setVersion} setTask={setTask} setSelected={setSelected} setAttempt={setAttempt} setView={setView} setTreeDelete={setTreeDelete} setTreeDeleteFailure={setTreeDeleteFailure} navigate={navigate} />
   </div>
 }

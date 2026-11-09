@@ -61,3 +61,38 @@ export async function createVersionReusingWorkspace(
   }
   return { ok: true, version: created.value }
 }
+
+
+/** Deps for adopting a directory that this project already registered. */
+export interface AdoptLinkedDeps extends CreateVersionReuseDeps {
+  /** Find the active direct workspace record that owns a directory. */
+  readonly findWorkspace: (rootPath: string) => { readonly id: string } | undefined
+}
+
+/**
+ * Create a version whose linked workspace directory is already registered.
+ *
+ * Linking an existing directory is a natural way to reuse it, but the catalog
+ * allows one active record per directory, so `createVersion` rejects the path.
+ * When the directory belongs to an active direct workspace of the same project,
+ * adopt it the way explicit reuse does: create the version without the workspace
+ * draft, generate the Lock, retire the old record and re-register the same
+ * directories for the new version.
+ * @param deps - Host calls plus the registered-workspace lookup.
+ * @param request - the original create request, including the linked draft.
+ * @param rootPath - linked workspace root the catalog refused.
+ * @returns the created version, or undefined when no registered workspace owns the path.
+ */
+export async function createVersionAdoptingLinkedDirectory(
+  deps: AdoptLinkedDeps,
+  request: CreateVersionRequest,
+  rootPath: string,
+): Promise<CreateVersionReuseOutcome | undefined> {
+  const created = await deps.createVersion(request)
+  if (created.ok) return { ok: true, version: created.value }
+  const message = `${created.error.code} ${created.error.message}`
+  if (!/workspace_path_registered/u.test(message)) return { ok: false, code: created.error.code, message: created.error.message }
+  const workspace = deps.findWorkspace(rootPath)
+  if (workspace === undefined) return { ok: false, code: created.error.code, message: created.error.message }
+  return createVersionReusingWorkspace(deps, request, workspace.id)
+}

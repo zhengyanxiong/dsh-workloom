@@ -24,6 +24,8 @@ interface VersionFormProps {
   pickDirectory?: (startPath?: string) => Promise<string | null>
   /** Finished direct workspaces of this project that another version can adopt. */
   readonly reuseCandidates?: readonly ReuseWorkspaceOption[] | undefined
+  /** Existing workspaces that are blocked right now, with the blocking reason. */
+  readonly reuseUnavailable?: readonly { readonly label: string; readonly reason: LoomKey }[] | undefined
   /** Retire an old workspace and bind its directories to this version. */
   readonly reuseWorkspace?: ((workspaceId: string) => Promise<RemoteResult<WorkspaceRecord>>) | undefined
   /** Create the version and bind one reused workspace to its first Lock. */
@@ -59,7 +61,7 @@ const VERSION_STEPS: readonly { readonly key: VersionStep; readonly label: LoomK
 ]
 
 /** One workspace draft created together with a version. */
-export function VersionForm({ t, project, listBranches, pickDirectory, boundWorkspaces, otherWorkspaces, reuseCandidates, reuseWorkspace, createReusingWorkspace, create, update, version, onCreated, addWorkspace, renameWorkspace, deleteWorkspace, cleanupWorkspace, onWorkspaceAdded, open: controlledOpen, onOpenChange, onBusyChange, onStepChange }: VersionFormProps) {
+export function VersionForm({ t, project, listBranches, pickDirectory, boundWorkspaces, otherWorkspaces, reuseCandidates, reuseUnavailable, reuseWorkspace, createReusingWorkspace, create, update, version, onCreated, addWorkspace, renameWorkspace, deleteWorkspace, cleanupWorkspace, onWorkspaceAdded, open: controlledOpen, onOpenChange, onBusyChange, onStepChange }: VersionFormProps) {
   const editing = version !== undefined
   const [internalOpen, setInternalOpen] = useState(false)
   const open = controlledOpen ?? internalOpen
@@ -409,8 +411,11 @@ export function VersionForm({ t, project, listBranches, pickDirectory, boundWork
         <Button type="button" variant={workspace.mode === 'linked' ? 'primary' : 'outline'} onClick={() => setWorkspace(current => ({ ...current, mode: 'linked' }))}>{t('version.workspaceLinked')}</Button>
         <Button type="button" variant={workspace.mode === 'reuse' ? 'primary' : 'outline'} disabled={createReusingWorkspace === undefined || eligibleReuseCandidates.length === 0} onClick={() => setWorkspace(current => ({ ...current, mode: 'reuse' }))}>{t('version.workspaceReuse')}</Button>
       </div>
-      {createReusingWorkspace !== undefined && (reuseCandidates ?? []).length === 0 && <p style={hint}>{t('version.workspaceReuseEmpty')}</p>}
-      {createReusingWorkspace !== undefined && (reuseCandidates ?? []).length > 0 && eligibleReuseCandidates.length === 0 && <p style={hint}>{t('version.workspaceReuseIncomplete')}</p>}
+      {createReusingWorkspace !== undefined && eligibleReuseCandidates.length === 0 && (reuseUnavailable ?? []).length > 0
+        ? <p style={hint}>{t('version.workspaceReuseUnavailable', { items: (reuseUnavailable ?? []).map(item => `${item.label}（${t(item.reason)}）`).join(t('task.workspaceListSeparator')) })}</p>
+        : null}
+      {createReusingWorkspace !== undefined && (reuseCandidates ?? []).length === 0 && (reuseUnavailable ?? []).length === 0 && <p style={hint}>{t('version.workspaceReuseEmpty')}</p>}
+      {createReusingWorkspace !== undefined && (reuseCandidates ?? []).length > 0 && eligibleReuseCandidates.length === 0 && (reuseUnavailable ?? []).length === 0 && <p style={hint}>{t('version.workspaceReuseIncomplete')}</p>}
       {workspace.mode === 'reuse'
         ? <ReuseWorkspacePicker t={t} options={eligibleReuseCandidates} value={reuseWorkspaceId} onChange={value => setReuseWorkspaceId(value)} failure={reuseFailure} />
         : workspace.mode === 'auto' ? <div style={card}>
