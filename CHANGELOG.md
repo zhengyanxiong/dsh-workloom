@@ -18,7 +18,10 @@ Releases start at 0.1.8 in this repository.
   workspace from another version of the same project is retired and re-bound to
   the edited version and its Lock, without copying directories. The new-version
   wizard offers the same reuse: it creates the version, generates its Lock,
-  binds the workspace, and rolls the version back if a step fails.
+  binds the workspace, and rolls the version back if a step fails. A cleaned
+  direct workspace keeps its directory, so it can be re-bound too, and the
+  candidate list follows the sub-projects selected in the wizard instead of the
+  whole project.
 - Loom Sessions waiting for an approval keep a title badge and raise a system
   notification; clicking the notification returns to the blocked Session.
 - Reading version branches lists local and remote tracking branches without

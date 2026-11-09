@@ -102,6 +102,9 @@ export function VersionForm({ t, project, listBranches, pickDirectory, boundWork
     const subProject = project.config.subProjects?.find(sub => sub.sources.some(item => item.id === source.id))
     return { source, path: `${workspacePreviewRoot}/${autoWorkspaceRepositoryPath(String(subProject?.id ?? 'default'), source)}` }
   })
+  // Reuse targets must cover the sub-projects this wizard currently selects.
+  const eligibleReuseCandidates = (reuseCandidates ?? []).filter(candidate => candidate.sourceIds === undefined
+    || selectedSources.every(source => candidate.sourceIds!.includes(source.id)))
   const workspaces = workspaceInput === undefined ? [] : [workspaceInput]
   const request = versionRequest(project, name, refs, description, workspaces, selectedSubProjects)
   const stepIndex = VERSION_STEPS.findIndex(candidate => candidate.key === step)
@@ -404,10 +407,12 @@ export function VersionForm({ t, project, listBranches, pickDirectory, boundWork
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
         <Button type="button" variant={workspace.mode === 'auto' ? 'primary' : 'outline'} onClick={() => setWorkspace(current => ({ ...current, mode: 'auto' }))}>{t('version.workspaceAuto')}</Button>
         <Button type="button" variant={workspace.mode === 'linked' ? 'primary' : 'outline'} onClick={() => setWorkspace(current => ({ ...current, mode: 'linked' }))}>{t('version.workspaceLinked')}</Button>
-        <Button type="button" variant={workspace.mode === 'reuse' ? 'primary' : 'outline'} disabled={createReusingWorkspace === undefined || (reuseCandidates ?? []).length === 0} onClick={() => setWorkspace(current => ({ ...current, mode: 'reuse' }))}>{t('version.workspaceReuse')}</Button>
+        <Button type="button" variant={workspace.mode === 'reuse' ? 'primary' : 'outline'} disabled={createReusingWorkspace === undefined || eligibleReuseCandidates.length === 0} onClick={() => setWorkspace(current => ({ ...current, mode: 'reuse' }))}>{t('version.workspaceReuse')}</Button>
       </div>
+      {createReusingWorkspace !== undefined && (reuseCandidates ?? []).length === 0 && <p style={hint}>{t('version.workspaceReuseEmpty')}</p>}
+      {createReusingWorkspace !== undefined && (reuseCandidates ?? []).length > 0 && eligibleReuseCandidates.length === 0 && <p style={hint}>{t('version.workspaceReuseIncomplete')}</p>}
       {workspace.mode === 'reuse'
-        ? <ReuseWorkspacePicker t={t} options={reuseCandidates ?? []} value={reuseWorkspaceId} onChange={value => setReuseWorkspaceId(value)} failure={reuseFailure} />
+        ? <ReuseWorkspacePicker t={t} options={eligibleReuseCandidates} value={reuseWorkspaceId} onChange={value => setReuseWorkspaceId(value)} failure={reuseFailure} />
         : workspace.mode === 'auto' ? <div style={card}>
         <p style={hint}>{t('version.workspaceAutoHint')}</p>
         <label style={field}><span style={fieldLabel}>{t('version.workspaceParentPath')}</span>
@@ -463,7 +468,7 @@ export function VersionForm({ t, project, listBranches, pickDirectory, boundWork
         </div>
         <div style={field}><span style={fieldLabel}>{t('version.workspaces')}</span>
           {workspace.mode === 'reuse' && <div style={previewRow}>
-            <span style={{ color: COLORS.text }}>{reuseCandidates?.find(candidate => candidate.id === reuseWorkspaceId)?.label ?? reuseWorkspaceId}</span>
+            <span style={{ color: COLORS.text }}>{eligibleReuseCandidates.find(candidate => candidate.id === reuseWorkspaceId)?.label ?? reuseWorkspaceId}</span>
             <span style={{ color: COLORS.faint }}>{t('version.workspaceReusePreview')}</span>
           </div>}
           {(request.workspaces ?? []).map((workspaceDraft, index) => <div key={index} style={previewRow}>

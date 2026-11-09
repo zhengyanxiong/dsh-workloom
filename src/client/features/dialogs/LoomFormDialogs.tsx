@@ -109,26 +109,31 @@ export function LoomFormDialogs(props: LoomFormDialogsProps): JSX.Element {
 
   // Reusable targets are finished direct workspaces of a project owned by
   // another version, with no live execution and no unfinished round.
-  const reuseOptionsFor = (projectId: string | undefined, excludeVersionId: string | undefined, requiredSourceIds: readonly string[]): { id: string; label: string; detail: string }[] => {
+  const reuseOptionsFor = (projectId: string | undefined, excludeVersionId: string | undefined, requiredSourceIds: readonly string[] | undefined): { id: string; label: string; detail: string; sourceIds?: readonly string[] }[] => {
     if (projectId === undefined) return []
     return (snapshot?.workspaces ?? [])
-      .filter(workspace => workspace.cleaned !== true && workspace.mode === 'direct' && workspace.versionId !== excludeVersionId)
+      // A cleaned direct record keeps its directory, so its paths stay reusable;
+      // a cleaned managed record has no worktrees left.
+      .filter(workspace => workspace.mode === 'direct' && workspace.versionId !== excludeVersionId
+        && (workspace.cleaned !== true || workspace.repositories !== undefined))
       .map(workspace => ({ workspace, projectId: workspace.projectId ?? snapshot?.versions.find(candidate => candidate.id === workspace.versionId)?.projectId }))
       .filter(entry => entry.projectId === projectId)
       // A workspace that predates a project repository cannot be reused for a
       // version that needs it; the round would refuse later anyway.
-      .filter(entry => entry.workspace.repositories !== undefined && requiredSourceIds.every(sourceId => entry.workspace.repositories!.some(binding => binding.sourceId === sourceId)))
+      .filter(entry => requiredSourceIds === undefined || (entry.workspace.repositories !== undefined && requiredSourceIds.every(sourceId => entry.workspace.repositories!.some(binding => binding.sourceId === sourceId))))
       .filter(entry => snapshot?.executions.find(execution => execution.workspaceId === entry.workspace.id)?.owner === undefined)
       .filter(entry => (snapshot?.tasks ?? []).every(task => (task.status !== 'running' && task.status !== 'review') || task.attempts.every(attempt => attempt.workspaceId !== entry.workspace.id)))
       .map(entry => ({
         id: entry.workspace.id,
-        label: `${snapshot?.versions.find(candidate => candidate.id === entry.workspace.versionId)?.name ?? ''} · ${entry.workspace.label ?? entry.workspace.rootPath ?? entry.workspace.path}`,
+        label: `${snapshot?.versions.find(candidate => candidate.id === entry.workspace.versionId)?.name ?? ''} · ${entry.workspace.label ?? entry.workspace.rootPath ?? entry.workspace.path}${entry.workspace.cleaned === true ? ` · ${t('workspace.stateCleaned')}` : ''}`,
         detail: entry.workspace.rootPath ?? entry.workspace.path,
+        ...(entry.workspace.repositories === undefined ? {} : { sourceIds: entry.workspace.repositories.map(binding => String(binding.sourceId)) }),
       }))
   }
-  const projectSourceIds = currentProject?.config.sources.map(source => source.id) ?? []
   const reuseCandidates = reuseOptionsFor(displayVersionProject?.id, displayVersion?.id, displayVersion?.sources.map(source => source.sourceId) ?? [])
-  const createReuseCandidates = reuseOptionsFor(currentProject?.id, undefined, projectSourceIds)
+  // The wizard filters candidates against the sub-projects the user selected,
+  // which only that form knows.
+  const createReuseCandidates = reuseOptionsFor(currentProject?.id, undefined, undefined)
   const note: React.CSSProperties = { padding: 12, borderRadius: 8, color: COLORS.dim, background: COLORS.panel2, lineHeight: 1.6, margin: 0 }
   return <>
     {create !== undefined && <div style={modalOverlay}>

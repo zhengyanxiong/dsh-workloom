@@ -11,6 +11,8 @@ export interface ReuseWorkspaceOption {
   readonly id: string
   readonly label: string
   readonly detail: string
+  /** Repository ids the workspace maps; absent means unknown, so it is offered. */
+  readonly sourceIds?: readonly string[] | undefined
 }
 
 /** Inputs for the reuse picker. */

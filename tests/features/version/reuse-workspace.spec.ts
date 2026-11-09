@@ -82,6 +82,14 @@ it('retires the old record before registering the same directories for the new v
   })
 })
 
+it('re-registers a cleaned direct workspace without status or cleanup calls', async () => {
+  const host = deps()
+  const result = await reuseWorkspace(host.deps, { ...input, workspace: { ...workspace, cleaned: true } })
+  expect(result).toMatchObject({ ok: true })
+  expect(host.order).toEqual(['register'])
+  expect(host.register).toMatchObject({ versionId: 'v-new', lockId: 'lock-new', repositories: expect.arrayContaining([expect.objectContaining({ sourceId: 'web' })]) })
+})
+
 it('stops when cleanup or re-registration fails, without inventing a record', async () => {
   const cleanup = deps({ cleanup: { ok: false, error: { code: 'workspace_task_running', message: 'busy' } as never } })
   expect(await reuseWorkspace(cleanup.deps, input)).toMatchObject({ ok: false, code: 'workspace_task_running' })

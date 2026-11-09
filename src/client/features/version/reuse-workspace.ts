@@ -30,6 +30,8 @@ export interface ReuseWorkspaceInput {
     readonly versionId: string
     readonly projectId?: string | undefined
     readonly repositories?: readonly WorkspaceRepositoryBinding[] | undefined
+    /** A cleaned direct record no longer owns the directory, so it registers directly. */
+    readonly cleaned?: boolean | undefined
   }
   readonly versionId: string
   readonly projectId: string | undefined
@@ -57,14 +59,18 @@ export async function reuseWorkspace(deps: ReuseWorkspaceDeps, input: ReuseWorks
   const bindings = input.workspace.repositories
   if (input.workspace.versionId === input.versionId) return failure('check', 'workspace_mismatch', 'the workspace already belongs to this version')
   if (bindings === undefined || bindings.length === 0) return failure('check', 'workspace_mismatch', 'the workspace has no repository mapping to reuse')
-  const status = await deps.workspaceStatus({ workspaceId: input.workspace.id })
-  if (!status.ok) return failure('check', status.error.code, status.error.message)
-  if (status.value.running) return failure('check', 'workspace_busy', 'a Session still owns this workspace')
-  // Direct workspaces keep the user's real repositories, so uncommitted work is
-  // the one thing cleanup would silently leave behind in a half-reused layout.
-  if (status.value.repositories.some(repository => repository.files.length > 0)) return failure('check', 'workspace_changes', 'commit every workspace change before reusing it')
-  const cleaned = await deps.cleanupWorkspace({ workspaceId: input.workspace.id, discardChanges: false })
-  if (!cleaned.ok) return failure('cleanup', cleaned.error.code, cleaned.error.message)
+  // A cleaned direct record already released the directory, so there is nothing
+  // to retire; an active record must be idle and clean before it is retired.
+  if (input.workspace.cleaned !== true) {
+    const status = await deps.workspaceStatus({ workspaceId: input.workspace.id })
+    if (!status.ok) return failure('check', status.error.code, status.error.message)
+    if (status.value.running) return failure('check', 'workspace_busy', 'a Session still owns this workspace')
+    // Direct workspaces keep the user's real repositories, so uncommitted work
+    // is the one thing cleanup would silently leave behind.
+    if (status.value.repositories.some(repository => repository.files.length > 0)) return failure('check', 'workspace_changes', 'commit every workspace change before reusing it')
+    const cleaned = await deps.cleanupWorkspace({ workspaceId: input.workspace.id, discardChanges: false })
+    if (!cleaned.ok) return failure('cleanup', cleaned.error.code, cleaned.error.message)
+  }
   const root = input.workspace.rootPath ?? input.workspace.path
   const registered = await deps.registerWorkspace({
     path: root,
