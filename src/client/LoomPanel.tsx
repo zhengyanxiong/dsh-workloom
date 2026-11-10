@@ -22,6 +22,7 @@ import { resolveLoomTheme } from './theme/selection.ts'
 import { useHostTheme } from './theme/useHostTheme.ts'
 import { useLoomPreferences } from './shell/useLoomPreferences.ts'
 import { useLoomCatalog } from './shell/useLoomCatalog.ts'
+import { executionForSession, useLoomSessionExecution } from './shell/useLoomSessionExecution.ts'
 import { useLoomPinnedProjects } from './shell/useLoomPinnedProjects.ts'
 import { useLoomMenu } from './shell/useLoomMenu.ts'
 import { useLoomBoardFilters } from './shell/useLoomBoardFilters.ts'
@@ -244,7 +245,7 @@ export function LoomPanel({ t, useSessions, useSessionStatus, retainSession, ope
     }
   })
   const sessionStates = Object.fromEntries(taskSessions.map(row => {
-    const execution = executionForSession(row.sessionId)
+    const execution = executionForSession(detailTask, snapshot, row.sessionId)
     const owner = execution?.owner
     const queueIndex = execution?.waiting.indexOf(row.sessionId as SessionId) ?? -1
     return [row.sessionId, {
@@ -316,52 +317,10 @@ export function LoomPanel({ t, useSessions, useSessionStatus, retainSession, ope
       setReleaseError(`${t('graph.releaseFailed')}${error instanceof Error ? error.message : String(error)}`)
     } finally { setReleasingWorkspace(undefined) }
   }
-  const [sessionBusy, setSessionBusy] = useState<string>()
-  function sessionWorkspaceId(sessionId: string): string | undefined {
-    return detailTask?.attempts.find(attempt => attempt.sessionIds.includes(sessionId as SessionId))?.workspaceId
-  }
-  function executionForSession(sessionId: string) {
-    const workspaceId = sessionWorkspaceId(sessionId)
-    return workspaceId === undefined ? undefined : snapshot?.executions.find(candidate => candidate.workspaceId === workspaceId)
-  }
-  async function releaseSessionExecution(sessionId: string): Promise<void> {
-    const workspaceId = sessionWorkspaceId(sessionId)
-    const execution = executionForSession(sessionId)
-    const owner = execution?.owner
-    if (workspaceId === undefined || owner === null || owner === undefined || owner.sessionId !== sessionId) return
-    setSessionBusy(sessionId)
-    try {
-      const result = await releaseExecution({ workspaceId, sessionId: owner.sessionId, generation: Number(owner.generation) })
-      if (!result.ok) reportLoomFailure(t, result.error, t('bottom.sessionAction'))
-      else setAttempt(current => current + 1)
-    } catch (error) {
-      reportLoomFailure(t, { code: 'unknown', message: error instanceof Error ? error.message : String(error) }, t('bottom.sessionAction'))
-    } finally { setSessionBusy(undefined) }
-  }
-  async function queueSessionExecution(sessionId: string): Promise<void> {
-    const workspaceId = sessionWorkspaceId(sessionId)
-    if (workspaceId === undefined) return
-    setSessionBusy(sessionId)
-    try {
-      const result = await acquireExecution({ workspaceId, sessionId })
-      if (!result.ok) reportLoomFailure(t, result.error, t('bottom.sessionAction'))
-      else setAttempt(current => current + 1)
-    } catch (error) {
-      reportLoomFailure(t, { code: 'unknown', message: error instanceof Error ? error.message : String(error) }, t('bottom.sessionAction'))
-    } finally { setSessionBusy(undefined) }
-  }
-  async function leaveSessionQueue(sessionId: string): Promise<void> {
-    const workspaceId = sessionWorkspaceId(sessionId)
-    if (workspaceId === undefined) return
-    setSessionBusy(sessionId)
-    try {
-      const result = await cancelExecution({ workspaceId, sessionId })
-      if (!result.ok) reportLoomFailure(t, result.error, t('bottom.sessionAction'))
-      else setAttempt(current => current + 1)
-    } catch (error) {
-      reportLoomFailure(t, { code: 'unknown', message: error instanceof Error ? error.message : String(error) }, t('bottom.sessionAction'))
-    } finally { setSessionBusy(undefined) }
-  }
+  const sessionExecution = useLoomSessionExecution({
+    t, task: detailTask, snapshot, releaseExecution, acquireExecution, cancelExecution,
+    onChanged: () => { setAttempt(current => current + 1) },
+  })
   async function releaseAllStale(): Promise<void> {
     if (snapshot === undefined) return
     const stale = snapshot.executions.filter(execution => execution.owner !== null && execution.owner !== undefined && runningSessionIds.has(execution.owner.sessionId) !== true)
@@ -964,7 +923,7 @@ export function LoomPanel({ t, useSessions, useSessionStatus, retainSession, ope
       collapsed={bottomCollapsed}
       pane={pane}
       audit={auditRows}
-      sessionsContent={<LoomSessionGraph t={t} taskTitle={detailTask?.title} workspaceLabel={workspaceDisplay} rows={activeSessionRows} execution={runtimeExecution} usageBySession={usageBySession} currentSessionId={runtimeSessionId} sessionStates={sessionStates} busySessionId={sessionArchive.busySessionId ?? sessionBusy} showArchived={sessionArchive.showArchived} archivedSessionIds={archivedSessionIds} onToggleArchived={sessionArchive.toggleArchived} onArchiveSession={sessionArchive.archive} onUnarchiveSession={sessionArchive.restore} onReleaseSession={id => { void releaseSessionExecution(id) }} onQueueSession={id => { void queueSessionExecution(id) }} onLeaveQueue={id => { void leaveSessionQueue(id) }} onOpenSession={id => { selectSession(id) }} />}
+      sessionsContent={<LoomSessionGraph t={t} taskTitle={detailTask?.title} workspaceLabel={workspaceDisplay} rows={activeSessionRows} execution={runtimeExecution} usageBySession={usageBySession} currentSessionId={runtimeSessionId} sessionStates={sessionStates} busySessionId={sessionArchive.busySessionId ?? sessionExecution.busySessionId} showArchived={sessionArchive.showArchived} archivedSessionIds={archivedSessionIds} onToggleArchived={sessionArchive.toggleArchived} onArchiveSession={sessionArchive.archive} onUnarchiveSession={sessionArchive.restore} onReleaseSession={id => { void sessionExecution.releaseSession(id) }} onQueueSession={id => { void sessionExecution.queueSession(id) }} onLeaveQueue={id => { void sessionExecution.leaveQueue(id) }} onOpenSession={id => { selectSession(id) }} />}
       runtimeContent={<LoomSessionActivity t={t} sessionId={runtimeSessionId} subagents={subagentRows} jobs={jobs} workspaceAccess={workspaceAccess} openSession={id => { selectSession(id) }} forkSession={() => { void forkSessionAction() }} forking={forking} forkError={forkError} canFork={runtimeSessionId !== undefined && detailTask !== undefined && detailWorkspace !== undefined} onClaim={() => { void claimWorkspace() }} claiming={claiming} claimError={claimError} />}
       graphContent={snapshot !== undefined && taskVersion !== undefined ? <LoomVersionGraph t={t} snapshot={snapshot} version={taskVersion} sessionLabel={sessionLabel} runningSessionIds={runningSessionIds} onSelectTask={selectTask} onRelease={(workspaceId, owner) => { void releaseOwner(workspaceId, owner) }} releasingWorkspaceId={releasingWorkspace} releaseError={releaseError} onReleaseAll={() => { void releaseAllStale() }} releasingAll={releasingAll} /> : undefined}
       sessionCount={activeSessionRows.filter(row => row.archived !== true).length}
