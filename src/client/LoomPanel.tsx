@@ -28,6 +28,7 @@ import { useLoomTreeDelete } from './shell/useLoomTreeDelete.ts'
 import { useLoomTreeExpansion } from './shell/useLoomTreeExpansion.ts'
 import { useLoomForkSession } from './features/session/useLoomForkSession.ts'
 import { useLoomSelection } from './shell/useLoomSelection.ts'
+import { useLoomWorkbenchLayout } from './shell/useLoomWorkbenchLayout.ts'
 import { useLoomPinnedProjects } from './shell/useLoomPinnedProjects.ts'
 import { useLoomMenu } from './shell/useLoomMenu.ts'
 import { useLoomBoardFilters } from './shell/useLoomBoardFilters.ts'
@@ -197,17 +198,13 @@ export function LoomPanel({ t, useSessions, useSessionStatus, retainSession, ope
   const detailAttemptId = detailTask?.attempts.at(-1)?.id
 
   const loadTaskChanges = useCallback((request: WorkspaceChangesRequest) => workspaceChanges(detailAttemptId === undefined ? request : { ...request, attemptId: detailAttemptId }), [detailAttemptId, workspaceChanges])
-  const narrow = loomWidth <= 940
-  const anyPreviewOpen = preview !== undefined || review !== undefined
-  const asideMin = anyPreviewOpen ? 300 : 320
-  const asideCssMax = loomWidth <= 940 ? (anyPreviewOpen ? 380 : 300)
-    : loomWidth <= 1180 ? (anyPreviewOpen ? 460 : 380)
-      : anyPreviewOpen ? 720 : 460
-  const asideMax = Math.min(asideCssMax, Math.max(asideMin, loomWidth - (narrow ? 180 : 460)))
-  const asideWidth = Math.min(Math.max(anyPreviewOpen ? preferences.previewWidth : preferences.asideWidth, asideMin), asideMax)
-  const setAsideWidth = (width: number): void => setPreferences(current => ({ ...current, [anyPreviewOpen ? 'previewWidth' : 'asideWidth']: width }))
-  const bottomMax = Math.max(120, Math.min(320, viewport.height - 220))
-  const bottomHeight = Math.min(Math.max(preferences.bottomHeight, 80), bottomMax)
+  const {
+    narrow, asideMin, asideMax, asideWidth, setAsideWidth, bottomMax, bottomHeight,
+  } = useLoomWorkbenchLayout({
+    loomWidth, viewportHeight: viewport.height, preferences,
+    previewOpen: preview !== undefined || review !== undefined,
+    setPreferences,
+  })
   const previewSessionId: SessionId | undefined = preview?.sessionId === undefined
     ? selected ?? boundRows.find(row => row.task?.id === detailTask?.id)?.sessionId as SessionId | undefined
     : preview.sessionId as SessionId
