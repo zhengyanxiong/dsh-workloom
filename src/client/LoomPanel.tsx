@@ -26,6 +26,7 @@ import { useLoomWorkspaceActions } from './features/workspace/useLoomWorkspaceAc
 import { useLoomExecutionOwnership } from './features/task/useLoomExecutionOwnership.ts'
 import { useLoomTreeDelete } from './shell/useLoomTreeDelete.ts'
 import { useLoomTreeExpansion } from './shell/useLoomTreeExpansion.ts'
+import { useLoomForkSession } from './features/session/useLoomForkSession.ts'
 import { useLoomPinnedProjects } from './shell/useLoomPinnedProjects.ts'
 import { useLoomMenu } from './shell/useLoomMenu.ts'
 import { useLoomBoardFilters } from './shell/useLoomBoardFilters.ts'
@@ -110,8 +111,6 @@ export function LoomPanel({ t, useSessions, useSessionStatus, retainSession, ope
   const [selected, setSelected] = useState<SessionId>()
   const { held, failure, available, setPendingDraft, retry: retrySession } = useLoomSessionHold(selected, retainSession, requestDraftInitialization)
   const [executionSession, setExecutionSession] = useState<SessionId>()
-  const [forking, setForking] = useState(false)
-  const [forkError, setForkError] = useState<string>()
   const [pinnedProjects, setPinnedProjects] = useLoomPinnedProjects()
   const { directoryRequest, finishDirectory, chooseDirectory } = useLoomDirectoryPicker(pickDirectory)
   const [search, setSearch] = useState('')
@@ -296,25 +295,12 @@ export function LoomPanel({ t, useSessions, useSessionStatus, retainSession, ope
     t, task: detailTask, snapshot, releaseExecution, acquireExecution, cancelExecution,
     onChanged: () => { setAttempt(current => current + 1) },
   })
-  async function forkSessionAction(): Promise<void> {
-    if (runtimeSessionId === undefined || detailTask === undefined || detailWorkspace === undefined) return
-    setForking(true); setForkError(undefined)
-    try {
-      const committed = await commitWorkspace({ workspaceId: detailWorkspace.id, message: 'Loom: checkpoint before fork' })
-      if (!committed.ok) { setForkError(`${t('runtime.forkFailed')}${committed.error.message}`); return }
-      const failed = committed.value.repositories.find(repository => repository.error !== undefined)
-      if (failed !== undefined) { setForkError(`${t('runtime.forkFailed')}${failed.sourceId}: ${failed.error ?? ''}`); return }
-      const child = await forkSession({ sessionId: runtimeSessionId, increaseTitle: true })
-      const attached = await attachSession({ taskId: detailTask.id, sessionId: child })
-      if (!attached.ok) { setForkError(`${t('runtime.forkFailed')}${attached.error.message}`); return }
-      selectSession(child)
-      setAttempt(current => current + 1)
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-      setForkError(/no completed turn/iu.test(message) ? t('runtime.forkNoTurn') : `${t('runtime.forkFailed')}${message}`)
-    } finally { setForking(false) }
-  }
-
+  const fork = useLoomForkSession({
+    t, sessionId: runtimeSessionId, task: detailTask, workspace: detailWorkspace,
+    commitWorkspace, forkSession, attachSession,
+    onForked: child => { selectSession(child) },
+    onChanged: () => { setAttempt(current => current + 1) },
+  })
   const nativeSession = (selected ?? taskSessions.at(-1)?.sessionId) as SessionId | undefined
   const openNativeFile = (path: string, sessionId: SessionId | undefined = nativeSession): void => {
     if (sessionId !== undefined && openResource(fileAddressFor(sessionId, detailWorkspace?.path, path))) return
@@ -632,7 +618,7 @@ export function LoomPanel({ t, useSessions, useSessionStatus, retainSession, ope
       pane={pane}
       audit={auditRows}
       sessionsContent={<LoomSessionGraph t={t} taskTitle={detailTask?.title} workspaceLabel={workspaceDisplay} rows={activeSessionRows} execution={runtimeExecution} usageBySession={usageBySession} currentSessionId={runtimeSessionId} sessionStates={sessionStates} busySessionId={sessionArchive.busySessionId ?? sessionExecution.busySessionId} showArchived={sessionArchive.showArchived} archivedSessionIds={archivedSessionIds} onToggleArchived={sessionArchive.toggleArchived} onArchiveSession={sessionArchive.archive} onUnarchiveSession={sessionArchive.restore} onReleaseSession={id => { void sessionExecution.releaseSession(id) }} onQueueSession={id => { void sessionExecution.queueSession(id) }} onLeaveQueue={id => { void sessionExecution.leaveQueue(id) }} onOpenSession={id => { selectSession(id) }} />}
-      runtimeContent={<LoomSessionActivity t={t} sessionId={runtimeSessionId} subagents={subagentRows} jobs={jobs} workspaceAccess={workspaceAccess} openSession={id => { selectSession(id) }} forkSession={() => { void forkSessionAction() }} forking={forking} forkError={forkError} canFork={runtimeSessionId !== undefined && detailTask !== undefined && detailWorkspace !== undefined} onClaim={() => { void ownership.claimWorkspace() }} claiming={ownership.claiming} claimError={ownership.claimError} />}
+      runtimeContent={<LoomSessionActivity t={t} sessionId={runtimeSessionId} subagents={subagentRows} jobs={jobs} workspaceAccess={workspaceAccess} openSession={id => { selectSession(id) }} forkSession={() => { void fork.forkSessionAction() }} forking={fork.forking} forkError={fork.forkError} canFork={runtimeSessionId !== undefined && detailTask !== undefined && detailWorkspace !== undefined} onClaim={() => { void ownership.claimWorkspace() }} claiming={ownership.claiming} claimError={ownership.claimError} />}
       graphContent={snapshot !== undefined && taskVersion !== undefined ? <LoomVersionGraph t={t} snapshot={snapshot} version={taskVersion} sessionLabel={sessionLabel} runningSessionIds={runningSessionIds} onSelectTask={selectTask} onRelease={(workspaceId, owner) => { void ownership.releaseOwner(workspaceId, owner) }} releasingWorkspaceId={ownership.releasingWorkspace} releaseError={ownership.releaseError} onReleaseAll={() => { void ownership.releaseAllStale() }} releasingAll={ownership.releasingAll} /> : undefined}
       sessionCount={activeSessionRows.filter(row => row.archived !== true).length}
       runningCount={activeSessionRows.filter(row => row.running).length}
