@@ -8,7 +8,7 @@ import type { CSSProperties, ReactNode } from 'react'
 import {
   IconChevronDownOutlineRegular, IconChevronRightOutlineRegular, IconPinFillRegular,
   IconPinOutlineRegular, Tag,
-} from '@deepseek-ai/dsh-client-ui-primitives'
+} from '../ui/primitives.ts'
 import type { TaskRecord } from 'dsh-workloom/types'
 import { COLORS } from '../ui/tokens.ts'
 import { PRIORITY_META, STATUS_META } from '../ui/status.ts'

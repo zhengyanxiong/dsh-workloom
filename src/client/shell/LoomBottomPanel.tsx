@@ -1,6 +1,6 @@
 /** Collapsible bottom panel: native Diff, attempt activity and unwired integrations. */
 import { useEffect, useState, type ReactNode } from 'react'
-import { IconFullscreenOutlineRegular, Tag } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconFullscreenOutlineRegular, Tag } from '../ui/primitives.ts'
 import type { AuditEntry } from 'dsh-workloom/types'
 import { LoomDiff, type LoadWorkspaceChanges } from '../features/preview/LoomDiff.tsx'
 import { ACTOR_LABEL, AUDIT_LABEL } from '../ui/labels.ts'

@@ -1,6 +1,6 @@
 /** Loom workbench shell: project tree, native conversation, context and kanban. */
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { IconCloseOutlineRegular, Button } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconCloseOutlineRegular, Button } from './ui/primitives.ts'
 import type { ReactNode } from 'react'
 import type { InjectFace, PropsLocale, PropsRenderFactories, PropsRuntime, SessionProviderComponent } from '@deepseek-ai/dsh-client-ui-slots'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'

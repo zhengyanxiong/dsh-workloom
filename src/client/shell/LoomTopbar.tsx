@@ -9,7 +9,7 @@ import {
   IconBranchOutlineRegular, IconChecklistOutlineRegular, IconDownloadOutlineRegular,
   IconFolderOpenRegular, IconPanelLeftOutlineRegular, IconPlusOutlineRegular, IconSearchOutlineRegular,
   IconProjectAddOutlineRegular, IconSettingsOutlineRegular, Tooltip,
-} from '@deepseek-ai/dsh-client-ui-primitives'
+} from '../ui/primitives.ts'
 import type { CatalogSnapshot, ProjectRecord, VersionRecord } from 'dsh-workloom/types'
 import { LoomBrandMark } from '../ui/LoomMark.tsx'
 import { LoomButton } from '../ui/Button.tsx'
