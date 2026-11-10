@@ -5,7 +5,6 @@ import type { ReactNode } from 'react'
 import type { InjectFace, PropsLocale, PropsRenderFactories, PropsRuntime, SessionProviderComponent } from '@deepseek-ai/dsh-client-ui-slots'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { fileAddressFor } from '@deepseek-ai/dsh-util-workspace-path'
-import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import type {
   ProjectRecord, TaskRecord, VersionRecord, WorkspaceChangesRequest,
 } from 'dsh-workloom/types'
@@ -25,6 +24,7 @@ import { useLoomSessionExecution, executionForSession } from './shell/useLoomSes
 import { useLoomDirectoryPicker } from './shell/useLoomDirectoryPicker.ts'
 import { useLoomWorkspaceActions } from './features/workspace/useLoomWorkspaceActions.ts'
 import { useLoomExecutionOwnership } from './features/task/useLoomExecutionOwnership.ts'
+import { useLoomTreeDelete } from './shell/useLoomTreeDelete.ts'
 import { useLoomPinnedProjects } from './shell/useLoomPinnedProjects.ts'
 import { useLoomMenu } from './shell/useLoomMenu.ts'
 import { useLoomBoardFilters } from './shell/useLoomBoardFilters.ts'
@@ -55,8 +55,6 @@ import type { LoomPaletteItem } from './features/palette/palette.ts'
 import { activeWorkspaceCount, aggregateTokenUsage, boundSessions, tokenUsageOf, currentWorkspace, taskAttemptRows, taskSessionRows, workspaceName, type ShellFilter } from './shared/projection.ts'
 import { deriveVersionContext } from '../shared/version-context.ts'
 import { COLORS } from './ui/tokens.ts'
-import { failureReport, thrownFailureReport } from './ui/failure.ts'
-import type { FailureReport } from './ui/failure.ts'
 import { metaLine } from './ui/styles.ts'
 import { reportLoomFailure } from './shared/feedback.ts'
 import { NS } from './shared/locales.ts'
@@ -128,9 +126,6 @@ export function LoomPanel({ t, useSessions, useSessionStatus, retainSession, ope
   const [collapsedSections, setCollapsedSections] = useState<ReadonlySet<'pinned' | 'projects' | 'sessions'>>(new Set())
   const { create, setCreate, edit, setEdit, versionStep, setVersionStep, setModalBusy } = useLoomDialogState()
   const { menuOpen, setMenuOpen, newMenuRef } = useLoomMenu()
-  const [treeDelete, setTreeDelete] = useState<ProjectRecord>()
-  const [treeDeleting, setTreeDeleting] = useState(false)
-  const [treeDeleteFailure, setTreeDeleteFailure] = useState<FailureReport>()
   useEffect(() => { setSidebarOpen(false) }, [project, version, task])
   useEffect(() => {
     if (project !== undefined) setExpandedProjects(current => current.has(project) ? current : new Set(current).add(project))
@@ -444,45 +439,12 @@ export function LoomPanel({ t, useSessions, useSessionStatus, retainSession, ope
       reportLoomFailure(t, { code: 'unknown', message: error instanceof Error ? error.message : String(error) }, t('op.moveTask'))
     }
   }
-  async function removeProject(target: ProjectRecord): Promise<RemoteResult<void>> {
-    const result = await deleteProject({ projectId: target.id })
-    if (result.ok) {
-      setPinnedProjects(current => current.filter(id => id !== target.id))
-      if (filterProject === target.id) setFilterProject('')
-      setFilterVersion('')
-      setProject(undefined); setVersion(undefined); setTask(undefined); setSelected(undefined)
-      setAttempt(current => current + 1)
-    }
-    return result
-  }
-  async function removeVersion(target: VersionRecord): Promise<RemoteResult<void>> {
-    const result = await deleteVersion({ versionId: target.id })
-    if (result.ok) {
-      if (filterVersion === target.id) setFilterVersion('')
-      setVersion(undefined); setTask(undefined); setSelected(undefined)
-      setAttempt(current => current + 1)
-    }
-    return result
-  }
-  async function removeTask(target: TaskRecord): Promise<RemoteResult<void>> {
-    const result = await deleteTask({ taskId: target.id })
-    if (result.ok) {
-      setTask(undefined); setSelected(undefined)
-      setAttempt(current => current + 1)
-    }
-    return result
-  }
-  async function confirmTreeDelete(): Promise<void> {
-    if (treeDelete === undefined) return
-    setTreeDeleting(true); setTreeDeleteFailure(undefined)
-    try {
-      const result = await removeProject(treeDelete)
-      if (result.ok) setTreeDelete(undefined)
-      else setTreeDeleteFailure(failureReport(result.error.code, result.error.message))
-    } catch (error) {
-      setTreeDeleteFailure(thrownFailureReport(error))
-    } finally { setTreeDeleting(false) }
-  }
+  const treeDeleteActions = useLoomTreeDelete({
+    deleteProject, deleteVersion, deleteTask,
+    filterProject, filterVersion, setFilterProject, setFilterVersion,
+    setPinnedProjects, setProject, setVersion, setTask, setSelected,
+    onChanged: () => { setAttempt(current => current + 1) },
+  })
   function openCreate(kind: CreateKind): void { if (kind === 'version') setVersionStep('name'); setCreate(kind); setEdit(undefined); setMenuOpen(false) }
 
   function toggleSidebarSection(key: 'pinned' | 'projects' | 'sessions'): void {
@@ -577,12 +539,12 @@ export function LoomPanel({ t, useSessions, useSessionStatus, retainSession, ope
         onPin={record => setPinnedProjects(current => current.includes(record.id) ? current.filter(id => id !== record.id) : [...current, record.id])}
         onNewVersion={record => { setProject(record.id); setVersion(undefined); setTask(undefined); openCreate('version') }}
         onEditProject={record => { setProject(record.id); setTask(undefined); openEdit('project') }}
-        onDeleteProject={record => { setTreeDelete(record); setTreeDeleteFailure(undefined) }}
+        onDeleteProject={record => { treeDeleteActions.requestDelete(record) }}
         onEditVersion={(record, item) => { setProject(record.id); setVersion(item.id); setTask(undefined); openEdit('version') }}
-        onDeleteVersion={(record, item) => { setProject(record.id); setVersion(item.id); setTask(undefined); void removeVersion(item) }}
+        onDeleteVersion={(record, item) => { setProject(record.id); setVersion(item.id); setTask(undefined); void treeDeleteActions.removeVersion(item) }}
         onNewTask={(record, item) => { setProject(record.id); setVersion(item.id); setTask(undefined); openCreate('task') }}
         onEditTask={(record, item) => { setProject(record.id); setVersion(item.versionId); setTask(item); openEdit('task') }}
-        onDeleteTask={(record, item) => { setProject(record.id); setVersion(item.versionId); setTask(item); void removeTask(item) }}
+        onDeleteTask={(record, item) => { setProject(record.id); setVersion(item.versionId); setTask(item); void treeDeleteActions.removeTask(item) }}
         onSelectSession={(id, owner) => { setSelected(id as SessionId); setTask(owner); setView('workbench'); navigate('session') }}
         onCreateProject={() => openCreate('project')}
         onCreateTask={() => openCreate('task')}
@@ -677,7 +639,7 @@ export function LoomPanel({ t, useSessions, useSessionStatus, retainSession, ope
             </div>
           : preview !== undefined
             ? <LoomFilePreview t={t} workspaceId={detailWorkspace?.id} workspaceRoot={(previewSessionId === undefined ? undefined : sessions.byId[previewSessionId]?.cwd) ?? detailWorkspace?.rootPath ?? detailWorkspace?.path} {...(detailAttemptId === undefined ? {} : { attemptId: detailAttemptId })} sessionId={previewSessionId} filePath={preview.path} initialMode={preview.mode ?? 'diff'} loadChanges={workspaceChanges} readFile={readFile} readBytes={readBytes} openPath={openPath} applications={openPathApplications} openWith={openPathWith} onClose={() => { workspacePreview.close(); setPreviewFullscreen(false) }} fullscreen={previewFullscreen} onToggleFullscreen={() => setPreviewFullscreen(current => !current)} wrap={preferences.previewWrap} onToggleWrap={togglePreviewWrap} />
-            : <LoomContextPanel t={t} snapshot={snapshot ?? { projects: [], versions: [], locks: [], tasks: [], workspaces: [], temporarySessions: [], audit: [], executions: [] }} project={displayProject} version={displayVersion} task={detailTask} versionContext={versionContext} presetName={displayPresetName} usage={tokenUsage} generateLock={generateLock} onLockChanged={() => setAttempt(current => current + 1)} onEditProject={() => openEdit('project')} onNewVersion={() => { if (displayProject !== undefined) setProject(displayProject.id); openCreate('version') }} onEditVersion={() => openEdit('version')} onEditTask={() => openEdit('task')} onDeleteProject={displayProject === undefined ? undefined : () => removeProject(displayProject)} onDeleteVersion={displayVersion === undefined ? undefined : () => removeVersion(displayVersion)} onDeleteTask={detailTask === undefined ? undefined : () => removeTask(detailTask)} openPath={openPath} openPathApplications={openPathApplications} openPathWith={openPathWith} loadBranches={repositoryBranches} liveTaskIds={liveTaskIds} runningSessionIds={runningSessionIds} />}
+            : <LoomContextPanel t={t} snapshot={snapshot ?? { projects: [], versions: [], locks: [], tasks: [], workspaces: [], temporarySessions: [], audit: [], executions: [] }} project={displayProject} version={displayVersion} task={detailTask} versionContext={versionContext} presetName={displayPresetName} usage={tokenUsage} generateLock={generateLock} onLockChanged={() => setAttempt(current => current + 1)} onEditProject={() => openEdit('project')} onNewVersion={() => { if (displayProject !== undefined) setProject(displayProject.id); openCreate('version') }} onEditVersion={() => openEdit('version')} onEditTask={() => openEdit('task')} onDeleteProject={displayProject === undefined ? undefined : () => treeDeleteActions.removeProject(displayProject)} onDeleteVersion={displayVersion === undefined ? undefined : () => treeDeleteActions.removeVersion(displayVersion)} onDeleteTask={detailTask === undefined ? undefined : () => treeDeleteActions.removeTask(detailTask)} openPath={openPath} openPathApplications={openPathApplications} openPathWith={openPathWith} loadBranches={repositoryBranches} liveTaskIds={liveTaskIds} runningSessionIds={runningSessionIds} />}
       </aside>}
     </div>
     {!bottomCollapsed && <LoomResizeHandle label={t('layout.resizeBottom')} orientation="horizontal" value={bottomHeight} min={80} max={bottomMax} invert onChange={(height) => setPreferences(current => ({ ...current, bottomHeight: height }))} />}
@@ -719,6 +681,6 @@ export function LoomPanel({ t, useSessions, useSessionStatus, retainSession, ope
       onCancel={sessionArchive.cancelConfirm}
       onConfirm={sessionArchive.confirmArchive}
     />
-    <LoomFormDialogs createTaskWorkspace={workspaceActions.createTaskWorkspace} registerTaskDirectory={workspaceActions.registerTaskDirectory} t={t} create={create} edit={edit} versionStep={versionStep} currentProject={currentProject} currentVersion={currentVersion} currentVersionProject={currentVersionProject} displayProject={displayProject} displayVersion={displayVersion} displayVersionProject={displayVersionProject} detailTask={detailTask} snapshot={snapshot} agentPresets={agentPresets} createProject={createProject} createVersion={workspaceActions.createVersionWithAdoption} createTask={createTask} updateProject={updateProject} updateVersion={updateVersion} updateTask={updateTask} repositoryBranches={repositoryBranches} chooseDirectory={chooseDirectory} addVersionWorkspace={workspaceActions.addVersionWorkspace} reuseVersionWorkspace={workspaceActions.reuseVersionWorkspace} createVersionReusingWorkspace={workspaceActions.createVersionReusingWorkspace} renameVersionWorkspace={workspaceActions.renameVersionWorkspace} removeVersionWorkspace={workspaceActions.removeVersionWorkspace} directoryRequest={directoryRequest} finishDirectory={finishDirectory} listDirectory={listDirectory} treeDelete={treeDelete} treeDeleting={treeDeleting} treeDeleteFailure={treeDeleteFailure} confirmTreeDelete={confirmTreeDelete} setCreate={setCreate} setEdit={setEdit} setModalBusy={setModalBusy} setVersionStep={setVersionStep} setProject={setProject} setVersion={setVersion} setTask={setTask} setSelected={setSelected} setAttempt={setAttempt} setView={setView} setTreeDelete={setTreeDelete} setTreeDeleteFailure={setTreeDeleteFailure} navigate={navigate} />
+    <LoomFormDialogs createTaskWorkspace={workspaceActions.createTaskWorkspace} registerTaskDirectory={workspaceActions.registerTaskDirectory} t={t} create={create} edit={edit} versionStep={versionStep} currentProject={currentProject} currentVersion={currentVersion} currentVersionProject={currentVersionProject} displayProject={displayProject} displayVersion={displayVersion} displayVersionProject={displayVersionProject} detailTask={detailTask} snapshot={snapshot} agentPresets={agentPresets} createProject={createProject} createVersion={workspaceActions.createVersionWithAdoption} createTask={createTask} updateProject={updateProject} updateVersion={updateVersion} updateTask={updateTask} repositoryBranches={repositoryBranches} chooseDirectory={chooseDirectory} addVersionWorkspace={workspaceActions.addVersionWorkspace} reuseVersionWorkspace={workspaceActions.reuseVersionWorkspace} createVersionReusingWorkspace={workspaceActions.createVersionReusingWorkspace} renameVersionWorkspace={workspaceActions.renameVersionWorkspace} removeVersionWorkspace={workspaceActions.removeVersionWorkspace} directoryRequest={directoryRequest} finishDirectory={finishDirectory} listDirectory={listDirectory} treeDelete={treeDeleteActions.treeDelete} treeDeleting={treeDeleteActions.treeDeleting} treeDeleteFailure={treeDeleteActions.treeDeleteFailure} confirmTreeDelete={treeDeleteActions.confirmDelete} setCreate={setCreate} setEdit={setEdit} setModalBusy={setModalBusy} setVersionStep={setVersionStep} setProject={setProject} setVersion={setVersion} setTask={setTask} setSelected={setSelected} setAttempt={setAttempt} setView={setView} setTreeDelete={treeDeleteActions.clearDelete} setTreeDeleteFailure={treeDeleteActions.clearDeleteFailure} navigate={navigate} />
   </div>
 }
