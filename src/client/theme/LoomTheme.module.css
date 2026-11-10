@@ -119,3 +119,31 @@
   transition: none !important;
   animation: none !important;
 }
+
+/* Native Markdown inline code inherits host colors through a wrapper outside
+   the alias bridge in some DSH builds; scope it to the Loom surface. */
+.loomRoot :global(code:not(pre code)) {
+  background: var(--color-line-soft);
+  color: var(--color-ink);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-xs);
+  padding: 1px 4px;
+  font-family: var(--font-mono);
+  font-size: var(--text-label-size);
+  line-height: var(--text-label-lh);
+}
+.loomRoot :global(pre) {
+  background: var(--color-panel);
+  color: var(--color-ink);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+}
+.loomRoot :global(pre code) {
+  background: transparent;
+  border: 0;
+  padding: 0;
+}
+.loomRoot :global(textarea) {
+  color: var(--color-ink);
+  caret-color: var(--color-accent);
+}
