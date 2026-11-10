@@ -8,6 +8,8 @@ Releases start at 0.1.8 in this repository.
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-11-10
+
 ### Added
 
 - Settings now carry an About & updates section: the panel shows the plugin
@@ -27,6 +29,13 @@ Releases start at 0.1.8 in this repository.
   titlebar, and the full-bleed root is offset below the Windows caption row and
   the macOS traffic lights, so the Loom topbar no longer covers the native app
   menu, window controls or the shell's leading buttons.
+
+- Loom dark theme now bridges DSH composer, inline-code and elevation tokens, and scopes native Markdown code colors to the Loom surface so dark Sessions no longer show white input cards or code pills.
+
+### Changed
+
+- The client shell was split into focused `useLoom*` hooks: catalog loading, workspace actions, execution ownership, selection, tree state, Session rows, layout sizing and chrome state. `LoomPanel` is roughly 40% smaller and no longer owns those mutations directly.
+- Shell controls now reach DSH UI primitives through `src/client/ui/primitives.ts` instead of importing the DSH package directly.
 
 ## [0.3.1] - 2026-11-09
 
