@@ -24,6 +24,7 @@ import { useLoomCatalog } from './shell/useLoomCatalog.ts'
 import { useLoomSessionExecution, executionForSession } from './shell/useLoomSessionExecution.ts'
 import { useLoomDirectoryPicker } from './shell/useLoomDirectoryPicker.ts'
 import { useLoomWorkspaceActions } from './features/workspace/useLoomWorkspaceActions.ts'
+import { useLoomExecutionOwnership } from './features/task/useLoomExecutionOwnership.ts'
 import { useLoomPinnedProjects } from './shell/useLoomPinnedProjects.ts'
 import { useLoomMenu } from './shell/useLoomMenu.ts'
 import { useLoomBoardFilters } from './shell/useLoomBoardFilters.ts'
@@ -112,11 +113,6 @@ export function LoomPanel({ t, useSessions, useSessionStatus, retainSession, ope
   const [executionSession, setExecutionSession] = useState<SessionId>()
   const [forking, setForking] = useState(false)
   const [forkError, setForkError] = useState<string>()
-  const [releasingWorkspace, setReleasingWorkspace] = useState<string>()
-  const [releaseError, setReleaseError] = useState<string>()
-  const [releasingAll, setReleasingAll] = useState(false)
-  const [claiming, setClaiming] = useState(false)
-  const [claimError, setClaimError] = useState<string>()
   const [pinnedProjects, setPinnedProjects] = useLoomPinnedProjects()
   const { directoryRequest, finishDirectory, chooseDirectory } = useLoomDirectoryPicker(pickDirectory)
   const [search, setSearch] = useState('')
@@ -301,56 +297,15 @@ export function LoomPanel({ t, useSessions, useSessionStatus, retainSession, ope
     ...(runtimeExecution?.owner === null || runtimeExecution?.owner === undefined ? {} : { owner: { id: runtimeExecution.owner.sessionId, label: sessionLabel(runtimeExecution.owner.sessionId), running: sessions.byId[runtimeExecution.owner.sessionId]?.running === true } }),
     waiting: (runtimeExecution?.waiting ?? []).map(id => ({ id, label: sessionLabel(id) })),
   }
-  async function releaseOwner(workspaceId: string, owner: { readonly sessionId: string; readonly generation: number }): Promise<void> {
-    setReleasingWorkspace(workspaceId); setReleaseError(undefined)
-    try {
-      const result = await releaseExecution({ workspaceId, sessionId: owner.sessionId, generation: owner.generation })
-      if (!result.ok) { setReleaseError(`${t('graph.releaseFailed')}${result.error.message}`); return }
-      setAttempt(current => current + 1)
-    } catch (error) {
-      setReleaseError(`${t('graph.releaseFailed')}${error instanceof Error ? error.message : String(error)}`)
-    } finally { setReleasingWorkspace(undefined) }
-  }
+  const ownership = useLoomExecutionOwnership({
+    t, snapshot, workspace: runtimeWorkspace, sessionId: runtimeSessionId, execution: runtimeExecution,
+    runningSessionIds, releaseExecution, acquireExecution,
+    onChanged: () => { setAttempt(current => current + 1) },
+  })
   const sessionExecution = useLoomSessionExecution({
     t, task: detailTask, snapshot, releaseExecution, acquireExecution, cancelExecution,
     onChanged: () => { setAttempt(current => current + 1) },
   })
-  async function releaseAllStale(): Promise<void> {
-    if (snapshot === undefined) return
-    const stale = snapshot.executions.filter(execution => execution.owner !== null && execution.owner !== undefined && runningSessionIds.has(execution.owner.sessionId) !== true)
-    if (stale.length === 0) return
-    setReleasingAll(true); setReleaseError(undefined)
-    const failures: string[] = []
-    try {
-      for (const execution of stale) {
-        const owner = execution.owner
-        if (owner === null || owner === undefined) continue
-        const result = await releaseExecution({ workspaceId: execution.workspaceId, sessionId: owner.sessionId, generation: Number(owner.generation) })
-        if (!result.ok) failures.push(`${owner.sessionId.slice(0, 8)}: ${result.error.message}`)
-      }
-      if (failures.length > 0) setReleaseError(`${t('graph.releaseFailed')}${failures.join('; ')}`)
-      setAttempt(current => current + 1)
-    } catch (error) {
-      setReleaseError(`${t('graph.releaseFailed')}${error instanceof Error ? error.message : String(error)}`)
-    } finally { setReleasingAll(false) }
-  }
-  async function claimWorkspace(): Promise<void> {
-    if (runtimeWorkspace === undefined || runtimeSessionId === undefined || runtimeExecution?.owner === null || runtimeExecution?.owner === undefined) return
-    setClaiming(true); setClaimError(undefined)
-    try {
-      const owner = runtimeExecution.owner
-      const waiting = runtimeExecution.waiting.includes(runtimeSessionId)
-      const released = await releaseExecution({ workspaceId: runtimeWorkspace.id, sessionId: owner.sessionId, generation: Number(owner.generation) })
-      if (!released.ok) { setClaimError(`${t('runtime.claimFailed')}${released.error.message}`); return }
-      if (!waiting) {
-        const acquired = await acquireExecution({ workspaceId: runtimeWorkspace.id, sessionId: runtimeSessionId })
-        if (!acquired.ok) { setClaimError(`${t('runtime.claimFailed')}${acquired.error.message}`); return }
-      }
-      setAttempt(current => current + 1)
-    } catch (error) {
-      setClaimError(`${t('runtime.claimFailed')}${error instanceof Error ? error.message : String(error)}`)
-    } finally { setClaiming(false) }
-  }
   async function forkSessionAction(): Promise<void> {
     if (runtimeSessionId === undefined || detailTask === undefined || detailWorkspace === undefined) return
     setForking(true); setForkError(undefined)
@@ -733,8 +688,8 @@ export function LoomPanel({ t, useSessions, useSessionStatus, retainSession, ope
       pane={pane}
       audit={auditRows}
       sessionsContent={<LoomSessionGraph t={t} taskTitle={detailTask?.title} workspaceLabel={workspaceDisplay} rows={activeSessionRows} execution={runtimeExecution} usageBySession={usageBySession} currentSessionId={runtimeSessionId} sessionStates={sessionStates} busySessionId={sessionArchive.busySessionId ?? sessionExecution.busySessionId} showArchived={sessionArchive.showArchived} archivedSessionIds={archivedSessionIds} onToggleArchived={sessionArchive.toggleArchived} onArchiveSession={sessionArchive.archive} onUnarchiveSession={sessionArchive.restore} onReleaseSession={id => { void sessionExecution.releaseSession(id) }} onQueueSession={id => { void sessionExecution.queueSession(id) }} onLeaveQueue={id => { void sessionExecution.leaveQueue(id) }} onOpenSession={id => { selectSession(id) }} />}
-      runtimeContent={<LoomSessionActivity t={t} sessionId={runtimeSessionId} subagents={subagentRows} jobs={jobs} workspaceAccess={workspaceAccess} openSession={id => { selectSession(id) }} forkSession={() => { void forkSessionAction() }} forking={forking} forkError={forkError} canFork={runtimeSessionId !== undefined && detailTask !== undefined && detailWorkspace !== undefined} onClaim={() => { void claimWorkspace() }} claiming={claiming} claimError={claimError} />}
-      graphContent={snapshot !== undefined && taskVersion !== undefined ? <LoomVersionGraph t={t} snapshot={snapshot} version={taskVersion} sessionLabel={sessionLabel} runningSessionIds={runningSessionIds} onSelectTask={selectTask} onRelease={(workspaceId, owner) => { void releaseOwner(workspaceId, owner) }} releasingWorkspaceId={releasingWorkspace} releaseError={releaseError} onReleaseAll={() => { void releaseAllStale() }} releasingAll={releasingAll} /> : undefined}
+      runtimeContent={<LoomSessionActivity t={t} sessionId={runtimeSessionId} subagents={subagentRows} jobs={jobs} workspaceAccess={workspaceAccess} openSession={id => { selectSession(id) }} forkSession={() => { void forkSessionAction() }} forking={forking} forkError={forkError} canFork={runtimeSessionId !== undefined && detailTask !== undefined && detailWorkspace !== undefined} onClaim={() => { void ownership.claimWorkspace() }} claiming={ownership.claiming} claimError={ownership.claimError} />}
+      graphContent={snapshot !== undefined && taskVersion !== undefined ? <LoomVersionGraph t={t} snapshot={snapshot} version={taskVersion} sessionLabel={sessionLabel} runningSessionIds={runningSessionIds} onSelectTask={selectTask} onRelease={(workspaceId, owner) => { void ownership.releaseOwner(workspaceId, owner) }} releasingWorkspaceId={ownership.releasingWorkspace} releaseError={ownership.releaseError} onReleaseAll={() => { void ownership.releaseAllStale() }} releasingAll={ownership.releasingAll} /> : undefined}
       sessionCount={activeSessionRows.filter(row => row.archived !== true).length}
       runningCount={activeSessionRows.filter(row => row.running).length}
       diffCount={diffCount}
