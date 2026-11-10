@@ -54,8 +54,26 @@
   --dsw-radius-sm: var(--radius-sm);
   --dsw-radius-md: var(--radius-md);
   --dsw-radius-lg: var(--radius-lg);
+  --dsw-radius-xs: var(--radius-xs);
+  --dsw-radius-panel: var(--radius-lg);
   --dsw-menu-surface-fill: var(--color-surface);
   --dsw-menu-backdrop-filter: none;
+  /* DSH composer/inline-code tokens live on :root and do not use the alias
+     prefix; without these the native input stays on the host light surface. */
+  --dsw-specific-input-major: var(--color-surface);
+  --dsw-specific-menu: var(--color-surface);
+  --dsw-specific-selector: var(--color-surface);
+  --dsw-alias-button-info-fill: var(--color-accent-soft);
+  --dsw-alias-button-info-hover: var(--color-panel);
+  --dsw-alias-label-primary-bluish: var(--color-accent-ink);
+  --dsw-alias-interactive-bg-hover-solid: var(--color-panel);
+  --dsw-alias-state-business-tertiary: var(--color-accent-soft);
+  --dsw-elevation-panel: var(--shadow-popover);
+  --dsw-elevation-prominent: var(--shadow-float);
+  --dsw-elevation-soft: var(--shadow-card);
+  --dsw-elevation-stroke-color: var(--color-line);
+  --dsw-font-family: var(--font-body);
+  --dsw-focus-ring-color: var(--color-accent);
   color: var(--color-ink);
   font-family: var(--font-body);
 }
