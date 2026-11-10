@@ -22,7 +22,8 @@ import { resolveLoomTheme } from './theme/selection.ts'
 import { useHostTheme } from './theme/useHostTheme.ts'
 import { useLoomPreferences } from './shell/useLoomPreferences.ts'
 import { useLoomCatalog } from './shell/useLoomCatalog.ts'
-import { executionForSession, useLoomSessionExecution } from './shell/useLoomSessionExecution.ts'
+import { useLoomSessionExecution, executionForSession } from './shell/useLoomSessionExecution.ts'
+import { useLoomDirectoryPicker } from './shell/useLoomDirectoryPicker.ts'
 import { useLoomPinnedProjects } from './shell/useLoomPinnedProjects.ts'
 import { useLoomMenu } from './shell/useLoomMenu.ts'
 import { useLoomBoardFilters } from './shell/useLoomBoardFilters.ts'
@@ -123,8 +124,7 @@ export function LoomPanel({ t, useSessions, useSessionStatus, retainSession, ope
   const [claiming, setClaiming] = useState(false)
   const [claimError, setClaimError] = useState<string>()
   const [pinnedProjects, setPinnedProjects] = useLoomPinnedProjects()
-  const [directoryRequest, setDirectoryRequest] = useState<{ startPath?: string }>()
-  const directoryResolve = useRef<((value: string | null) => void) | undefined>(undefined)
+  const { directoryRequest, finishDirectory, chooseDirectory } = useLoomDirectoryPicker(pickDirectory)
   const [search, setSearch] = useState('')
   const [temporaryOpen, setTemporaryOpen] = useState(false)
   const agentPresets = useLoomAgentPresets(t, listAgentPresets)
@@ -393,28 +393,6 @@ export function LoomPanel({ t, useSessions, useSessionStatus, retainSession, ope
   const auditRows = snapshot === undefined ? [] : snapshot.audit.filter(entry => detailTask === undefined
     || entry.taskId === detailTask.id
     || (entry.workspaceId !== undefined && auditWorkspaceIds.has(entry.workspaceId))).slice(-40).reverse()
-  function finishDirectory(value: string | null): void {
-    const resolve = directoryResolve.current
-    directoryResolve.current = undefined
-    setDirectoryRequest(undefined)
-    resolve?.(value)
-  }
-  function openDirectoryBrowser(startPath?: string): Promise<string | null> {
-    directoryResolve.current?.(null)
-    return new Promise(resolve => {
-      directoryResolve.current = resolve
-      setDirectoryRequest(startPath === undefined ? {} : { startPath })
-    })
-  }
-  async function chooseDirectory(startPath?: string): Promise<string | null> {
-    try {
-      const picked = await pickDirectory()
-      if (picked !== null) return picked
-      return null
-    } catch {
-      return openDirectoryBrowser(startPath)
-    }
-  }
   async function prepareAutoWorkspace(version: VersionRecord, project: ProjectRecord, input: { readonly parentPath: string; readonly name: string; readonly branchPrefix?: string | undefined; readonly branchName?: string | undefined }): Promise<RemoteResult<WorkspaceRecord>> {
     if (snapshot === undefined) throw new Error(t('state.error'))
     const lock = snapshot.locks.filter(candidate => candidate.versionId === version.id).at(-1)
