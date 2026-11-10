@@ -7,7 +7,7 @@ import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { fileAddressFor } from '@deepseek-ai/dsh-util-workspace-path'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import type {
-  CatalogSnapshot, ProjectRecord, TaskRecord, VersionRecord,
+  ProjectRecord, TaskRecord, VersionRecord,
   WorkspaceChangesRequest, WorkspaceRecord, VersionWorkspaceInput,
 } from 'dsh-workloom/types'
 import type { LoomPreferences } from './features/settings/LoomSettings.tsx'
@@ -21,6 +21,7 @@ import { LOOM_ROOT_CLASS, LoomThemeStyles } from './theme/LoomTheme.tsx'
 import { resolveLoomTheme } from './theme/selection.ts'
 import { useHostTheme } from './theme/useHostTheme.ts'
 import { useLoomPreferences } from './shell/useLoomPreferences.ts'
+import { useLoomCatalog } from './shell/useLoomCatalog.ts'
 import { useLoomPinnedProjects } from './shell/useLoomPinnedProjects.ts'
 import { useLoomMenu } from './shell/useLoomMenu.ts'
 import { useLoomBoardFilters } from './shell/useLoomBoardFilters.ts'
@@ -70,11 +71,6 @@ interface LoomSeat {
 }
 /** Root kit plus the session-scoped child declared by Loom. */
 export type LoomPanelProps = PropsRuntime<'main'> & InjectFace<LoomInjected> & PropsLocale<typeof NS> & LoomSeat & PropsRenderFactories
-
-type CatalogState =
-  | { readonly status: 'loading' }
-  | { readonly status: 'error' }
-  | { readonly status: 'ready'; readonly snapshot: CatalogSnapshot }
 
 /**
  * Render the Loom shell. Every card and counter comes from the Host catalog; unwired
@@ -131,8 +127,7 @@ export function LoomPanel({ t, useSessions, useSessionStatus, retainSession, ope
   const [search, setSearch] = useState('')
   const [temporaryOpen, setTemporaryOpen] = useState(false)
   const agentPresets = useLoomAgentPresets(t, listAgentPresets)
-  const [catalog, setCatalog] = useState<CatalogState>({ status: 'loading' })
-  const [attempt, setAttempt] = useState(0)
+  const { catalog, snapshot, attempt, setAttempt, setCatalog } = useLoomCatalog(loadSnapshot)
   const [paletteOpen, setPaletteOpen] = useState(false)
   const { preview, review, asideOpen, setAsideOpen, previewFullscreen, setPreviewFullscreen, bottomCollapsed, setBottomCollapsed, pane, setPane } = useLoomPreviewSide(preferences.contextOpen, task?.id)
   const [kbMode, setKbMode] = useState<'flat' | 'grouped'>(preferences.kanbanMode)
@@ -150,17 +145,6 @@ export function LoomPanel({ t, useSessions, useSessionStatus, retainSession, ope
     if (project !== undefined) setExpandedProjects(current => current.has(project) ? current : new Set(current).add(project))
     if (version !== undefined) setExpandedVersions(current => current.has(version) ? current : new Set(current).add(version))
   }, [project, version])
-  useEffect(() => {
-    let active = true
-    // Keep the current snapshot visible while a refresh runs; clearing it
-    // unmounts the open task form and loses its in-progress state.
-    setCatalog(current => current.status === 'ready' ? current : { status: 'loading' })
-    loadSnapshot().then((result) => {
-      if (!active) return
-      setCatalog(result.ok ? { status: 'ready', snapshot: result.value } : { status: 'error' })
-    }, () => { if (active) setCatalog({ status: 'error' }) })
-    return () => { active = false }
-  }, [loadSnapshot, attempt])
   const initialSelection = useRef(false)
   // The project tree starts collapsed; the selection effect below expands only
   // the project and version it navigates to.
@@ -181,7 +165,6 @@ export function LoomPanel({ t, useSessions, useSessionStatus, retainSession, ope
     const latest = catalog.snapshot.versions.filter(candidate => candidate.projectId === first.id).at(-1)
     if (latest !== undefined) setVersion(latest.id)
   }, [catalog, project, version, task])
-  const snapshot = catalog.status === 'ready' ? catalog.snapshot : undefined
   // The native archive set is registry-global and durable; Loom filters its
   // own Session lists from it instead of keeping a second catalog flag.
   const archivedSessionIds = new Set<SessionId>(readArchivedSessionIds())
