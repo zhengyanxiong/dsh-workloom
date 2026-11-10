@@ -27,6 +27,7 @@ import { useLoomExecutionOwnership } from './features/task/useLoomExecutionOwner
 import { useLoomTreeDelete } from './shell/useLoomTreeDelete.ts'
 import { useLoomTreeExpansion } from './shell/useLoomTreeExpansion.ts'
 import { useLoomForkSession } from './features/session/useLoomForkSession.ts'
+import { useLoomSelection } from './shell/useLoomSelection.ts'
 import { useLoomPinnedProjects } from './shell/useLoomPinnedProjects.ts'
 import { useLoomMenu } from './shell/useLoomMenu.ts'
 import { useLoomBoardFilters } from './shell/useLoomBoardFilters.ts'
@@ -53,7 +54,6 @@ import { useLoomApprovalAttention } from './shell/useLoomApprovalAttention.ts'
 import { LoomSessionActivity, type LoomSubagentRow } from './features/session/LoomSessionActivity.tsx'
 import { LoomVersionGraph } from './features/version/LoomVersionGraph.tsx'
 import { LoomSessionGraph, type LoomTaskSessionRow } from './features/session/LoomSessionGraph.tsx'
-import type { LoomPaletteItem } from './features/palette/palette.ts'
 import { activeWorkspaceCount, aggregateTokenUsage, boundSessions, tokenUsageOf, currentWorkspace, taskAttemptRows, taskSessionRows, workspaceName, type ShellFilter } from './shared/projection.ts'
 import { deriveVersionContext } from '../shared/version-context.ts'
 import { COLORS } from './ui/tokens.ts'
@@ -340,29 +340,13 @@ export function LoomPanel({ t, useSessions, useSessionStatus, retainSession, ope
     onSession: (id) => { setTask(undefined); setSelected(id); setView('workbench'); navigate('session') },
     onChanged: () => setAttempt(current => current + 1),
   }
-  const selectTask = (record: TaskRecord): void => {
-    if (snapshot !== undefined) {
-      const owner = snapshot.versions.find(candidate => candidate.id === record.versionId)
-      if (owner !== undefined) { setProject(owner.projectId); setVersion(owner.id) }
-    }
-    setTask(record)
-    setSelected(undefined)
-    setExecutionSession(undefined)
-    setView('workbench')
-    navigate('task')
-  }
-  const selectSession = (id: SessionId, owner?: TaskRecord): void => {
-    const bound = boundRows.find(row => row.sessionId === id)
-    const nextTask = owner ?? bound?.task
-    if (nextTask !== undefined) {
-      setTask(nextTask)
-      const nextVersion = snapshot?.versions.find(candidate => candidate.id === nextTask.versionId)
-      if (nextVersion !== undefined) { setProject(nextVersion.projectId); setVersion(nextVersion.id) }
-    }
-    setSelected(id); setView('workbench')
-    navigate('session')
-  }
-
+  const {
+    selectTask, selectSession, activatePaletteItem, openAttemptSession, createTaskForVersion,
+  } = useLoomSelection({
+    snapshot, boundRows, selected, displayVersion, displayVersionProject,
+    setProject, setVersion, setTask, setSelected, setExecutionSession,
+    setView, setPaletteOpen, navigate, retrySession, openCreate,
+  })
   // An approval blocks its round until a human answers, so a Loom Session that
   // is waiting needs a signal outside the tab showing the conversation.
   const loomSessionIds = new Set<SessionId>([...boundIds, ...temporaryIds] as SessionId[])
@@ -378,34 +362,6 @@ export function LoomPanel({ t, useSessions, useSessionStatus, retainSession, ope
   })
   useLoomApprovalAttention({ t, signature: approvalSignature, labelOf: sessionLabel, selectedSessionId: selected, onOpenSession: selectSession })
 
-  /** Jump to the destination chosen in the command palette. */
-  const activatePaletteItem = (item: LoomPaletteItem): void => {
-    setPaletteOpen(false)
-    const target = item.target
-    if (target.kind === 'page') { navigate(target.route); return }
-    if (target.kind === 'project') { setProject(target.projectId); setVersion(undefined); setTask(undefined); setSelected(undefined); navigate('project'); return }
-    if (target.kind === 'version') { setProject(target.projectId); setVersion(target.versionId); setTask(undefined); setSelected(undefined); navigate('project'); return }
-    if (target.kind === 'task') {
-      const record = snapshot?.tasks.find(task => task.id === target.taskId)
-      if (record !== undefined) { selectTask(record); navigate('task') }
-      return
-    }
-    const owner = snapshot?.tasks.find(task => task.attempts.some(attempt => attempt.sessionIds.includes(target.sessionId)))
-    selectSession(target.sessionId, owner)
-    navigate('session')
-  }
-  /** Open one attached Session from the round list; retrying the open one re-runs retention. */
-  const openAttemptSession = (id: string): void => {
-    if (id === selected) retrySession()
-    else setSelected(id as SessionId)
-    setView('workbench')
-  }
-  /** Create a task for the version currently open in the detail page. */
-  const createTaskForVersion = (): void => {
-    if (displayVersionProject !== undefined) setProject(displayVersionProject.id)
-    if (displayVersion !== undefined) setVersion(displayVersion.id)
-    openCreate('task')
-  }
   async function moveTask(record: TaskRecord, target: TaskRecord['status']): Promise<void> {
     try {
       const result = await transitionTask({ taskId: record.id, target, actor: 'human' })
