@@ -7,8 +7,7 @@ import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { fileAddressFor } from '@deepseek-ai/dsh-util-workspace-path'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import type {
-  ProjectRecord, TaskRecord, VersionRecord,
-  WorkspaceChangesRequest, WorkspaceRecord, VersionWorkspaceInput,
+  ProjectRecord, TaskRecord, VersionRecord, WorkspaceChangesRequest,
 } from 'dsh-workloom/types'
 import type { LoomPreferences } from './features/settings/LoomSettings.tsx'
 import type { ExecutionActions } from './features/task/LoomExecution.tsx'
@@ -24,6 +23,7 @@ import { useLoomPreferences } from './shell/useLoomPreferences.ts'
 import { useLoomCatalog } from './shell/useLoomCatalog.ts'
 import { useLoomSessionExecution, executionForSession } from './shell/useLoomSessionExecution.ts'
 import { useLoomDirectoryPicker } from './shell/useLoomDirectoryPicker.ts'
+import { useLoomWorkspaceActions } from './features/workspace/useLoomWorkspaceActions.ts'
 import { useLoomPinnedProjects } from './shell/useLoomPinnedProjects.ts'
 import { useLoomMenu } from './shell/useLoomMenu.ts'
 import { useLoomBoardFilters } from './shell/useLoomBoardFilters.ts'
@@ -50,17 +50,11 @@ import { useLoomApprovalAttention } from './shell/useLoomApprovalAttention.ts'
 import { LoomSessionActivity, type LoomSubagentRow } from './features/session/LoomSessionActivity.tsx'
 import { LoomVersionGraph } from './features/version/LoomVersionGraph.tsx'
 import { LoomSessionGraph, type LoomTaskSessionRow } from './features/session/LoomSessionGraph.tsx'
-import { autoWorkspaceRepositoryPath } from '../domain/workspace.ts'
 import type { LoomPaletteItem } from './features/palette/palette.ts'
 import { activeWorkspaceCount, aggregateTokenUsage, boundSessions, tokenUsageOf, currentWorkspace, taskAttemptRows, taskSessionRows, workspaceName, type ShellFilter } from './shared/projection.ts'
 import { deriveVersionContext } from '../shared/version-context.ts'
 import { COLORS } from './ui/tokens.ts'
 import { failureReport, thrownFailureReport } from './ui/failure.ts'
-import type { WorkspaceCreateOutcome, WorkspaceCreationInput } from './features/workspace/WorkspaceChoice.tsx'
-import { workspaceBranch } from './features/workspace/workspace-refs.ts'
-import { registerDirectoryWorkspace } from './features/workspace/register-directory.ts'
-import { reuseWorkspace, reuseTargetOf, type ReuseWorkspaceOutcome } from './features/version/reuse-workspace.ts'
-import { createVersionAdoptingLinkedDirectory, createVersionReusingWorkspace as createVersionReusingWorkspaceRemote } from './features/version/create-version-reuse.ts'
 import type { FailureReport } from './ui/failure.ts'
 import { metaLine } from './ui/styles.ts'
 import { reportLoomFailure } from './shared/feedback.ts'
@@ -393,176 +387,13 @@ export function LoomPanel({ t, useSessions, useSessionStatus, retainSession, ope
   const auditRows = snapshot === undefined ? [] : snapshot.audit.filter(entry => detailTask === undefined
     || entry.taskId === detailTask.id
     || (entry.workspaceId !== undefined && auditWorkspaceIds.has(entry.workspaceId))).slice(-40).reverse()
-  async function prepareAutoWorkspace(version: VersionRecord, project: ProjectRecord, input: { readonly parentPath: string; readonly name: string; readonly branchPrefix?: string | undefined; readonly branchName?: string | undefined }): Promise<RemoteResult<WorkspaceRecord>> {
-    if (snapshot === undefined) throw new Error(t('state.error'))
-    const lock = snapshot.locks.filter(candidate => candidate.versionId === version.id).at(-1)
-    if (lock === undefined) throw new Error(t('lock.generateFirst'))
-    const parent = input.parentPath.replace(/\/+$/u, '')
-    const root = `${parent}/${input.name}`
-    const branch = workspaceBranch(input.branchPrefix, input.name, input.branchName)
-    const branches: Record<string, string> = {}
-    const repositories = lock.repositories.map(entry => {
-      const source = project.config.sources.find(candidate => candidate.id === entry.sourceId)
-      if (source === undefined) throw new Error(t('error.workspaceMismatch'))
-      const subProjectId = entry.subProjectId === undefined ? 'default' : String(entry.subProjectId)
-      const path = autoWorkspaceRepositoryPath(subProjectId, source)
-      branches[String(source.id)] = branch
-      return { sourceId: String(source.id), path, targetPath: `${root}/${path}` }
-    })
-    const result = await (prepareWorkspaceSilent ?? prepareWorkspace)({ path: root, versionId: version.id, lockId: lock.id, mode: 'managed', repositories, branches, requireBranches: true })
-    if (!result.ok) return result
-    if (result.value.preparation?.status === 'failed') {
-      const failed = result.value.preparation.repositories.filter(repository => repository.status === 'failed')
-      const reason = failed.length > 0
-        ? failed.map(repository => `${repository.path ?? String(repository.sourceId)}: ${repository.error ?? 'failed'}`).join('; ')
-        : result.value.preparation.error ?? t('error.workspaceNotPrepared')
-      const cleanup = await (cleanupWorkspaceSilent ?? cleanupWorkspace)({ workspaceId: result.value.id, discardChanges: true })
-      setAttempt(current => current + 1)
-      throw new Error(cleanup.ok ? reason : `${reason}; cleanup failed: ${cleanup.error.message}`)
-    }
-    setAttempt(current => current + 1)
-    return result
-  }
-  async function addVersionWorkspace(input: VersionWorkspaceInput): Promise<RemoteResult<WorkspaceRecord>> {
-    if (displayVersion === undefined || displayVersionProject === undefined) throw new Error(t('state.error'))
-    if (input.mode !== 'auto') throw new Error(t('workspace.auto'))
-    return prepareAutoWorkspace(displayVersion, displayVersionProject, input)
-  }
-  /**
-   * Move a finished direct workspace onto the version being edited.
-   * @param workspaceId - workspace record to retire and re-register.
-   * @returns the workspace record newly bound to this version.
-   */
-  /**
-   * Retire one finished workspace and bind its directories to a version Lock.
-   * @param version - version adopting the workspace.
-   * @param lockId - Lock of that version the workspace follows.
-   * @param workspaceId - workspace record to reuse.
-   * @returns the new workspace record or the failure that stopped the move.
-   */
-  async function reuseIntoVersion(version: VersionRecord, lockId: string, workspaceId: string): Promise<ReuseWorkspaceOutcome> {
-    const workspace = snapshot?.workspaces.find(candidate => candidate.id === workspaceId)
-    if (workspace === undefined) return { ok: false, code: 'missing_workspace', message: 'the workspace no longer exists', stage: 'check' }
-    const ownerProjectId = workspace.projectId ?? snapshot?.versions.find(candidate => candidate.id === workspace.versionId)?.projectId
-    return reuseWorkspace(
-      { cleanupWorkspace: cleanupWorkspaceSilent ?? cleanupWorkspace, registerWorkspace, workspaceStatus },
-      {
-        workspace: { ...reuseTargetOf(workspace), projectId: ownerProjectId },
-        versionId: version.id,
-        projectId: ownerProjectId,
-        lockId,
-      },
-    )
-  }
-  async function reuseVersionWorkspace(workspaceId: string): Promise<RemoteResult<WorkspaceRecord>> {
-    if (displayVersion === undefined) throw new Error(t('state.error'))
-    const lock = snapshot?.locks.filter(candidate => candidate.versionId === displayVersion.id).at(-1)
-    if (lock === undefined) throw new Error(t('lock.generateFirst'))
-    const outcome = await reuseIntoVersion(displayVersion, lock.id, workspaceId)
-    if (!outcome.ok) throw new Error(`${outcome.code}: ${outcome.message}`)
-    setAttempt(current => current + 1)
-    return { ok: true, value: outcome.workspace }
-  }
-  /**
-   * Create a version, adopting a linked directory this project already owns.
-   *
-   * Linking an existing directory is how a user naturally reuses it; when that
-   * directory is already a direct workspace of the same project, rebind its
-   * record instead of failing on the one-record-per-directory rule.
-   * @param request - version create request, possibly with a linked workspace.
-   * @returns the created version, or a localized failure.
-   */
-  async function createVersionWithAdoption(request: Parameters<LoomInjected['createVersion']>[0]): Promise<RemoteResult<VersionRecord>> {
-    const linkedRoot = request.workspaces?.find(workspace => workspace.mode === 'linked')?.rootPath
-    if (linkedRoot === undefined) return createVersion(request)
-    const outcome = await createVersionAdoptingLinkedDirectory(
-      {
-        createVersion,
-        generateLock,
-        deleteVersion,
-        reuse: (version, lockId, reusedId) => reuseIntoVersion(version, lockId, reusedId),
-        findWorkspace: rootPath => {
-          const found = (snapshot?.workspaces ?? []).find(workspace => workspace.cleaned !== true && workspace.mode === 'direct'
-            && (workspace.rootPath ?? workspace.path) === rootPath)
-          if (found === undefined) return undefined
-          const ownerProjectId = found.projectId ?? snapshot?.versions.find(candidate => candidate.id === found.versionId)?.projectId
-          return ownerProjectId === request.projectId ? { id: found.id } : undefined
-        },
-      },
-      request,
-      linkedRoot,
-    )
-    if (outcome === undefined) return createVersion(request)
-    if (!outcome.ok) {
-      const report = failureReport(outcome.code, outcome.message)
-      const detail = [report.detail, outcome.rollbackError === undefined ? undefined : `${t('state.error')}: ${outcome.rollbackError}`].filter((line): line is string => line !== undefined).join(' · ')
-      throw new Error(detail === '' ? t(report.message) : `${t(report.message)} · ${detail}`)
-    }
-    setAttempt(current => current + 1)
-    return { ok: true, value: outcome.version }
-  }
-  /**
-   * Create a version together with one reused workspace.
-   * @param request - version request without workspace drafts.
-   * @param workspaceId - finished workspace to retire and bind.
-   * @returns the created version.
-   */
-  async function createVersionReusingWorkspace(request: Parameters<LoomInjected['createVersion']>[0], workspaceId: string): Promise<RemoteResult<VersionRecord>> {
-    const outcome = await createVersionReusingWorkspaceRemote(
-      {
-        createVersion,
-        generateLock,
-        deleteVersion,
-        reuse: (version, lockId, reusedId) => reuseIntoVersion(version, lockId, reusedId),
-      },
-      request,
-      workspaceId,
-    )
-    if (!outcome.ok) {
-      const report = failureReport(outcome.code, outcome.message)
-      const detail = [report.detail, outcome.rollbackError === undefined ? undefined : `${t('state.error')}: ${outcome.rollbackError}`].filter((line): line is string => line !== undefined).join(' · ')
-      throw new Error(detail === '' ? t(report.message) : `${t(report.message)} · ${detail}`)
-    }
-    setAttempt(current => current + 1)
-    return { ok: true, value: outcome.version }
-  }
-  async function createTaskWorkspace(input: WorkspaceCreationInput): Promise<WorkspaceCreateOutcome> {
-    try {
-      if (currentVersion === undefined || currentVersionProject === undefined) throw new Error(t('state.error'))
-      const result = await prepareAutoWorkspace(currentVersion, currentVersionProject, input)
-      return result.ok ? { ok: true, workspace: result.value } : { ok: false, error: failureReport(result.error.code, result.error.message) }
-    } catch (error) {
-      return { ok: false, error: failureReport('unknown', error instanceof Error ? error.message : String(error)) }
-    }
-  }
-  async function registerTaskDirectory(path: string): Promise<WorkspaceCreateOutcome> {
-    try {
-      if (currentVersion === undefined || currentVersionProject === undefined) throw new Error(t('state.error'))
-      const lock = snapshot?.locks.filter(candidate => candidate.versionId === currentVersion.id).at(-1)
-      if (lock === undefined) throw new Error(t('lock.generateFirst'))
-      const outcome = await registerDirectoryWorkspace({
-        inspectWorkspace,
-        registerWorkspace,
-        repositoryBranches,
-      }, { path, versionId: currentVersion.id, lockId: lock.id, project: currentVersionProject })
-      if (outcome.ok) setAttempt(current => current + 1)
-      return outcome
-    } catch (error) {
-      return { ok: false, error: failureReport('unknown', error instanceof Error ? error.message : String(error)) }
-    }
-  }
-  async function renameVersionWorkspace(workspaceId: string, label: string): Promise<RemoteResult<WorkspaceRecord>> {
-    const result = await updateWorkspace({ workspaceId, label })
-    if (result.ok) setAttempt(current => current + 1)
-    return result
-  }
-  async function removeVersionWorkspace(workspaceId: string, deleteFiles = false, confirmPath?: string): Promise<RemoteResult<void>> {
-    const result = deleteFiles
-      ? await deleteWorkspace({ workspaceId, deleteFiles: true, ...(confirmPath === undefined ? {} : { confirmPath }) })
-      : await cleanupWorkspace({ workspaceId, discardChanges: true })
-    if (result.ok) setAttempt(current => current + 1)
-    return result
-  }
+  const workspaceActions = useLoomWorkspaceActions({
+    t, snapshot, displayVersion, displayVersionProject, currentVersion, currentVersionProject,
+    prepareWorkspace, prepareWorkspaceSilent, cleanupWorkspace, cleanupWorkspaceSilent,
+    registerWorkspace, workspaceStatus, inspectWorkspace, repositoryBranches,
+    updateWorkspace, deleteWorkspace, createVersion, generateLock, deleteVersion,
+    onChanged: () => { setAttempt(current => current + 1) },
+  })
   const execution: ExecutionActions = {
     prepareWorkspace, registerWorkspace, repositoryBranches, inspectWorkspace, pickDirectory: chooseDirectory, startAttempt, commitWorkspace, attachSession, transitionTask, createSessionInWorkspace, cleanupWorkspace, acquireExecution, cancelExecution, reorderExecutionQueue, releaseExecution, takeoverExecution, loadSnapshot,
     onSession: (id, draft) => {
@@ -933,6 +764,6 @@ export function LoomPanel({ t, useSessions, useSessionStatus, retainSession, ope
       onCancel={sessionArchive.cancelConfirm}
       onConfirm={sessionArchive.confirmArchive}
     />
-    <LoomFormDialogs createTaskWorkspace={createTaskWorkspace} registerTaskDirectory={registerTaskDirectory} t={t} create={create} edit={edit} versionStep={versionStep} currentProject={currentProject} currentVersion={currentVersion} currentVersionProject={currentVersionProject} displayProject={displayProject} displayVersion={displayVersion} displayVersionProject={displayVersionProject} detailTask={detailTask} snapshot={snapshot} agentPresets={agentPresets} createProject={createProject} createVersion={createVersionWithAdoption} createTask={createTask} updateProject={updateProject} updateVersion={updateVersion} updateTask={updateTask} repositoryBranches={repositoryBranches} chooseDirectory={chooseDirectory} addVersionWorkspace={addVersionWorkspace} reuseVersionWorkspace={reuseVersionWorkspace} createVersionReusingWorkspace={createVersionReusingWorkspace} renameVersionWorkspace={renameVersionWorkspace} removeVersionWorkspace={removeVersionWorkspace} directoryRequest={directoryRequest} finishDirectory={finishDirectory} listDirectory={listDirectory} treeDelete={treeDelete} treeDeleting={treeDeleting} treeDeleteFailure={treeDeleteFailure} confirmTreeDelete={confirmTreeDelete} setCreate={setCreate} setEdit={setEdit} setModalBusy={setModalBusy} setVersionStep={setVersionStep} setProject={setProject} setVersion={setVersion} setTask={setTask} setSelected={setSelected} setAttempt={setAttempt} setView={setView} setTreeDelete={setTreeDelete} setTreeDeleteFailure={setTreeDeleteFailure} navigate={navigate} />
+    <LoomFormDialogs createTaskWorkspace={workspaceActions.createTaskWorkspace} registerTaskDirectory={workspaceActions.registerTaskDirectory} t={t} create={create} edit={edit} versionStep={versionStep} currentProject={currentProject} currentVersion={currentVersion} currentVersionProject={currentVersionProject} displayProject={displayProject} displayVersion={displayVersion} displayVersionProject={displayVersionProject} detailTask={detailTask} snapshot={snapshot} agentPresets={agentPresets} createProject={createProject} createVersion={workspaceActions.createVersionWithAdoption} createTask={createTask} updateProject={updateProject} updateVersion={updateVersion} updateTask={updateTask} repositoryBranches={repositoryBranches} chooseDirectory={chooseDirectory} addVersionWorkspace={workspaceActions.addVersionWorkspace} reuseVersionWorkspace={workspaceActions.reuseVersionWorkspace} createVersionReusingWorkspace={workspaceActions.createVersionReusingWorkspace} renameVersionWorkspace={workspaceActions.renameVersionWorkspace} removeVersionWorkspace={workspaceActions.removeVersionWorkspace} directoryRequest={directoryRequest} finishDirectory={finishDirectory} listDirectory={listDirectory} treeDelete={treeDelete} treeDeleting={treeDeleting} treeDeleteFailure={treeDeleteFailure} confirmTreeDelete={confirmTreeDelete} setCreate={setCreate} setEdit={setEdit} setModalBusy={setModalBusy} setVersionStep={setVersionStep} setProject={setProject} setVersion={setVersion} setTask={setTask} setSelected={setSelected} setAttempt={setAttempt} setView={setView} setTreeDelete={setTreeDelete} setTreeDeleteFailure={setTreeDeleteFailure} navigate={navigate} />
   </div>
 }
