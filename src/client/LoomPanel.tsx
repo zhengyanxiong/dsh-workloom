@@ -30,6 +30,7 @@ import { useLoomForkSession } from './features/session/useLoomForkSession.ts'
 import { useLoomSelection } from './shell/useLoomSelection.ts'
 import { useLoomWorkbenchLayout } from './shell/useLoomWorkbenchLayout.ts'
 import { useLoomTaskSessions } from './shell/useLoomTaskSessions.ts'
+import { useLoomChromeState } from './shell/useLoomChromeState.ts'
 import { useLoomPinnedProjects } from './shell/useLoomPinnedProjects.ts'
 import { useLoomMenu } from './shell/useLoomMenu.ts'
 import { useLoomBoardFilters } from './shell/useLoomBoardFilters.ts'
@@ -105,28 +106,24 @@ export function LoomPanel({ t, useSessions, useSessionStatus, retainSession, ope
     return () => { window.removeEventListener('keydown', onKey) }
   }, [])
 
-  const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [project, setProject] = useState<ProjectRecord['id']>()
   const [version, setVersion] = useState<VersionRecord['id']>()
   const [task, setTask] = useState<TaskRecord>()
   const [selected, setSelected] = useState<SessionId>()
+  const chrome = useLoomChromeState({ project, version, task })
+  const { sidebarOpen, setSidebarOpen, sidebarCollapsed, setSidebarCollapsed, paletteOpen, setPaletteOpen, search, setSearch, temporaryOpen, setTemporaryOpen } = chrome
   const { held, failure, available, setPendingDraft, retry: retrySession } = useLoomSessionHold(selected, retainSession, requestDraftInitialization)
   const [executionSession, setExecutionSession] = useState<SessionId>()
   const [pinnedProjects, setPinnedProjects] = useLoomPinnedProjects()
   const { directoryRequest, finishDirectory, chooseDirectory } = useLoomDirectoryPicker(pickDirectory)
-  const [search, setSearch] = useState('')
-  const [temporaryOpen, setTemporaryOpen] = useState(false)
   const agentPresets = useLoomAgentPresets(t, listAgentPresets)
   const { catalog, snapshot, attempt, setAttempt, setCatalog } = useLoomCatalog(loadSnapshot)
-  const [paletteOpen, setPaletteOpen] = useState(false)
   const { preview, review, asideOpen, setAsideOpen, previewFullscreen, setPreviewFullscreen, bottomCollapsed, setBottomCollapsed, pane, setPane } = useLoomPreviewSide(preferences.contextOpen, task?.id)
   const [kbMode, setKbMode] = useState<'flat' | 'grouped'>(preferences.kanbanMode)
   const { filterProject, filterVersion, filterStatus, filterPriority, filterModule, kbSearch, setFilterProject, setFilterVersion, setFilterStatus, setFilterPriority, setFilterModule, setKbSearch } = useLoomBoardFilters()
   const tree = useLoomTreeExpansion(project, version)
   const { create, setCreate, edit, setEdit, versionStep, setVersionStep, setModalBusy } = useLoomDialogState()
   const { menuOpen, setMenuOpen, newMenuRef } = useLoomMenu()
-  useEffect(() => { setSidebarOpen(false) }, [project, version, task])
   const initialSelection = useRef(false)
   // The project tree starts collapsed; the selection effect below expands only
   // the project and version it navigates to.
