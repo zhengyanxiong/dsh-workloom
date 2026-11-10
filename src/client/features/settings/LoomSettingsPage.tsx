@@ -6,12 +6,13 @@ import { SESSION_LIMITS, SelectField, SettingRow, WIP_LIMITS, type LoomPreferenc
 import type { LoomKey } from '../../shared/locales.ts'
 import { resolveLoomTheme, type LoomThemeAttribute, type LoomThemePreference } from '../../theme/selection.ts'
 import { LoomButton } from '../../ui/Button.tsx'
+import { LoomUpdateSection } from './LoomUpdateSection.tsx'
 import { LoomSegmented } from '../../ui/Segmented.tsx'
 import classes from './LoomSettingsPage.module.css'
 
 type Translate = (key: LoomKey) => string
 
-type SectionId = 'appearance' | 'interface' | 'workspace' | 'startup' | 'pinned'
+type SectionId = 'appearance' | 'interface' | 'workspace' | 'startup' | 'pinned' | 'about'
 
 const THEME_CARDS: readonly { readonly value: Exclude<LoomThemePreference, 'auto'>; readonly label: LoomKey; readonly hint: LoomKey }[] = [
   { value: 'paper', label: 'theme.paper', hint: 'theme.paperHint' },
@@ -102,6 +103,7 @@ export function LoomSettingsPage({ t, preferences, pinned, onChange, onUnpin, on
     { id: 'workspace', label: 'settings.workspace' },
     { id: 'startup', label: 'settings.startup' },
     { id: 'pinned', label: 'settings.pinned' },
+    { id: 'about', label: 'settings.about' },
   ]
   const jump = (id: SectionId): void => {
     setActive(id)
@@ -244,6 +246,12 @@ export function LoomSettingsPage({ t, preferences, pinned, onChange, onUnpin, on
                 <span className={classes.pinnedName}>{project.config.name}</span>
                 <LoomButton variant="ghost" size="sm" onClick={() => onUnpin(project.id)}>{t('settings.unpin')}</LoomButton>
               </div>)}
+          </div>
+        </section>
+        <section id="loom-settings-about" className={classes.section} aria-label={t('settings.about')}>
+          <div className={classes.sectionHead}><h2 className={classes.sectionTitle}>{t('settings.about')}</h2><span className={classes.sectionHint}>{t('settings.aboutHint')}</span></div>
+          <div className={classes.panel}>
+            <LoomUpdateSection t={t} />
           </div>
         </section>
         <div ref={spacerRef} aria-hidden className={classes.spacer} />

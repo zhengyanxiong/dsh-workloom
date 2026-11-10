@@ -25,3 +25,24 @@ it('rejects unknown appearance values instead of applying them', () => {
   vi.stubGlobal('localStorage', { getItem: () => JSON.stringify({ theme: 'solarized', density: 'spacious', fontSize: 99, reducedMotion: 'yes' }), setItem: () => {} })
   expect(readPreferences()).toEqual(DEFAULT_PREFERENCES)
 })
+
+it('shows the plugin version and an update check in the About section', async () => {
+  const { createElement } = await import('react')
+  const { renderToStaticMarkup } = await import('react-dom/server')
+  const { LoomSettingsPage } = await import('../../../src/client/features/settings/LoomSettingsPage.tsx')
+  const { en } = await import('../../../src/client/shared/locales.ts')
+  const { LOOM_VERSION } = await import('../../../src/client/shared/version.ts')
+  const html = renderToStaticMarkup(createElement(LoomSettingsPage, {
+    t: (key: keyof typeof en) => en[key],
+    preferences: DEFAULT_PREFERENCES,
+    pinned: [],
+    onChange: () => {},
+    onUnpin: () => {},
+    onBack: () => {},
+  }))
+  expect(html).toContain('loom-settings-about')
+  expect(html).toContain(en['settings.about'].replace('&', '&amp;'))
+  expect(html).toContain(en['settings.version'])
+  expect(html).toContain(LOOM_VERSION)
+  expect(html).toContain(en['settings.checkUpdates'])
+})

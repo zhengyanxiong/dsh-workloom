@@ -1,0 +1,42 @@
+/* About & updates rows; layout comes from the shared setting rows, so this
+   module only styles the version value and the copyable upgrade command. */
+
+.control {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.version {
+  padding: 2px 7px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-sm);
+  background: var(--color-panel);
+  color: var(--color-ink);
+  font-family: var(--font-mono);
+  font-size: var(--text-label-size);
+  line-height: var(--text-label-lh);
+}
+
+.command {
+  padding: var(--space-3);
+  border-top: 1px solid var(--color-line-soft);
+  background: var(--color-panel);
+  color: var(--color-ink-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-label-size);
+  line-height: var(--text-label-lh);
+  overflow-wrap: anywhere;
+}
+
+/* Closing note: the same breathing room the Settings panel's empty state
+   uses, so it reads as a section note instead of a cramped last row. */
+.footnote {
+  margin: 0;
+  padding: var(--space-4) var(--space-3);
+  border-top: 1px solid var(--color-line-soft);
+  color: var(--color-muted);
+  font-size: var(--text-small-size);
+  line-height: var(--text-small-lh);
+}

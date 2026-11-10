@@ -106,3 +106,23 @@ it('reuses a workspace only after an explicit choice and reports the execution o
   expect(register).toHaveBeenCalledWith({ sessionId, workspacePath: workspace.path })
   expect(document.body.textContent).toContain(en['temporary.queued'])
 })
+
+it('shows compact workspace rows with short access badges and expands details for the selection', async () => {
+  const withOwner: CatalogSnapshot = { ...snapshot, executions: [{ workspaceId: workspace.id, generation: owner.generation, owner, waiting: [], takeover: null }] }
+  await mount({
+    pickDirectory: () => Promise.resolve(null),
+    createSessionInWorkspace: vi.fn(),
+    registerTemporarySession: vi.fn(),
+    onSession: () => {},
+    onChanged: () => {},
+  }, true, withOwner)
+  expect(document.body.textContent).toContain(en['temporary.ownerBadge'].replace('{session}', 's2'))
+  expect(document.body.textContent).toContain(en['temporary.blockedBadge'])
+  // The long owner sentence stays in the selected detail, not repeated on the row.
+  const ownerSentence = en['temporary.cleanupBlockedOwner'].replace('{session}', 's2')
+  expect(document.body.textContent).not.toContain(ownerSentence)
+  const radio = document.body.querySelector('[role="radio"]')
+  if (radio === null) throw new Error('missing workspace radio')
+  await act(async () => { (radio as HTMLButtonElement).click() })
+  expect(document.body.textContent).toContain(ownerSentence)
+})

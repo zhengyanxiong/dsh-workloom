@@ -8,6 +8,18 @@ Releases start at 0.1.8 in this repository.
 
 ## [Unreleased]
 
+### Added
+
+- Settings now carry an About & updates section: the panel shows the plugin
+  version compiled into the bundle, checks the npm registry on demand, and for a
+  newer release shows a copyable `dsh plugin add` command that upgrades the
+  profile in place instead of requiring an uninstall first.
+- The temporary-Session dialog is reworked for scanning: the independent folder
+  stays the primary action, workspace rows are compact (name, project/version
+  chips, execution/queue and cleanup badges, one-line path in a scrollable
+  list), and the long owner/cleanup details appear only for the selected
+  workspace.
+
 ### Fixed
 
 - The Loom full-bleed layout now reserves the desktop window chrome: on macOS

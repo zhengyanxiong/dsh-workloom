@@ -1,9 +1,12 @@
 /** Independent Host/Client build for the Workloom bundle. */
+import { readFileSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { dirname, resolve as resolvePath } from 'node:path'
 import { transform } from 'lightningcss'
 import { defineConfig } from 'tsdown'
 import { standardDecoratorPlugin } from './vitest.shared.ts'
+
+const packageVersion = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')).version as string
 
 /** Runtime modules supplied by the Web shell's frozen module table. */
 const PLATFORM_MODULES = [
@@ -69,6 +72,7 @@ export default defineConfig([
     platform: 'browser',
     target: 'es2022',
     dts: false,
+    define: { __LOOM_VERSION__: JSON.stringify(packageVersion) },
     clean: false,
     deps: {
       neverBundle: isExternal,

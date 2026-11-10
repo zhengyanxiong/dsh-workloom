@@ -49,6 +49,7 @@ export function LoomGlobalStyles({ fontSize }: LoomGlobalStylesProps): JSX.Eleme
       .loom-sidebar-section-head:hover { color: var(--dsw-alias-label-secondary) !important; }
       .loom-new-item:disabled { cursor: default; }
       div.loom-modal-delete { width: min(480px, calc(100vw - 32px)); }
+      div.loom-temp-modal { width: min(560px, calc(100vw - 32px)); }
       div.loom-modal-takeover { width: min(440px, calc(100vw - 32px)); }
       .loom-row-action:hover { background: color-mix(in srgb, var(--dsw-alias-label-primary) 8%, transparent); color: var(--dsw-alias-label-primary) !important; }
       .loom-session-row { border-radius: 5px; }

@@ -22,6 +22,7 @@ import { cssText as boardListCss } from '../features/board/LoomBoardList.module.
 import { cssText as taskCss } from '../features/task/LoomTaskWorkbench.module.css'
 import { cssText as settingsRowsCss } from '../features/settings/LoomSettings.module.css'
 import { cssText as settingsCss } from '../features/settings/LoomSettingsPage.module.css'
+import { cssText as settingsUpdateCss } from '../features/settings/LoomUpdateSection.module.css'
 import { cssText as sessionHeaderCss } from '../features/session/LoomSessionHeader.module.css'
 import { cssText as sessionGraphCss } from '../features/session/LoomSessionGraph.module.css'
 import { cssText as sessionActivityCss } from '../features/session/LoomSessionActivity.module.css'
@@ -51,6 +52,7 @@ export function LoomThemeStyles(): JSX.Element {
     <style data-loom-task>{taskCss}</style>
     <style data-loom-settings-rows>{settingsRowsCss}</style>
     <style data-loom-settings>{settingsCss}</style>
+    <style data-loom-settings-update>{settingsUpdateCss}</style>
     <style data-loom-session-header>{sessionHeaderCss}</style>
     <style data-loom-session-graph>{sessionGraphCss}</style>
     <style data-loom-session-activity>{sessionActivityCss}</style>
