@@ -20,7 +20,7 @@ import { resolveLoomTheme } from './theme/selection.ts'
 import { useHostTheme } from './theme/useHostTheme.ts'
 import { useLoomPreferences } from './shell/useLoomPreferences.ts'
 import { useLoomCatalog } from './shell/useLoomCatalog.ts'
-import { useLoomSessionExecution, executionForSession } from './shell/useLoomSessionExecution.ts'
+import { useLoomSessionExecution } from './shell/useLoomSessionExecution.ts'
 import { useLoomDirectoryPicker } from './shell/useLoomDirectoryPicker.ts'
 import { useLoomWorkspaceActions } from './features/workspace/useLoomWorkspaceActions.ts'
 import { useLoomExecutionOwnership } from './features/task/useLoomExecutionOwnership.ts'
@@ -29,6 +29,7 @@ import { useLoomTreeExpansion } from './shell/useLoomTreeExpansion.ts'
 import { useLoomForkSession } from './features/session/useLoomForkSession.ts'
 import { useLoomSelection } from './shell/useLoomSelection.ts'
 import { useLoomWorkbenchLayout } from './shell/useLoomWorkbenchLayout.ts'
+import { useLoomTaskSessions } from './shell/useLoomTaskSessions.ts'
 import { useLoomPinnedProjects } from './shell/useLoomPinnedProjects.ts'
 import { useLoomMenu } from './shell/useLoomMenu.ts'
 import { useLoomBoardFilters } from './shell/useLoomBoardFilters.ts'
@@ -52,9 +53,9 @@ import { LoomTemporaryDialog, type LoomTemporaryActions } from './features/dialo
 import { LoomArchiveDialog } from './features/dialogs/LoomArchiveDialog.tsx'
 import { useLoomSessionArchive } from './shell/useLoomSessionArchive.ts'
 import { useLoomApprovalAttention } from './shell/useLoomApprovalAttention.ts'
-import { LoomSessionActivity, type LoomSubagentRow } from './features/session/LoomSessionActivity.tsx'
+import { LoomSessionActivity } from './features/session/LoomSessionActivity.tsx'
 import { LoomVersionGraph } from './features/version/LoomVersionGraph.tsx'
-import { LoomSessionGraph, type LoomTaskSessionRow } from './features/session/LoomSessionGraph.tsx'
+import { LoomSessionGraph } from './features/session/LoomSessionGraph.tsx'
 import { activeWorkspaceCount, aggregateTokenUsage, boundSessions, tokenUsageOf, currentWorkspace, taskAttemptRows, taskSessionRows, workspaceName, type ShellFilter } from './shared/projection.ts'
 import { deriveVersionContext } from '../shared/version-context.ts'
 import { COLORS } from './ui/tokens.ts'
@@ -208,35 +209,16 @@ export function LoomPanel({ t, useSessions, useSessionStatus, retainSession, ope
   const previewSessionId: SessionId | undefined = preview?.sessionId === undefined
     ? selected ?? boundRows.find(row => row.task?.id === detailTask?.id)?.sessionId as SessionId | undefined
     : preview.sessionId as SessionId
-  const taskSessions = snapshot === undefined || detailTask === undefined ? [] : boundSessions(snapshot).filter(row => row.task.id === detailTask.id)
-  const activeSessionRows: readonly LoomTaskSessionRow[] = taskSessions.map(row => {
-    const summary = sessions.byId[row.sessionId as SessionId]
-    return {
-      id: row.sessionId,
-      ...(summary?.parentId === undefined ? {} : { parentId: String(summary.parentId) }),
-      label: summary?.displayTitle ?? row.task.title,
-      running: summary?.running === true,
-      updatedAt: summary?.updatedAt ?? 0,
-      archived: archivedSessionIds.has(row.sessionId as SessionId),
-    }
+  const {
+    taskSessions, activeSessionRows, sessionStates, archiveBlockedIds,
+    liveSnapshot, runtimeSessionId, subagentRows,
+  } = useLoomTaskSessions({
+    snapshot, task: detailTask, selected, archivedSessionIds,
+    sessionById: sessions.byId, projections: sessions.projectionsBySession,
   })
-  const sessionStates = Object.fromEntries(taskSessions.map(row => {
-    const execution = executionForSession(detailTask, snapshot, row.sessionId)
-    const owner = execution?.owner
-    const queueIndex = execution?.waiting.indexOf(row.sessionId as SessionId) ?? -1
-    return [row.sessionId, {
-      isOwner: owner?.sessionId === row.sessionId,
-      waiting: queueIndex >= 0,
-      queueIndex,
-      hasOwner: owner !== null && owner !== undefined,
-    }]
-  }))
-  // Execution owners and queued Sessions must release access before archiving.
-  const archiveBlockedIds = new Set(Object.entries(sessionStates).filter(([, state]) => state.isOwner || state.waiting).map(([id]) => id))
   // Poll faster while a bound Session is running: the Host catalog carries the
   // execution owner, and a 5s poll would show that owner well after the turn
   // starts. Native session status is immediate, so it drives the cadence.
-  const liveSnapshot = activeSessionRows.some(row => row.running)
   useEffect(() => {
     let cancelled = false
     let timer = 0
@@ -251,14 +233,6 @@ export function LoomPanel({ t, useSessions, useSessionStatus, retainSession, ope
     timer = window.setTimeout(tick, liveSnapshot ? 1200 : 5000)
     return () => { cancelled = true; window.clearTimeout(timer) }
   }, [loadSnapshot, liveSnapshot])
-  const runtimeSessionId = (selected ?? taskSessions.at(-1)?.sessionId) as SessionId | undefined
-  const runtimeCatalog = runtimeSessionId === undefined ? [] : sessions.projectionsBySession[runtimeSessionId]?.values.subagentCatalog ?? []
-  const subagentRows: readonly LoomSubagentRow[] = runtimeCatalog.map(entry => ({
-    id: entry.id,
-    label: entry.label ?? entry.id,
-    mode: entry.mode,
-    running: sessions.byId[entry.id]?.running === true,
-  }))
   const runtimeTask = detailTask ?? boundRows.find(row => row.sessionId === runtimeSessionId)?.task
   const runtimeWorkspace = snapshot === undefined ? undefined : currentWorkspace(snapshot, runtimeTask)
   const workspaceDisplay = (() => {
