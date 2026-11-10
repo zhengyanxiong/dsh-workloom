@@ -8,6 +8,14 @@ Releases start at 0.1.8 in this repository.
 
 ## [Unreleased]
 
+### Fixed
+
+- The Loom full-bleed layout now reserves the desktop window chrome: on macOS
+  panels pad by the shell clearance so content never sits under the hidden
+  titlebar, and the full-bleed root is offset below the Windows caption row and
+  the macOS traffic lights, so the Loom topbar no longer covers the native app
+  menu, window controls or the shell's leading buttons.
+
 ## [0.3.1] - 2026-11-09
 
 ### Added

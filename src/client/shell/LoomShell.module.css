@@ -40,10 +40,26 @@
   .aside { display: none; }
 }
 
+/* Desktop window chrome: macOS hides the titlebar and lets the window
+   vibrancy run under it, so a panel that reaches the window top pads by the
+   shell-published clearance; the Windows frame already reserves its caption
+   row for in-frame content. */
+:global(html[data-platform='darwin']) .root {
+  padding-top: var(--dsh-frame-top-clearance, 48px);
+}
+/* Full-bleed mode pins the panel to the viewport, escaping the frame padding,
+   so it reserves the desktop chrome itself: on Windows the caption row carries
+   the app menu and window controls, and on macOS the traffic lights sit in the
+   same clearance band. Keeping the top edge below them stops the Loom topbar
+   from covering the native titlebar and its left-hand buttons. */
 :global(body.loom-fullwidth) .root {
   position: fixed;
-  inset: 0;
+  top: var(--dsh-frame-top-clearance, 0px);
+  right: 0;
+  bottom: 0;
+  left: 0;
   z-index: 80;
   width: 100vw;
-  height: 100vh;
+  height: calc(100vh - var(--dsh-frame-top-clearance, 0px));
+  padding-top: 0;
 }
