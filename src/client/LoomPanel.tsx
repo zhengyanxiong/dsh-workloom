@@ -25,6 +25,7 @@ import { useLoomDirectoryPicker } from './shell/useLoomDirectoryPicker.ts'
 import { useLoomWorkspaceActions } from './features/workspace/useLoomWorkspaceActions.ts'
 import { useLoomExecutionOwnership } from './features/task/useLoomExecutionOwnership.ts'
 import { useLoomTreeDelete } from './shell/useLoomTreeDelete.ts'
+import { useLoomTreeExpansion } from './shell/useLoomTreeExpansion.ts'
 import { useLoomPinnedProjects } from './shell/useLoomPinnedProjects.ts'
 import { useLoomMenu } from './shell/useLoomMenu.ts'
 import { useLoomBoardFilters } from './shell/useLoomBoardFilters.ts'
@@ -121,16 +122,10 @@ export function LoomPanel({ t, useSessions, useSessionStatus, retainSession, ope
   const { preview, review, asideOpen, setAsideOpen, previewFullscreen, setPreviewFullscreen, bottomCollapsed, setBottomCollapsed, pane, setPane } = useLoomPreviewSide(preferences.contextOpen, task?.id)
   const [kbMode, setKbMode] = useState<'flat' | 'grouped'>(preferences.kanbanMode)
   const { filterProject, filterVersion, filterStatus, filterPriority, filterModule, kbSearch, setFilterProject, setFilterVersion, setFilterStatus, setFilterPriority, setFilterModule, setKbSearch } = useLoomBoardFilters()
-  const [expandedProjects, setExpandedProjects] = useState<ReadonlySet<string>>(new Set())
-  const [expandedVersions, setExpandedVersions] = useState<ReadonlySet<string>>(new Set())
-  const [collapsedSections, setCollapsedSections] = useState<ReadonlySet<'pinned' | 'projects' | 'sessions'>>(new Set())
+  const tree = useLoomTreeExpansion(project, version)
   const { create, setCreate, edit, setEdit, versionStep, setVersionStep, setModalBusy } = useLoomDialogState()
   const { menuOpen, setMenuOpen, newMenuRef } = useLoomMenu()
   useEffect(() => { setSidebarOpen(false) }, [project, version, task])
-  useEffect(() => {
-    if (project !== undefined) setExpandedProjects(current => current.has(project) ? current : new Set(current).add(project))
-    if (version !== undefined) setExpandedVersions(current => current.has(version) ? current : new Set(current).add(version))
-  }, [project, version])
   const initialSelection = useRef(false)
   // The project tree starts collapsed; the selection effect below expands only
   // the project and version it navigates to.
@@ -425,11 +420,6 @@ export function LoomPanel({ t, useSessions, useSessionStatus, retainSession, ope
     if (displayVersion !== undefined) setVersion(displayVersion.id)
     openCreate('task')
   }
-  const toggle = (set: ReadonlySet<string>, apply: (next: ReadonlySet<string>) => void, id: string): void => {
-    const next = new Set(set)
-    if (next.has(id)) next.delete(id); else next.add(id)
-    apply(next)
-  }
   async function moveTask(record: TaskRecord, target: TaskRecord['status']): Promise<void> {
     try {
       const result = await transitionTask({ taskId: record.id, target, actor: 'human' })
@@ -447,14 +437,6 @@ export function LoomPanel({ t, useSessions, useSessionStatus, retainSession, ope
   })
   function openCreate(kind: CreateKind): void { if (kind === 'version') setVersionStep('name'); setCreate(kind); setEdit(undefined); setMenuOpen(false) }
 
-  function toggleSidebarSection(key: 'pinned' | 'projects' | 'sessions'): void {
-    setCollapsedSections(current => {
-      const next = new Set(current)
-      if (next.has(key)) next.delete(key)
-      else next.add(key)
-      return next
-    })
-  }
   function openEdit(kind: EditKind): void { setEdit(kind); setCreate(undefined); setMenuOpen(false) }
   function updatePreferences(next: LoomPreferences): void {
     setPreferences(next)
@@ -518,9 +500,9 @@ export function LoomPanel({ t, useSessions, useSessionStatus, retainSession, ope
         version={version}
         task={task}
         pinnedProjects={pinnedProjects}
-        collapsedSections={collapsedSections}
-        expandedProjects={expandedProjects}
-        expandedVersions={expandedVersions}
+        collapsedSections={tree.collapsedSections}
+        expandedProjects={tree.expandedProjects}
+        expandedVersions={tree.expandedVersions}
         search={search}
         taskSessionList={taskSessionList}
         temporarySessionList={temporarySessionList}
@@ -531,10 +513,10 @@ export function LoomPanel({ t, useSessions, useSessionStatus, retainSession, ope
         selected={selected}
         sessionLimit={preferences.sessionLimit}
         createDisabledTask={createDisabledTask}
-        onToggleSection={toggleSidebarSection}
+        onToggleSection={tree.toggleSection}
         onSearch={setSearch}
-        onProject={record => { setProject(record.id); setVersion(undefined); setTask(undefined); setSelected(undefined); toggle(expandedProjects, setExpandedProjects, record.id) }}
-        onVersion={(record, item) => { setProject(record.id); setVersion(item.id); setTask(undefined); setSelected(undefined); toggle(expandedVersions, setExpandedVersions, item.id) }}
+        onProject={record => { setProject(record.id); setVersion(undefined); setTask(undefined); setSelected(undefined); tree.toggleProject(record.id) }}
+        onVersion={(record, item) => { setProject(record.id); setVersion(item.id); setTask(undefined); setSelected(undefined); tree.toggleVersion(item.id) }}
         onTask={selectTask}
         onPin={record => setPinnedProjects(current => current.includes(record.id) ? current.filter(id => id !== record.id) : [...current, record.id])}
         onNewVersion={record => { setProject(record.id); setVersion(undefined); setTask(undefined); openCreate('version') }}
