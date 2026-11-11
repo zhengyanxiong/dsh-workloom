@@ -8,6 +8,13 @@ Releases start at 0.1.8 in this repository.
 
 ## [Unreleased]
 
+## [0.3.3] - 2026-11-11
+
+### Added
+
+- Turn reviews can hide and restore their changed-file list to focus on the
+  selected diff, and the review can expand into fullscreen.
+
 ### Fixed
 
 - Closing a turn review or changing tasks now leaves fullscreen mode, restores
