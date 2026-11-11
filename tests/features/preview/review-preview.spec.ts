@@ -40,3 +40,34 @@ it('loads the turn summary and the selected native comparison', async () => {
   expect(container.querySelector('[data-loom-diff-viewport]')).not.toBeNull()
   await act(async () => { root.unmount() })
 })
+
+it('collapses the file list and toggles fullscreen from the review toolbar', async () => {
+  vi.stubGlobal('fetch', vi.fn((url: string) => Promise.resolve(
+    url.includes('changes.summary') ? Response.json(summary) : Response.json(diff),
+  )))
+  const container = document.createElement('div'); document.body.append(container)
+  const root = createRoot(container)
+  const onToggleFullscreen = vi.fn()
+  await act(async () => {
+    root.render(createElement(LoomReviewPreview, {
+      t: (key: keyof typeof en) => en[key], sessionId: 's1', seq: 9, initialIndex: 1,
+      wrap: false, onToggleWrap: () => {}, fullscreen: false, onToggleFullscreen,
+    }))
+  })
+  await act(async () => {
+    await vi.waitFor(() => { expect(container.textContent).toContain('src/b.ts') })
+  })
+  const byLabel = (label: string): HTMLButtonElement => {
+    const button = container.querySelector(`button[aria-label="${label}"]`)
+    if (!(button instanceof HTMLButtonElement)) throw new Error(`missing button: ${label}`)
+    return button
+  }
+  expect(container.querySelector('[role="group"]')).not.toBeNull()
+  await act(async () => { byLabel(en['review.hideFiles']).click() })
+  expect(container.querySelector('[role="group"]')).toBeNull()
+  await act(async () => { byLabel(en['review.showFiles']).click() })
+  expect(container.querySelector('[role="group"]')).not.toBeNull()
+  await act(async () => { byLabel(en['diff.fullscreen']).click() })
+  expect(onToggleFullscreen).toHaveBeenCalledTimes(1)
+  await act(async () => { root.unmount() })
+})

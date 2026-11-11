@@ -3,6 +3,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { LoomFileCounts, LoomFileRow } from './LoomFileRow.tsx'
 import { LoomHunks } from './LoomHunks.tsx'
 import { LoomWrapToggle } from '../../ui/LoomWrapToggle.tsx'
+import { IconFullscreenOutlineRegular, IconPanelLeftOutlineRegular } from '../../ui/primitives.ts'
 import { diffViewport } from '../../ui/styles.ts'
 import type { LoomKey } from '../../shared/locales.ts'
 
@@ -50,6 +51,10 @@ export interface LoomReviewPreviewProps {
   /** Whether the comparison wraps wide lines instead of scrolling sideways. */
   readonly wrap: boolean
   readonly onToggleWrap: () => void
+  /** Whether the Loom page is presenting this preview fullscreen. */
+  readonly fullscreen?: boolean
+  /** Toggle the Loom page's preview fullscreen layout. */
+  readonly onToggleFullscreen?: (() => void) | undefined
 }
 
 function record(value: unknown): value is Record<string, unknown> {
@@ -106,8 +111,9 @@ function readDiff(value: unknown): ReviewDiff {
  * @param props - coordinates, native Diff factory, and the optional whole-file opener.
  * @returns the review, or the state that explains why it is unavailable.
  */
-export function LoomReviewPreview({ t, sessionId, seq, initialIndex = 0, onOpenFile, wrap, onToggleWrap }: LoomReviewPreviewProps): ReactNode {
+export function LoomReviewPreview({ t, sessionId, seq, initialIndex = 0, onOpenFile, wrap, onToggleWrap, fullscreen, onToggleFullscreen }: LoomReviewPreviewProps): ReactNode {
   const [summaryState, setSummaryState] = useState<SummaryState>({ kind: 'loading' })
+  const [fileListOpen, setFileListOpen] = useState(true)
   const [diff, setDiff] = useState<ReviewDiff>({ kind: 'loading' })
   const [selected, setSelected] = useState(initialIndex)
   const [summaryAttempt, setSummaryAttempt] = useState(0)
@@ -147,11 +153,19 @@ export function LoomReviewPreview({ t, sessionId, seq, initialIndex = 0, onOpenF
   }, [sessionId, seq, file, index])
   if (sessionId === undefined) return <p role="status" style={{ margin: 0, padding: 12 }}>{t('diff.noSession')}</p>
   const selectedFile = file
-  return <div style={{ display: 'grid', gridTemplateColumns: 'minmax(150px, 210px) minmax(0, 1fr)', flex: 1, minHeight: 0 }}>
-    <div role="group" aria-label={t('review.fileList')} style={{ display: 'flex', flexDirection: 'column', minHeight: 0, minWidth: 0, borderRight: '0.5px solid var(--dsw-alias-border-l4)' }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, padding: '7px 8px 6px', color: 'var(--dsw-alias-label-secondary)', fontSize: 'var(--text-small-size)', flex: 'none' }}>
+  const iconAction = {
+    flex: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+    width: 24, height: 24, padding: 0, border: '0.5px solid var(--dsw-alias-border-l2)',
+    background: 'transparent', color: 'var(--dsw-alias-label-secondary)', borderRadius: 5, cursor: 'pointer',
+  } as const
+  return <div style={{ display: 'grid', gridTemplateColumns: fileListOpen ? 'minmax(150px, 210px) minmax(0, 1fr)' : 'minmax(0, 1fr)', flex: 1, minHeight: 0 }}>
+    {fileListOpen && <div role="group" aria-label={t('review.fileList')} style={{ display: 'flex', flexDirection: 'column', minHeight: 0, minWidth: 0, borderRight: '0.5px solid var(--dsw-alias-border-l4)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 8px 6px', color: 'var(--dsw-alias-label-secondary)', fontSize: 'var(--text-small-size)', flex: 'none' }}>
         <span>{t('review.fileList')} {summaryState.kind === 'ready' ? String(summaryState.summary.files.length) : ''}</span>
-        {summaryState.kind === 'ready' && <span style={{ marginLeft: 'auto' }}><LoomFileCounts file={{ display: '', added: summaryState.summary.added, deleted: summaryState.summary.deleted }} t={t} /></span>}
+        <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          {summaryState.kind === 'ready' && <LoomFileCounts file={{ display: '', added: summaryState.summary.added, deleted: summaryState.summary.deleted }} t={t} />}
+          <button type="button" aria-label={t('review.hideFiles')} title={t('review.hideFiles')} style={iconAction} onClick={() => setFileListOpen(false)}><IconPanelLeftOutlineRegular size={13} /></button>
+        </span>
       </div>
       <div style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: '0 4px 6px' }}>
         {files.map((entry, position) => {
@@ -161,12 +175,14 @@ export function LoomReviewPreview({ t, sessionId, seq, initialIndex = 0, onOpenF
             t={t} selected={selected} onClick={() => setSelected(position)} />
         })}
       </div>
-    </div>
+    </div>}
     <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0 }}>
       {selectedFile !== undefined && <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 9px', borderBottom: '0.5px solid var(--dsw-alias-border-l4)', flex: 'none', minWidth: 0 }}>
         <strong style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 'var(--text-small-size)' }}>{selectedFile.display}</strong>
         <span style={{ flex: 'none', display: 'flex', gap: 4 }}><LoomFileCounts file={selectedFile} t={t} /></span>
         <span style={{ flex: 1 }} />
+        {!fileListOpen && <button type="button" aria-label={t('review.showFiles')} title={t('review.showFiles')} style={iconAction} onClick={() => setFileListOpen(true)}><IconPanelLeftOutlineRegular size={13} /></button>}
+        {onToggleFullscreen !== undefined && <button type="button" aria-label={fullscreen === true ? t('diff.exitFullscreen') : t('diff.fullscreen')} title={fullscreen === true ? t('diff.exitFullscreen') : t('diff.fullscreen')} style={iconAction} onClick={onToggleFullscreen}><IconFullscreenOutlineRegular size={13} /></button>}
         <LoomWrapToggle t={t} wrap={wrap} onToggle={onToggleWrap} />
         {onOpenFile !== undefined && <button type="button" style={{ flex: 'none', border: '0.5px solid var(--dsw-alias-border-l2)', background: 'transparent', color: 'var(--dsw-alias-label-secondary)', borderRadius: 5, padding: '3px 8px', cursor: 'pointer', font: 'inherit', fontSize: 'var(--text-small-size)' }} onClick={() => onOpenFile(selectedFile.path)}>{t('review.openFile')}</button>}
       </div>}
