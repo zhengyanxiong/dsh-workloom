@@ -1,4 +1,5 @@
 /** Modal confirmation for stopping the current workspace owner and taking execution over. */
+import { LOOM_PORTAL_CLASS } from '../../theme/LoomTheme.tsx'
 import type { CSSProperties, ReactNode } from 'react'
 import { Button, IconWarningTriangleOutlineRegular, Modal } from '../../ui/primitives.ts'
 import type { ExecutionState, TaskOutcome, TaskRecord, WorkspaceRecord } from 'dsh-workloom/types'
@@ -69,7 +70,7 @@ export function LoomTakeoverDialog({ t, open, busy, failed, task, workspace, exe
     open={open}
     title={t('execution.takeover')}
     closeLabel={t('form.close')}
-    className="loom-modal-takeover"
+    className={`${LOOM_PORTAL_CLASS} loom-modal-takeover`}
     onClose={() => { if (!busy) onCancel() }}
     footer={<>
       <Button variant="ghost" disabled={busy} data-modal-autofocus onClick={onCancel}>{t('form.cancel')}</Button>

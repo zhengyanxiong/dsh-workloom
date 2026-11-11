@@ -368,7 +368,15 @@ export function LoomPanel({ t, useSessions, useSessionStatus, retainSession, ope
   const createVersionFor = (projectRecord: ProjectRecord): VersionRecord | undefined => snapshot?.versions.filter(candidate => candidate.projectId === projectRecord.id).at(-1)
   const createDisabledVersion = currentProject === undefined
   const createDisabledTask = currentVersion === undefined
-  return <div ref={rootRef} data-theme={resolveLoomTheme(preferences.theme, darkTheme)} data-density={preferences.density} data-loom-reduced-motion={preferences.reducedMotion ? 'true' : undefined} className={`${LOOM_ROOT_CLASS} loom-root ${shell.root}`}>
+  // Portalled menus and modals render under document.body; mirroring the
+  // resolved Loom palette there keeps their surfaces from mixing Loom colours
+  // with the DSH page theme (the dark-theme white dropdown bleed).
+  const resolvedLoomTheme = resolveLoomTheme(preferences.theme, darkTheme)
+  useEffect(() => {
+    document.body.dataset.theme = resolvedLoomTheme
+    return () => { delete document.body.dataset.theme }
+  }, [resolvedLoomTheme])
+  return <div ref={rootRef} data-theme={resolvedLoomTheme} data-density={preferences.density} data-loom-reduced-motion={preferences.reducedMotion ? 'true' : undefined} className={`${LOOM_ROOT_CLASS} loom-root ${shell.root}`}>
     <LoomThemeStyles />
     <LoomGlobalStyles fontSize={preferences.fontSize} />
     <LoomCommandPalette open={paletteOpen} t={t} snapshot={snapshot} onClose={() => setPaletteOpen(false)} onActivate={activatePaletteItem} />

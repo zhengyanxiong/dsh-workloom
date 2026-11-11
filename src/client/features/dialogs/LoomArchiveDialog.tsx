@@ -1,4 +1,5 @@
 /** Modal confirmation before archiving a Session that is still running. */
+import { LOOM_PORTAL_CLASS } from '../../theme/LoomTheme.tsx'
 import { Button, IconWarningTriangleOutlineRegular, Modal } from '../../ui/primitives.ts'
 import { COLORS } from '../../ui/tokens.ts'
 import type { FailureReport } from '../../ui/failure.ts'
@@ -36,7 +37,7 @@ export function LoomArchiveDialog({ t, subject, busy, failure, onCancel, onConfi
     open
     title={t('session.archiveConfirmTitle')}
     closeLabel={t('form.close')}
-    className="loom-modal-delete"
+    className={`${LOOM_PORTAL_CLASS} loom-modal-delete`}
     onClose={() => { if (!busy) onCancel() }}
     footer={<>
       <Button variant="ghost" disabled={busy} data-modal-autofocus onClick={onCancel}>{t('form.cancel')}</Button>

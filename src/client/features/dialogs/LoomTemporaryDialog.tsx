@@ -1,4 +1,5 @@
 /** Temporary-session creation: independent folder first, explicit workspace reuse with execution access. */
+import { LOOM_PORTAL_CLASS } from '../../theme/LoomTheme.tsx'
 import { useState, type CSSProperties, type ReactNode } from 'react'
 import { Button, IconFolderOpenRegular, IconWarningTriangleOutlineRegular, Modal, Tag } from '../../ui/primitives.ts'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
@@ -129,7 +130,7 @@ export function LoomTemporaryDialog({ t, open, snapshot, actions, onClose }: Loo
     open={open}
     title={t('temporary.title')}
     closeLabel={t('form.close')}
-    className="loom-temp-modal"
+    className={`${LOOM_PORTAL_CLASS} loom-temp-modal`}
     onClose={() => { if (busy === undefined) onClose() }}
     footer={<>
       <Button variant="ghost" disabled={busy !== undefined} data-modal-autofocus onClick={onClose}>{t('form.close')}</Button>

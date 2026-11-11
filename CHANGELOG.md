@@ -24,6 +24,10 @@ Releases start at 0.1.8 in this repository.
 
 ### Fixed
 
+- Menus and modals portalled outside the Loom root now carry the Loom theme
+  themselves: the panel mirrors its resolved palette onto `body[data-theme]` and
+  portalled cards get the same alias bridge and token classes, so the branch
+  dropdown no longer renders a light surface with light text in the dark theme.
 - The Loom full-bleed layout now reserves the desktop window chrome: on macOS
   panels pad by the shell clearance so content never sits under the hidden
   titlebar, and the full-bleed root is offset below the Windows caption row and

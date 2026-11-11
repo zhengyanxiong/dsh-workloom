@@ -1,3 +1,4 @@
+import { LOOM_PORTAL_CLASS } from '../../theme/LoomTheme.tsx'
 import { useEffect, useRef, useState } from 'react'
 import { Button, IconChevronDownOutlineRegular, Menu, type MenuEntry } from '../../ui/primitives.ts'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
@@ -121,7 +122,7 @@ export function BranchPicker({ t, source, value, listBranches, onChange, compact
             }
           }} style={{ ...input, paddingRight: 32 }} />
         {listBranches !== undefined && <span style={{ position: 'absolute', top: 0, right: 2, height: 36, display: 'inline-flex' }}>
-          <Menu open={open} onClose={() => setOpen(false)} items={branchItems} selectedId={value === '' ? undefined : value} selection="fill" portal listClassName="loom-branch-menu"
+          <Menu open={open} onClose={() => setOpen(false)} items={branchItems} selectedId={value === '' ? undefined : value} selection="fill" portal listClassName={`loom-branch-menu ${LOOM_PORTAL_CLASS}`}
             getAnchorRect={() => inputRef.current?.getBoundingClientRect() ?? null}
             onSelect={branch => { const next = branch === '__typed__' ? typed : branch; if (next !== '') onChange(next); setFilterText(''); setOpen(false) }}
             anchor={<button type="button" aria-label={t('branch.open')} aria-haspopup="listbox" aria-expanded={open}

@@ -30,6 +30,12 @@ import classes from './LoomTheme.module.css'
 
 /** Class that bridges DSH component aliases onto Loom design tokens. */
 export const LOOM_ROOT_CLASS = classes.loomRoot
+/**
+ * Extra classes for surfaces the primitives portal to `document.body` (menus,
+ * modals): the portal leaves the Loom root, so it carries the alias bridge and
+ * the scoped token names itself while `body[data-theme]` supplies the palette.
+ */
+export const LOOM_PORTAL_CLASS = `${LOOM_ROOT_CLASS} loom-root`
 
 /** Global Loom token variables and `.type-*` classes. */
 export function LoomThemeStyles(): JSX.Element {
