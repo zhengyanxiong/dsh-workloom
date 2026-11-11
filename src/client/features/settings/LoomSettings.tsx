@@ -19,6 +19,8 @@ export interface LoomPreferences {
   /** Disable Loom transitions and animations. */
   readonly reducedMotion: boolean
   readonly contextOpen: boolean
+  /** Left Workloom sidebar width in pixels. */
+  readonly sidebarWidth: number
   /** Context-aside width in pixels. */
   readonly asideWidth: number
   /** File- and turn-preview aside width in pixels. */
@@ -42,7 +44,7 @@ export interface LoomPreferences {
 /** Defaults used when storage is empty or malformed. */
 export const DEFAULT_PREFERENCES: LoomPreferences = {
   view: 'workbench', kanbanMode: 'flat', boardView: 'kanban', theme: 'auto', density: 'comfortable',
-  fontSize: 14, reducedMotion: false, contextOpen: true, asideWidth: 344, previewWidth: 560, // design-allow: preference default, not a CSS declaration
+  fontSize: 14, reducedMotion: false, contextOpen: true, sidebarWidth: 240, asideWidth: 344, previewWidth: 560, // design-allow: preference defaults, not CSS declarations
   bottomHeight: 220, sessionLimit: 5, previewWrap: true, wipLimit: 3, openOnLoad: false,
   collapseSidebar: false, autoCollapseSidebar: true,
 }
@@ -77,7 +79,7 @@ export function readPreferences(): LoomPreferences {
     const openOnLoad = record.openOnLoad === true
     const collapseSidebar = record.collapseSidebar === true
     const autoCollapseSidebar = record.autoCollapseSidebar !== false
-    const size = (key: 'asideWidth' | 'previewWidth' | 'bottomHeight' | 'sessionLimit' | 'wipLimit', fallback: number, min: number, max: number): number => {
+    const size = (key: 'sidebarWidth' | 'asideWidth' | 'previewWidth' | 'bottomHeight' | 'sessionLimit' | 'wipLimit', fallback: number, min: number, max: number): number => {
       const raw = record[key]
       return typeof raw === 'number' && Number.isFinite(raw) ? Math.min(Math.max(Math.round(raw), min), max) : fallback
     }
@@ -85,6 +87,7 @@ export function readPreferences(): LoomPreferences {
     return {
       view, kanbanMode, boardView, theme, density, fontSize, reducedMotion, contextOpen, previewWrap,
       openOnLoad, collapseSidebar, autoCollapseSidebar,
+      sidebarWidth: size('sidebarWidth', DEFAULT_PREFERENCES.sidebarWidth, 200, 420),
       asideWidth: size('asideWidth', DEFAULT_PREFERENCES.asideWidth, 320, 460),
       previewWidth: size('previewWidth', DEFAULT_PREFERENCES.previewWidth, 300, 720),
       bottomHeight: size('bottomHeight', DEFAULT_PREFERENCES.bottomHeight, 80, 320),

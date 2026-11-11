@@ -197,7 +197,7 @@ export function LoomPanel({ t, useSessions, useSessionStatus, retainSession, ope
 
   const loadTaskChanges = useCallback((request: WorkspaceChangesRequest) => workspaceChanges(detailAttemptId === undefined ? request : { ...request, attemptId: detailAttemptId }), [detailAttemptId, workspaceChanges])
   const {
-    narrow, asideMin, asideMax, asideWidth, setAsideWidth, bottomMax, bottomHeight,
+    narrow, sidebarMin, sidebarMax, sidebarWidth, setSidebarWidth, asideMin, asideMax, asideWidth, setAsideWidth, bottomMax, bottomHeight,
   } = useLoomWorkbenchLayout({
     loomWidth, viewportHeight: viewport.height, preferences,
     previewOpen: preview !== undefined || review !== undefined,
@@ -412,6 +412,7 @@ export function LoomPanel({ t, useSessions, useSessionStatus, retainSession, ope
       {narrow && sidebarOpen && <div aria-hidden className={shell.sidebarBackdrop} onClick={() => setSidebarOpen(false)} />}
       {!sidebarCollapsed && <LoomSidebar
         className={`${shell.sidebar} ${sidebarOpen && narrow ? 'loom-sidebar-open' : ''}`}
+        style={{ width: sidebarWidth }}
         t={t}
         snapshot={snapshot}
         project={project}
@@ -450,6 +451,7 @@ export function LoomPanel({ t, useSessions, useSessionStatus, retainSession, ope
         onCreateTask={() => openCreate('task')}
         onOpenTemporary={() => setTemporaryOpen(true)}
       />}
+      {!sidebarCollapsed && !narrow && <LoomResizeHandle label={t('layout.resizeSidebar')} orientation="vertical" value={sidebarWidth} min={sidebarMin} max={sidebarMax} invert={false} onChange={setSidebarWidth} className="loom-sidebar-handle" />}
       <LoomRouteContent
         t={t}
         agentPresets={agentPresets}

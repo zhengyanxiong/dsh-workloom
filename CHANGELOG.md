@@ -12,6 +12,11 @@ Releases start at 0.1.8 in this repository.
 
 ### Added
 
+- The Workloom left sidebar is now resizable by dragging its splitter (or with
+  the arrow keys), with the width remembered across sessions; long project and
+  version names expose their full text through a row tooltip and the wider tree
+  column. The splitter hides on narrow layouts, where the sidebar becomes an
+  overlay.
 - Settings now carry an About & updates section: the panel shows the plugin
   version compiled into the bundle, checks the npm registry on demand, and for a
   newer release shows a copyable `dsh plugin add` command that upgrades the

@@ -19,6 +19,10 @@ export interface LoomWorkbenchLayoutInput {
 /** Derived layout dimensions used by the shell. */
 export interface LoomWorkbenchLayout {
   readonly narrow: boolean
+  readonly sidebarMin: number
+  readonly sidebarMax: number
+  readonly sidebarWidth: number
+  readonly setSidebarWidth: (width: number) => void
   readonly asideMin: number
   readonly asideMax: number
   readonly asideWidth: number
@@ -36,6 +40,14 @@ export interface LoomWorkbenchLayout {
 export function useLoomWorkbenchLayout(input: LoomWorkbenchLayoutInput): LoomWorkbenchLayout {
   const { loomWidth, viewportHeight, preferences, previewOpen, setPreferences } = input
   const narrow = loomWidth <= 940
+  // The tree holds long project/version names, so the left column is
+  // user-resizable; the centre keeps a readable minimum at every width.
+  const sidebarMin = 200
+  const sidebarMax = Math.min(420, Math.max(sidebarMin, loomWidth - (narrow ? 260 : 560)))
+  const sidebarWidth = Math.min(Math.max(preferences.sidebarWidth, sidebarMin), sidebarMax)
+  const setSidebarWidth = (width: number): void => {
+    setPreferences(current => ({ ...current, sidebarWidth: width }))
+  }
   const asideMin = previewOpen ? 300 : 320
   const asideCssMax = loomWidth <= 940 ? (previewOpen ? 380 : 300) : 460
   const asideMax = Math.min(asideCssMax, Math.max(asideMin, loomWidth - (narrow ? 180 : 460)))
@@ -45,5 +57,5 @@ export function useLoomWorkbenchLayout(input: LoomWorkbenchLayoutInput): LoomWor
   }
   const bottomMax = Math.max(120, Math.min(320, viewportHeight - 220))
   const bottomHeight = Math.min(Math.max(preferences.bottomHeight, 80), bottomMax)
-  return { narrow, asideMin, asideMax, asideWidth, setAsideWidth, bottomMax, bottomHeight }
+  return { narrow, sidebarMin, sidebarMax, sidebarWidth, setSidebarWidth, asideMin, asideMax, asideWidth, setAsideWidth, bottomMax, bottomHeight }
 }

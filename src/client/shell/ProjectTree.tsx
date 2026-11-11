@@ -44,7 +44,7 @@ export function ProjectItem({ candidate, versions, tasks, activeProject, activeV
   return <div>
     <div className={activeProject ? 'loom-tree-row loom-tree-row-active' : 'loom-tree-row'} style={{ display: 'flex', alignItems: 'center', background: activeProject ? COLORS.panel3 : 'transparent' }}>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <TreeRow depth={0} expanded={open} icon={open ? <IconFolderOpenRegular /> : <IconFolderCloseRegular />} label={candidate.config.name} active={activeProject} count={String(versions.length)} onClick={onProject} />
+        <TreeRow depth={0} expanded={open} icon={open ? <IconFolderOpenRegular /> : <IconFolderCloseRegular />} label={candidate.config.name} title={candidate.config.name} active={activeProject} count={String(versions.length)} onClick={onProject} />
       </div>
       <span className="loom-row-actions" style={{ display: 'flex', alignItems: 'center', gap: 0, flex: 'none', alignSelf: 'stretch' }}>
         <TreeIconAction label={t('version.new')} icon={<IconPlusOutlineRegular size={13} />} onClick={onNewVersion} />
@@ -59,7 +59,7 @@ export function ProjectItem({ candidate, versions, tasks, activeProject, activeV
       return <div key={item.id}>
         <div className={activeVersionId === item.id ? 'loom-tree-row loom-tree-row-active' : 'loom-tree-row'} style={{ display: 'flex', alignItems: 'center', background: activeVersionId === item.id ? COLORS.panel3 : 'transparent' }}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <TreeRow depth={1} expanded={openVersion} label={<span style={versionChip}>{item.name}</span>} count={String(versionTasks.length)} active={activeVersionId === item.id} onClick={() => onVersion(item)} />
+            <TreeRow depth={1} expanded={openVersion} label={<span style={versionChip}>{item.name}</span>} title={item.name} count={String(versionTasks.length)} active={activeVersionId === item.id} onClick={() => onVersion(item)} />
           </div>
           <span className="loom-row-actions" style={{ display: 'flex', alignItems: 'center', gap: 0, flex: 'none', alignSelf: 'stretch' }}>
             <TreeIconAction label={t('version.edit')} icon={<IconEditOutlineRegular size={13} />} onClick={() => onEditVersion(item)} />

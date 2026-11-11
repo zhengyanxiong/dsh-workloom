@@ -1,6 +1,7 @@
 /** Loom left sidebar: pinned projects, project tree and the session lists. */
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { CatalogSnapshot, ProjectRecord, TaskRecord, VersionRecord } from 'dsh-workloom/types'
+import type { CSSProperties } from 'react'
 import { Button, IconPinFillRegular, IconPlusOutlineRegular } from '../ui/primitives.ts'
 import { COLORS } from '../ui/tokens.ts'
 import { metaLine, select } from '../ui/styles.ts'
@@ -15,6 +16,8 @@ type SectionId = 'pinned' | 'projects' | 'sessions'
 /** Inputs for the Loom sidebar. */
 export interface LoomSidebarProps {
   readonly className: string
+  /** Inline width from the sidebar splitter; the CSS width is the fallback. */
+  readonly style?: CSSProperties | undefined
   readonly t: Translate
   readonly snapshot: CatalogSnapshot | undefined
   readonly project: ProjectRecord['id'] | undefined
@@ -59,7 +62,7 @@ export interface LoomSidebarProps {
  * @param props - catalog, selection, session rows and navigation intents.
  * @returns the sidebar aside.
  */
-export function LoomSidebar({ className, t, snapshot, project, version, task, pinnedProjects, collapsedSections, expandedProjects, expandedVersions, search, taskSessionList, temporarySessionList, taskProjectBySession, taskTitleBySession, temporaryProjectBySession, boundRows, selected, sessionLimit, createDisabledTask, onToggleSection, onSearch, onProject, onVersion, onTask, onPin, onNewVersion, onEditProject, onDeleteProject, onEditVersion, onDeleteVersion, onNewTask, onEditTask, onDeleteTask, onSelectSession, onCreateProject, onCreateTask, onOpenTemporary }: LoomSidebarProps): JSX.Element {
+export function LoomSidebar({ className, t, snapshot, project, version, task, pinnedProjects, collapsedSections, expandedProjects, expandedVersions, search, taskSessionList, temporarySessionList, taskProjectBySession, taskTitleBySession, temporaryProjectBySession, boundRows, selected, sessionLimit, createDisabledTask, onToggleSection, onSearch, onProject, onVersion, onTask, onPin, onNewVersion, onEditProject, onDeleteProject, onEditVersion, onDeleteVersion, onNewTask, onEditTask, onDeleteTask, onSelectSession, onCreateProject, onCreateTask, onOpenTemporary , style}: LoomSidebarProps): JSX.Element {
   const projects = snapshot?.projects ?? []
   const pinned = projects.filter(candidate => pinnedProjects.includes(candidate.id))
   const versionsOf = (candidate: ProjectRecord): readonly VersionRecord[] => (snapshot?.versions ?? []).filter(item => item.projectId === candidate.id)
@@ -88,7 +91,7 @@ export function LoomSidebar({ className, t, snapshot, project, version, task, pi
     onEditTask={item => onEditTask(candidate, item)}
     onDeleteTask={item => onDeleteTask(candidate, item)}
   />
-  return <aside className={`loom-sidebar ${className}`}>
+  return <aside className={`loom-sidebar ${className}`} style={style}>
     <section style={{ marginBottom: 4 }}>
       <SidebarSectionToggle label={t('side.pinned')} icon={<IconPinFillRegular size={12} />} open={!collapsedSections.has('pinned')} onToggle={() => onToggleSection('pinned')} />
       {!collapsedSections.has('pinned') && <>
