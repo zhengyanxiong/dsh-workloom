@@ -2,7 +2,10 @@
 import { act, createElement } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, expect, it } from 'vitest'
+import { dismissLoomNotice, getLoomNotices, pushLoomNotice } from '../src/client/shared/feedback.ts'
+import { LOOM_PORTAL_CLASS } from '../src/client/theme/LoomTheme.tsx'
 import { useHostTheme } from '../src/client/theme/useHostTheme.ts'
+import { LoomNoticeHost } from '../src/client/ui/LoomNoticeHost.tsx'
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
@@ -10,7 +13,10 @@ let root: Root | undefined
 let container: HTMLDivElement | undefined
 
 afterEach(async () => {
-  await act(async () => { root?.unmount() })
+  await act(async () => {
+    for (const notice of getLoomNotices()) dismissLoomNotice(notice.id)
+    root?.unmount()
+  })
   container?.remove()
   root = undefined
   container = undefined
@@ -55,4 +61,17 @@ it('forces the host light when Loom uses an explicit light theme', async () => {
   document.body.setAttribute('data-ds-dark-theme', '')
   await mount('paper')
   expect(document.body.hasAttribute('data-ds-dark-theme')).toBe(false)
+})
+
+it('carries the Loom alias bridge into body-portalled notices', async () => {
+  container = document.createElement('div')
+  document.body.append(container)
+  root = createRoot(container)
+  await act(async () => {
+    root?.render(createElement(LoomNoticeHost))
+    pushLoomNotice('success', 'Theme probe')
+  })
+  const stack = document.body.querySelector('.loom-notice-stack')
+  expect(stack).not.toBeNull()
+  for (const className of LOOM_PORTAL_CLASS.split(' ')) expect(stack?.classList.contains(className)).toBe(true)
 })

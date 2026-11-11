@@ -12,6 +12,7 @@ import { FailureNotice } from '../forms/FailureNotice.tsx'
 import { emptyModuleRow, emptySourceRow, sourceIds, sourcePathsOverlap, projectRequest, type ModuleDraft, type SourceDraft } from '../forms/drafts.ts'
 import { Translate } from '../forms/types.ts'
 import { PresetOptionLabel } from '../forms/fields.tsx'
+import { LOOM_PORTAL_CLASS } from '../../theme/LoomTheme.tsx'
 
 interface ProjectFormProps {
   t: Translate
@@ -127,7 +128,7 @@ export function ProjectForm({ t, create, update, project, agentPresets = [], pic
       </label>
       <p style={hint}>{t('project.nameHint')}</p>
       <label style={field}><span style={fieldLabel}>{t('project.agentPreset')}</span>
-        <Menu open={presetOpen} onClose={() => setPresetOpen(false)} items={presetItems} selectedId={agentPreset} portal
+        <Menu open={presetOpen} onClose={() => setPresetOpen(false)} items={presetItems} selectedId={agentPreset} portal listClassName={LOOM_PORTAL_CLASS}
           onSelect={id => { setAgentPreset(id); setPresetOpen(false) }}
           anchor={<button type="button" title={presetLabel} aria-label={t('project.agentPreset')} aria-haspopup="menu" aria-expanded={presetOpen} onClick={() => setPresetOpen(value => !value)}
             style={{ ...input, display: 'flex', alignItems: 'center', gap: 7, padding: '0 10px', textAlign: 'left', cursor: 'pointer' }}>

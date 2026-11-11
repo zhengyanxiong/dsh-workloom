@@ -3,6 +3,7 @@ import { useSyncExternalStore, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import { IconCheckCircleFillRegular, IconCloseCircleFillRegular } from '@deepseek-ai/dsh-client-ui-primitives'
 import { getLoomNotices, subscribeLoomNotices } from '../shared/feedback.ts'
+import { LOOM_PORTAL_CLASS } from '../theme/LoomTheme.tsx'
 
 const stack: CSSProperties = {
   position: 'fixed', top: 58, left: '50%', transform: 'translateX(-50%)', zIndex: 1200,
@@ -26,7 +27,7 @@ export function LoomNoticeHost() {
   if (notices.length === 0) return null
   return createPortal(<>
     <style>{motion}</style>
-    <div className="loom-notice-stack" style={stack} aria-live="polite" aria-atomic="false">
+    <div className={`${LOOM_PORTAL_CLASS} loom-notice-stack`} style={stack} aria-live="polite" aria-atomic="false">
       {notices.map(notice => <div key={notice.id} role={notice.tone === 'error' ? 'alert' : 'status'} style={card}>
         <span aria-hidden style={{ display: 'flex', flex: 'none', marginTop: 1, color: notice.tone === 'error' ? 'var(--dsw-alias-state-error-primary)' : 'var(--dsw-alias-state-success-primary)' }}>
           {notice.tone === 'error' ? <IconCloseCircleFillRegular size={16} /> : <IconCheckCircleFillRegular size={16} />}
