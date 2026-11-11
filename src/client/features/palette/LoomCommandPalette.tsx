@@ -1,4 +1,5 @@
 /** Command palette for jumping to pages, projects, versions, tasks and sessions. */
+import { LOOM_PORTAL_CLASS } from '../../theme/LoomTheme.tsx'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   IconBranchOutlineRegular, IconBrowseOutlineRegular, IconChecklistOutlineRegular,
@@ -75,7 +76,7 @@ export function LoomCommandPalette({ open, t, snapshot, onClose, onActivate }: L
     if (item === undefined) return
     onActivate(item)
   }
-  return <Modal open={open} title={t('top.search')} headless onClose={onClose} className="loom-palette">
+  return <Modal open={open} title={t('top.search')} headless onClose={onClose} className={`${LOOM_PORTAL_CLASS} loom-palette`}>
     <div className={classes.palette}>
       <div className={classes.searchRow}>
         <span aria-hidden className={classes.searchIcon}><IconSearchOutlineRegular size={15} /></span>

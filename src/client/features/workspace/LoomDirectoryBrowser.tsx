@@ -1,4 +1,5 @@
 /** In-app directory browser for Hosts whose directory picker exposes browse primitives. */
+import { LOOM_PORTAL_CLASS } from '../../theme/LoomTheme.tsx'
 import { useCallback, useEffect, useState, type CSSProperties } from 'react'
 import { Button, IconChevronLeftOutlineRegular, IconFolderOpenRegular, Modal } from '../../ui/primitives.ts'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
@@ -76,6 +77,7 @@ export function LoomDirectoryBrowser({ t, startPath, loadListing, onCancel, onPi
 
   return <Modal
     open
+    className={LOOM_PORTAL_CLASS}
     title={t('directory.title')}
     closeLabel={t('form.close')}
     onClose={onCancel}

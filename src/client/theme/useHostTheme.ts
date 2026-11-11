@@ -22,7 +22,16 @@ export function useHostTheme(theme: LoomThemePreference): boolean {
     }
     if (originalHostDark.current === undefined) originalHostDark.current = body.hasAttribute('data-ds-dark-theme')
     const wantDark = resolveLoomTheme(theme, false) === 'dark'
-    if (body.hasAttribute('data-ds-dark-theme') !== wantDark) body.toggleAttribute('data-ds-dark-theme', wantDark)
+    const apply = (): void => {
+      if (body.hasAttribute('data-ds-dark-theme') !== wantDark) body.toggleAttribute('data-ds-dark-theme', wantDark)
+    }
+    apply()
+    // DSH chrome (including the native left sidebar) keys off this attribute.
+    // Re-apply it if the host boots or re-renders its own theme over the
+    // user's explicit Loom choice.
+    const observer = new MutationObserver(apply)
+    observer.observe(body, { attributes: true, attributeFilter: ['data-ds-dark-theme'] })
+    return () => observer.disconnect()
   }, [theme])
   useEffect(() => {
     if (typeof document === 'undefined') return

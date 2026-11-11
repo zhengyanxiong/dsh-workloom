@@ -197,7 +197,7 @@ export function LoomPanel({ t, useSessions, useSessionStatus, retainSession, ope
 
   const loadTaskChanges = useCallback((request: WorkspaceChangesRequest) => workspaceChanges(detailAttemptId === undefined ? request : { ...request, attemptId: detailAttemptId }), [detailAttemptId, workspaceChanges])
   const {
-    narrow, asideMin, asideMax, asideWidth, setAsideWidth, bottomMax, bottomHeight,
+    narrow, sidebarMin, sidebarMax, sidebarWidth, setSidebarWidth, asideMin, asideMax, asideWidth, setAsideWidth, bottomMax, bottomHeight,
   } = useLoomWorkbenchLayout({
     loomWidth, viewportHeight: viewport.height, preferences,
     previewOpen: preview !== undefined || review !== undefined,
@@ -368,7 +368,15 @@ export function LoomPanel({ t, useSessions, useSessionStatus, retainSession, ope
   const createVersionFor = (projectRecord: ProjectRecord): VersionRecord | undefined => snapshot?.versions.filter(candidate => candidate.projectId === projectRecord.id).at(-1)
   const createDisabledVersion = currentProject === undefined
   const createDisabledTask = currentVersion === undefined
-  return <div ref={rootRef} data-theme={resolveLoomTheme(preferences.theme, darkTheme)} data-density={preferences.density} data-loom-reduced-motion={preferences.reducedMotion ? 'true' : undefined} className={`${LOOM_ROOT_CLASS} loom-root ${shell.root}`}>
+  // Portalled menus and modals render under document.body; mirroring the
+  // resolved Loom palette there keeps their surfaces from mixing Loom colours
+  // with the DSH page theme (the dark-theme white dropdown bleed).
+  const resolvedLoomTheme = resolveLoomTheme(preferences.theme, darkTheme)
+  useEffect(() => {
+    document.body.dataset.theme = resolvedLoomTheme
+    return () => { delete document.body.dataset.theme }
+  }, [resolvedLoomTheme])
+  return <div ref={rootRef} data-theme={resolvedLoomTheme} data-density={preferences.density} data-loom-reduced-motion={preferences.reducedMotion ? 'true' : undefined} className={`${LOOM_ROOT_CLASS} loom-root ${shell.root}`}>
     <LoomThemeStyles />
     <LoomGlobalStyles fontSize={preferences.fontSize} />
     <LoomCommandPalette open={paletteOpen} t={t} snapshot={snapshot} onClose={() => setPaletteOpen(false)} onActivate={activatePaletteItem} />
@@ -404,6 +412,7 @@ export function LoomPanel({ t, useSessions, useSessionStatus, retainSession, ope
       {narrow && sidebarOpen && <div aria-hidden className={shell.sidebarBackdrop} onClick={() => setSidebarOpen(false)} />}
       {!sidebarCollapsed && <LoomSidebar
         className={`${shell.sidebar} ${sidebarOpen && narrow ? 'loom-sidebar-open' : ''}`}
+        style={{ width: sidebarWidth }}
         t={t}
         snapshot={snapshot}
         project={project}
@@ -442,6 +451,7 @@ export function LoomPanel({ t, useSessions, useSessionStatus, retainSession, ope
         onCreateTask={() => openCreate('task')}
         onOpenTemporary={() => setTemporaryOpen(true)}
       />}
+      {!sidebarCollapsed && !narrow && <LoomResizeHandle label={t('layout.resizeSidebar')} orientation="vertical" value={sidebarWidth} min={sidebarMin} max={sidebarMax} invert={false} onChange={setSidebarWidth} className="loom-sidebar-handle" />}
       <LoomRouteContent
         t={t}
         agentPresets={agentPresets}
@@ -519,15 +529,15 @@ export function LoomPanel({ t, useSessions, useSessionStatus, retainSession, ope
         togglePreviewWrap={togglePreviewWrap}
       />
       {asideOpen && !previewFullscreen && <LoomResizeHandle label={t('layout.resizeAside')} orientation="vertical" value={asideWidth} min={asideMin} max={asideMax} invert onChange={setAsideWidth} className={view === 'kanban' ? 'loom-aside-handle loom-aside-handle-kanban' : 'loom-aside-handle'} />}
-      {asideOpen && route !== 'home' && route !== 'project' && route !== 'board' && route !== 'settings' && <aside className={`${shell.aside} ${preview === undefined && review === undefined ? 'loom-aside' : 'loom-aside loom-aside-preview'}${view === 'kanban' ? ' loom-aside-kanban' : ''}`} data-loom-preview-fullscreen={previewFullscreen ? 'true' : undefined} style={previewFullscreen && preview !== undefined ? { position: 'fixed', inset: 0, width: '100vw', maxWidth: 'none', zIndex: 90, borderLeft: 'none' } : { width: asideWidth }}>
+      {asideOpen && route !== 'home' && route !== 'project' && route !== 'board' && route !== 'settings' && <aside className={`${shell.aside} ${preview === undefined && review === undefined ? 'loom-aside' : 'loom-aside loom-aside-preview'}${view === 'kanban' ? ' loom-aside-kanban' : ''}`} data-loom-preview-fullscreen={previewFullscreen ? 'true' : undefined} style={previewFullscreen && (preview !== undefined || review !== undefined) ? { position: 'fixed', inset: 0, width: '100vw', maxWidth: 'none', zIndex: 90, borderLeft: 'none' } : { width: asideWidth }}>
         {review !== undefined
           ? <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0, flex: 1 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px', borderBottom: `0.5px solid ${COLORS.border}`, flex: 'none' }}>
                 <strong style={{ fontSize: 'var(--text-compact-size)' }}>{t('diff.preview')}</strong>
                 <span style={{ ...metaLine, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t('review.title', { turn: String(review.turn) })}</span>
-                <Button size="sm" variant="ghost" icon={<IconCloseOutlineRegular />} aria-label={t('form.close')} title={t('form.close')} onClick={() => { workspacePreview.close(); workspaceReviewPreview.close() }} style={{ marginLeft: 'auto', width: 26, height: 26, padding: 0, justifyContent: 'center' }} />
+                <Button size="sm" variant="ghost" icon={<IconCloseOutlineRegular />} aria-label={t('form.close')} title={t('form.close')} onClick={() => { workspacePreview.close(); workspaceReviewPreview.close(); setPreviewFullscreen(false) }} style={{ marginLeft: 'auto', width: 26, height: 26, padding: 0, justifyContent: 'center' }} />
               </div>
-              <LoomReviewPreview t={t} sessionId={review.sessionId} seq={review.seq} initialIndex={review.index} wrap={preferences.previewWrap} onToggleWrap={togglePreviewWrap} onOpenFile={(path) => { openNativeFile(path, review.sessionId as SessionId) }} />
+              <LoomReviewPreview t={t} sessionId={review.sessionId} seq={review.seq} initialIndex={review.index} wrap={preferences.previewWrap} onToggleWrap={togglePreviewWrap} onOpenFile={(path) => { openNativeFile(path, review.sessionId as SessionId) }} fullscreen={previewFullscreen} onToggleFullscreen={() => setPreviewFullscreen(current => !current)} />
             </div>
           : preview !== undefined
             ? <LoomFilePreview t={t} workspaceId={detailWorkspace?.id} workspaceRoot={(previewSessionId === undefined ? undefined : sessions.byId[previewSessionId]?.cwd) ?? detailWorkspace?.rootPath ?? detailWorkspace?.path} {...(detailAttemptId === undefined ? {} : { attemptId: detailAttemptId })} sessionId={previewSessionId} filePath={preview.path} initialMode={preview.mode ?? 'diff'} loadChanges={workspaceChanges} readFile={readFile} readBytes={readBytes} openPath={openPath} applications={openPathApplications} openWith={openPathWith} onClose={() => { workspacePreview.close(); setPreviewFullscreen(false) }} fullscreen={previewFullscreen} onToggleFullscreen={() => setPreviewFullscreen(current => !current)} wrap={preferences.previewWrap} onToggleWrap={togglePreviewWrap} />

@@ -15,24 +15,26 @@ export interface LatestVersionResult {
 const REGISTRY_LATEST = 'https://registry.npmjs.org/dsh-workloom/latest'
 
 /**
- * Compare dotted release versions (prerelease suffixes are ignored).
+ * Compare dotted release versions, including a stable release superseding its prerelease.
  * @param candidate - version reported by the registry.
  * @param current - version this bundle was built from.
  * @returns whether the candidate is a newer release than the current one.
  */
 export function isNewerVersion(candidate: string, current: string): boolean {
-  const parse = (value: string): number[] => value.replace(/^v/u, '').split('-')[0]!.split('.').map(part => {
+  const parse = (value: string): number[] => value.split('-')[0]!.split('.').map(part => {
     const parsed = Number.parseInt(part, 10)
     return Number.isFinite(parsed) ? parsed : 0
   })
-  const next = parse(candidate)
-  const currentParts = parse(current)
+  const candidateRelease = candidate.replace(/^v/u, '').split('+', 1)[0]!
+  const currentRelease = current.replace(/^v/u, '').split('+', 1)[0]!
+  const next = parse(candidateRelease)
+  const currentParts = parse(currentRelease)
   for (let index = 0; index < Math.max(next.length, currentParts.length); index += 1) {
     const left = next[index] ?? 0
     const right = currentParts[index] ?? 0
     if (left !== right) return left > right
   }
-  return false
+  return !candidateRelease.includes('-') && currentRelease.includes('-')
 }
 
 /**

@@ -19,9 +19,9 @@ import classes from './LoomSidebarParts.module.css'
 
 type Translate = (key: LoomKey) => string
 
-export function TreeRow(props: { depth: number; active?: boolean; expanded?: boolean; icon?: ReactNode; badge?: string; label: ReactNode; color?: string; count?: string; onClick: () => void }) {
-  const { depth, active, expanded, icon, badge, label, color, count, onClick } = props
-  return <button type="button" data-loom-hover="row" aria-expanded={expanded} onClick={onClick} className={`${classes.treeRow} ${active === true ? classes.treeRowActive : ''}`} style={{ paddingLeft: `${String(12 + depth * 13)}px` }}>
+export function TreeRow(props: { depth: number; active?: boolean; expanded?: boolean; icon?: ReactNode; badge?: string; label: ReactNode; color?: string; count?: string; title?: string; onClick: () => void }) {
+  const { depth, active, expanded, icon, badge, label, color, count, title, onClick } = props
+  return <button type="button" data-loom-hover="row" aria-expanded={expanded} title={title} onClick={onClick} className={`${classes.treeRow} ${active === true ? classes.treeRowActive : ''}`} style={{ paddingLeft: `${String(12 + depth * 13)}px` }}>
     {expanded !== undefined && <span aria-hidden className={classes.treeChevron}>{expanded ? <IconChevronDownOutlineRegular size={12} /> : <IconChevronRightOutlineRegular size={12} />}</span>}
     {icon !== undefined && <span>{icon}</span>}
     {badge !== undefined && <span className={classes.treeBadge}>{badge}</span>}
@@ -43,7 +43,7 @@ export function SidebarSessionRow({ t, row, projectName, taskTitle, temporary, a
   onSelect: () => void
 }) {
   const workspace = workspaceName(row.cwd)
-  return <button type="button" data-loom-hover="row" className={`${classes.sessionRow} ${active ? classes.sessionRowActive : ''}`} onClick={onSelect}>
+  return <button type="button" data-loom-hover="row" title={[projectName, taskTitle, row.title].filter(part => part !== undefined && part !== '').join(' · ')} className={`${classes.sessionRow} ${active ? classes.sessionRowActive : ''}`} onClick={onSelect}>
     <span className={classes.sessionDot} style={{ background: row.running ? 'var(--color-success)' : 'var(--color-line)' }} />
     <span className={classes.sessionBody}>
       <span className={classes.sessionTitle}>{row.title || t('untitledSession')}</span>

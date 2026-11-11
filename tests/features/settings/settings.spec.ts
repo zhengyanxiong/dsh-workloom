@@ -46,3 +46,12 @@ it('shows the plugin version and an update check in the About section', async ()
   expect(html).toContain(LOOM_VERSION)
   expect(html).toContain(en['settings.checkUpdates'])
 })
+
+it('clamps the stored left-sidebar width', () => {
+  vi.stubGlobal('localStorage', { getItem: () => JSON.stringify({ sidebarWidth: 9999 }), setItem: () => {} })
+  expect(readPreferences().sidebarWidth).toBe(420)
+  vi.stubGlobal('localStorage', { getItem: () => JSON.stringify({ sidebarWidth: 10 }), setItem: () => {} })
+  expect(readPreferences().sidebarWidth).toBe(200)
+  vi.stubGlobal('localStorage', { getItem: () => JSON.stringify({ sidebarWidth: 'wide' }), setItem: () => {} })
+  expect(readPreferences().sidebarWidth).toBe(DEFAULT_PREFERENCES.sidebarWidth)
+})

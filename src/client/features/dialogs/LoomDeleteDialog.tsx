@@ -1,4 +1,5 @@
 /** Modal confirmation for deleting one project, version or task. */
+import { LOOM_PORTAL_CLASS } from '../../theme/LoomTheme.tsx'
 import { Button, IconWarningTriangleOutlineRegular, Modal } from '../../ui/primitives.ts'
 import { COLORS } from '../../ui/tokens.ts'
 import type { FailureReport } from '../../ui/failure.ts'
@@ -45,7 +46,7 @@ export function LoomDeleteDialog({ t, kind, subject, busy, failure, onCancel, on
     open
     title={t(DELETE_COPY[kind].label)}
     closeLabel={t('form.close')}
-    className="loom-modal-delete"
+    className={`${LOOM_PORTAL_CLASS} loom-modal-delete`}
     onClose={() => { if (!busy) onCancel() }}
     footer={<>
       <Button variant="ghost" disabled={busy} data-modal-autofocus onClick={onCancel}>{t('form.cancel')}</Button>

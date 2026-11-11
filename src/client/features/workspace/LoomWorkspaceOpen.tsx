@@ -5,6 +5,7 @@ import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import { COLORS } from '../../ui/tokens.ts'
 import { pushLoomNotice } from '../../shared/feedback.ts'
 import type { LoomKey } from '../../shared/locales.ts'
+import { LOOM_PORTAL_CLASS } from '../../theme/LoomTheme.tsx'
 
 type Translate = (key: LoomKey, params?: Readonly<Record<string, string>>) => string
 
@@ -218,7 +219,7 @@ export function LoomWorkspaceOpen({ t, path, openPath, applications, openWith, p
     <button type="button" style={{ ...opener, opacity: busy ? 0.55 : 1 }} aria-busy={busy} aria-label={preferred === undefined ? t('ctx.open') : `${t('ctx.open')} · ${preferred.label}`}
       title={preferred === undefined ? path : `${t('ctx.open')} · ${preferred.label}`} disabled={busy}
       onClick={() => { void launch(preferred) }}>{icon}</button>
-    {entries.length > 1 && <Menu open={menuOpen} onClose={() => setMenuOpen(false)} items={menuEntries} selectedId={preferred?.key} align="end" portal
+    {entries.length > 1 && <Menu open={menuOpen} onClose={() => setMenuOpen(false)} items={menuEntries} selectedId={preferred?.key} align="end" portal listClassName={LOOM_PORTAL_CLASS}
       onSelect={(id) => { setMenuOpen(false); void launch(entries.find(entry => entry.key === id)) }}
       anchor={<button type="button" style={chevron} aria-label={t('workspace.openWith')} title={t('workspace.openWith')} onClick={() => setMenuOpen(value => !value)}><IconChevronDownOutlineRegular size={10} /></button>} />}
     {failed && <p role="alert" style={failure}>{t('workspace.openFailed')}</p>}

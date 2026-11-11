@@ -15,6 +15,7 @@ import { LoomSpreadsheetPreview } from './LoomSpreadsheetPreview.tsx'
 import { LoomWrapToggle } from '../../ui/LoomWrapToggle.tsx'
 import { diffViewport } from '../../ui/styles.ts'
 import type { LoomKey } from '../../shared/locales.ts'
+import { LOOM_PORTAL_CLASS } from '../../theme/LoomTheme.tsx'
 
 type Translate = (key: LoomKey) => string
 
@@ -199,7 +200,7 @@ function FileOpenControl({ t, path, applications, openPath, openWith }: {
     <button type="button" style={openMain} aria-label={preferred === undefined ? t('diff.openExternal') : `${t('diff.openExternal')} · ${preferred.name}`} title={preferred === undefined ? t('diff.openExternal') : `${t('diff.openExternal')} · ${preferred.name}`} onClick={() => launch(preferred?.id)}>
       {preferred === undefined ? <IconFolderOpenRegular size={13} /> : <ApplicationIcon application={preferred} />}
     </button>
-    {(items.length > 0 || footer.length > 0) && <Menu open={menuOpen} onClose={() => setMenuOpen(false)} items={items} footer={footer} selectedId={preferred?.id} align="end" portal
+    {(items.length > 0 || footer.length > 0) && <Menu open={menuOpen} onClose={() => setMenuOpen(false)} items={items} footer={footer} selectedId={preferred?.id} align="end" portal listClassName={LOOM_PORTAL_CLASS}
       onSelect={(id) => { setMenuOpen(false); if (id === '__reveal') { if (openPath !== undefined) void openPath(path, 'reveal') } else launch(id) }}
       anchor={<button type="button" style={openChevron} aria-label={t('diff.openWith')} title={t('diff.openWith')} aria-expanded={menuOpen} onClick={() => setMenuOpen(value => !value)}><IconChevronDownOutlineRegular size={10} /></button>} />}
   </span>

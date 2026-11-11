@@ -8,6 +8,35 @@ Releases start at 0.1.8 in this repository.
 
 ## [Unreleased]
 
+## [0.3.3] - 2026-11-11
+
+### Added
+
+- Turn reviews can hide and restore their changed-file list to focus on the
+  selected diff, and the review can expand into fullscreen.
+- The Workloom left sidebar is now resizable by dragging its splitter (or with
+  the arrow keys), with the width remembered across sessions; long project and
+  version names expose their full text through a row tooltip and the wider tree
+  column. The splitter hides on narrow layouts, where the sidebar becomes an
+  overlay.
+
+### Fixed
+
+- Closing a turn review or changing tasks now leaves fullscreen mode, restores
+  the aside resize handle, and prevents the next review from inheriting stale
+  fullscreen state.
+- The update check now offers a stable release when the running bundle uses the
+  same-numbered prerelease version, without treating hyphens in build metadata
+  as a prerelease.
+- Menus, modals and notices portalled outside the Loom root now carry the Loom
+  theme themselves: the panel mirrors its resolved palette onto
+  `body[data-theme]`, and every portalled surface gets the same alias bridge
+  and token classes instead of falling back to host aliases.
+- Explicit Loom dark and light themes now synchronize DSH chrome to the same
+  palette, including when the host chrome initializes after the Loom panel.
+- Sidebar and aside resizing now remains effective at medium desktop widths
+  instead of being overridden by legacy fixed-width and maximum-width rules.
+
 ## [0.3.2] - 2026-11-10
 
 ### Added

@@ -19,6 +19,7 @@ import { PRIORITY_META, STATUS_META } from '../../ui/status.ts'
 import { TaskStatusDot } from '../../ui/LoomStatusDot.tsx'
 import { LoomWorkspaceOpen } from '../workspace/LoomWorkspaceOpen.tsx'
 import type { LoomKey } from '../../shared/locales.ts'
+import { LOOM_PORTAL_CLASS } from '../../theme/LoomTheme.tsx'
 
 type Translate = (key: LoomKey, params?: Readonly<Record<string, string>>) => string
 
@@ -270,7 +271,7 @@ export function LoomContextPanel({ t, snapshot, project, version, task, versionC
         <h3 style={title}>{version?.name ?? project?.config.name ?? t('ctx.none')}</h3>
         <div style={actions}>
           {editAction !== undefined && <IconAction label={editLabel} icon={<IconEditOutlineRegular />} onClick={editAction} />}
-          {moreItems.length > 0 && <Menu open={menuOpen} onClose={() => setMenuOpen(false)} items={moreItems} align="end" portal
+          {moreItems.length > 0 && <Menu open={menuOpen} onClose={() => setMenuOpen(false)} items={moreItems} align="end" portal listClassName={LOOM_PORTAL_CLASS}
             onSelect={selectMenu}
             anchor={<Button size="sm" variant="ghost" aria-label={t('ctx.more')} title={t('ctx.more')} icon={<IconEllipsisOutlineRegular />} onClick={() => setMenuOpen(value => !value)} style={iconOnly} />} />}
         </div>
