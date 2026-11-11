@@ -11,6 +11,18 @@ it('compares dotted release versions', () => {
   expect(isNewerVersion('0.3.1-rc.1', '0.3.1')).toBe(false)
 })
 
+it('offers a stable release to a bundle built from the same-numbered prerelease', () => {
+  expect(isNewerVersion('0.3.2', '0.3.2-rc.2')).toBe(true)
+  expect(isNewerVersion('0.3.2-rc.2', '0.3.2')).toBe(false)
+})
+
+it('does not mistake hyphens in build metadata for a prerelease', () => {
+  expect(isNewerVersion('0.3.2', '0.3.2+local.test')).toBe(false)
+  expect(isNewerVersion('0.3.2', '0.3.2+local-test')).toBe(false)
+  expect(isNewerVersion('0.3.2', '0.3.2+local.0.2.1-rc.2')).toBe(false)
+  expect(isNewerVersion('0.3.2+build-meta', '0.3.2-rc.1')).toBe(true)
+})
+
 it('reads the latest version from the npm registry and flags an upgrade', async () => {
   const calls: string[] = []
   const fetchImpl = async (input: string | URL | Request): Promise<Response> => {

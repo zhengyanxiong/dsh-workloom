@@ -8,6 +8,15 @@ Releases start at 0.1.8 in this repository.
 
 ## [Unreleased]
 
+### Fixed
+
+- Closing a turn review or changing tasks now leaves fullscreen mode, restores
+  the aside resize handle, and prevents the next review from inheriting stale
+  fullscreen state.
+- The update check now offers a stable release when the running bundle uses the
+  same-numbered prerelease version, without treating hyphens in build metadata
+  as a prerelease.
+
 ## [0.3.2] - 2026-11-10
 
 ### Added
