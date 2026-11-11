@@ -14,6 +14,11 @@ Releases start at 0.1.8 in this repository.
 
 - Turn reviews can hide and restore their changed-file list to focus on the
   selected diff, and the review can expand into fullscreen.
+- The Workloom left sidebar is now resizable by dragging its splitter (or with
+  the arrow keys), with the width remembered across sessions; long project and
+  version names expose their full text through a row tooltip and the wider tree
+  column. The splitter hides on narrow layouts, where the sidebar becomes an
+  overlay.
 
 ### Fixed
 
@@ -23,16 +28,19 @@ Releases start at 0.1.8 in this repository.
 - The update check now offers a stable release when the running bundle uses the
   same-numbered prerelease version, without treating hyphens in build metadata
   as a prerelease.
+- Menus, modals and notices portalled outside the Loom root now carry the Loom
+  theme themselves: the panel mirrors its resolved palette onto
+  `body[data-theme]`, and every portalled surface gets the same alias bridge
+  and token classes instead of falling back to host aliases.
+- Explicit Loom dark and light themes now synchronize DSH chrome to the same
+  palette, including when the host chrome initializes after the Loom panel.
+- Sidebar and aside resizing now remains effective at medium desktop widths
+  instead of being overridden by legacy fixed-width and maximum-width rules.
 
 ## [0.3.2] - 2026-11-10
 
 ### Added
 
-- The Workloom left sidebar is now resizable by dragging its splitter (or with
-  the arrow keys), with the width remembered across sessions; long project and
-  version names expose their full text through a row tooltip and the wider tree
-  column. The splitter hides on narrow layouts, where the sidebar becomes an
-  overlay.
 - Settings now carry an About & updates section: the panel shows the plugin
   version compiled into the bundle, checks the npm registry on demand, and for a
   newer release shows a copyable `dsh plugin add` command that upgrades the
@@ -45,10 +53,6 @@ Releases start at 0.1.8 in this repository.
 
 ### Fixed
 
-- Menus and modals portalled outside the Loom root now carry the Loom theme
-  themselves: the panel mirrors its resolved palette onto `body[data-theme]` and
-  portalled cards get the same alias bridge and token classes, so the branch
-  dropdown no longer renders a light surface with light text in the dark theme.
 - The Loom full-bleed layout now reserves the desktop window chrome: on macOS
   panels pad by the shell clearance so content never sits under the hidden
   titlebar, and the full-bleed root is offset below the Windows caption row and
