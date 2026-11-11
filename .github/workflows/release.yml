@@ -3,6 +3,7 @@ name: Release
 on:
   push:
     branches: [main]
+    tags: ['v*']
   workflow_dispatch:
 
 permissions:
@@ -98,11 +99,22 @@ jobs:
         if: steps.release.outputs.publish == 'true'
         run: npm publish --provenance
 
+      # Keep the npm package as its own build artifact even when the GitHub
+      # Release already exists; the same tarball is attached to the Release when
+      # the Release needs creating or refreshing.
       - name: Pack the npm tarball
-        if: steps.release.outputs.release == 'true'
+        if: steps.release.outputs.work == 'true'
         run: |
           mkdir -p release-assets
           npm pack --ignore-scripts --pack-destination release-assets
+
+      - name: Upload the npm package artifact
+        if: steps.release.outputs.work == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-package
+          path: release-assets/*.tgz
+          if-no-files-found: error
 
       - name: Tag the release
         if: steps.release.outputs.tag == 'true'
