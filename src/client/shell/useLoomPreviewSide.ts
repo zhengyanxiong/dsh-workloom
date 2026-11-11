@@ -31,7 +31,7 @@ export function useLoomPreviewSide(initialAsideOpen: boolean, taskId: string | u
   const preview = useSyncExternalStore(workspacePreview.subscribe, workspacePreview.getSnapshot, workspacePreview.getSnapshot)
   const review = useSyncExternalStore(workspaceReviewPreview.subscribe, workspaceReviewPreview.getSnapshot, workspaceReviewPreview.getSnapshot)
   useEffect(() => { if (preview !== undefined || review !== undefined) setAsideOpen(true) }, [preview, review])
-  useEffect(() => { if (preview === undefined) setPreviewFullscreen(false) }, [preview])
+  useEffect(() => { if (preview === undefined && review === undefined) setPreviewFullscreen(false) }, [preview, review])
   useEffect(() => {
     if (!previewFullscreen) return
     const onKey = (event: KeyboardEvent): void => { if (event.key === 'Escape') setPreviewFullscreen(false) }
