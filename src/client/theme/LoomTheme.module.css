@@ -56,11 +56,13 @@
   --dsw-radius-lg: var(--radius-lg);
   --dsw-radius-xs: var(--radius-xs);
   --dsw-radius-panel: var(--radius-lg);
+  --dsw-radius-xl: var(--radius-xl);
   --dsw-menu-surface-fill: var(--color-surface);
   --dsw-menu-backdrop-filter: none;
   /* DSH composer/inline-code tokens live on :root and do not use the alias
      prefix; without these the native input stays on the host light surface. */
   --dsw-specific-input-major: var(--color-surface);
+  --dsw-specific-bubble: var(--color-accent-soft);
   --dsw-specific-menu: var(--color-surface);
   --dsw-specific-selector: var(--color-surface);
   --dsw-alias-button-info-fill: var(--color-accent-soft);
