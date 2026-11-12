@@ -99,6 +99,13 @@ it('shows the running round and session controls without duplicating task transi
   expect(html).toContain(en['workspace.cleanup'])
   expect(html).not.toContain(en['task.start'])
 })
+it('gives execution controls a primary, neutral and destructive hierarchy', () => {
+  const html = renderToStaticMarkup(createElement(ExecutionPanel, { t, task: running, snapshot, selectedSession: undefined, actions, ...diffProps }))
+  expect(html).toContain('data-variant="primary"')
+  expect(html).toContain('data-variant="secondary"')
+  expect(html).toContain('data-variant="danger"')
+})
+
 it('leaves review transitions to the outcome panel and does not duplicate them here', () => {
   const html = renderToStaticMarkup(createElement(ExecutionPanel, { t, task: { ...running, status: 'review' }, snapshot, selectedSession: undefined, actions, ...diffProps }))
   expect(html).toContain(en['session.continue'])

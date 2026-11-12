@@ -26,6 +26,24 @@ it('rejects unknown appearance values instead of applying them', () => {
   expect(readPreferences()).toEqual(DEFAULT_PREFERENCES)
 })
 
+it('accepts and exposes the 16px text size', async () => {
+  vi.stubGlobal('localStorage', { getItem: () => JSON.stringify({ fontSize: 16 }), setItem: () => {} })
+  expect(readPreferences().fontSize).toBe(16)
+  const { createElement } = await import('react')
+  const { renderToStaticMarkup } = await import('react-dom/server')
+  const { LoomSettingsPage } = await import('../../../src/client/features/settings/LoomSettingsPage.tsx')
+  const { en } = await import('../../../src/client/shared/locales.ts')
+  const html = renderToStaticMarkup(createElement(LoomSettingsPage, {
+    t: (key: keyof typeof en) => en[key],
+    preferences: { ...DEFAULT_PREFERENCES, fontSize: 16 },
+    pinned: [],
+    onChange: () => {},
+    onUnpin: () => {},
+    onBack: () => {},
+  }))
+  expect(html).toContain('>16</button>')
+})
+
 it('shows the plugin version and an update check in the About section', async () => {
   const { createElement } = await import('react')
   const { renderToStaticMarkup } = await import('react-dom/server')

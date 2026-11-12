@@ -65,8 +65,8 @@
   --dsw-specific-bubble: var(--color-accent-soft);
   --dsw-specific-menu: var(--color-surface);
   --dsw-specific-selector: var(--color-surface);
-  --dsw-alias-button-info-fill: var(--color-accent-soft);
-  --dsw-alias-button-info-hover: var(--color-panel);
+  --dsw-alias-button-info-fill: var(--color-accent-solid);
+  --dsw-alias-button-info-hover: color-mix(in srgb, var(--color-accent-solid) 88%, var(--color-bg));
   --dsw-alias-label-primary-bluish: var(--color-accent-ink);
   --dsw-alias-interactive-bg-hover-solid: var(--color-panel);
   --dsw-alias-state-business-tertiary: var(--color-accent-soft);

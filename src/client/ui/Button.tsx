@@ -27,7 +27,7 @@ export interface LoomButtonProps extends ButtonHTMLAttributes<HTMLButtonElement>
  */
 export function LoomButton({ variant = 'secondary', size = 'md', icon, iconOnly = false, className, children, ...rest }: LoomButtonProps): JSX.Element {
   const names = [classes.button, classes[size], classes[variant], iconOnly ? classes.icon : '', className ?? ''].filter(Boolean).join(' ')
-  return <button type="button" {...rest} className={names}>
+  return <button type="button" {...rest} data-size={size} data-variant={variant} className={names}>
     {icon}
     {iconOnly ? null : children}
   </button>

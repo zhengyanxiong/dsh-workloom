@@ -25,5 +25,5 @@
 .secondary:hover:not(:disabled) { background: var(--color-panel); border-color: var(--color-line-strong); }
 .ghost { background: transparent; color: var(--color-ink-3); }
 .ghost:hover:not(:disabled) { background: var(--color-panel); color: var(--color-ink); }
-.danger { background: transparent; border-color: var(--color-danger-soft); color: var(--color-danger); }
-.danger:hover:not(:disabled) { background: var(--color-danger-soft); }
+.danger { background: var(--color-danger-soft); border-color: color-mix(in srgb, var(--color-danger) 30%, transparent); color: var(--color-danger); }
+.danger:hover:not(:disabled) { background: color-mix(in srgb, var(--color-danger) 16%, var(--color-danger-soft)); border-color: color-mix(in srgb, var(--color-danger) 48%, transparent); }

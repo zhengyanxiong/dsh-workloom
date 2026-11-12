@@ -101,7 +101,7 @@ function SectionHeading({ title: heading, action }: { title: string; action?: Re
 function Row({ k, v, mono: useMono = true, wrap = true }: { k: string; v: string; mono?: boolean; wrap?: boolean }) {
   return <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10, minWidth: 0, fontSize: 'var(--text-small-size)' }}>
     <span style={{ color: COLORS.dim, flex: 'none' }}>{k}</span>
-    <span title={wrap ? undefined : v} style={{ color: COLORS.text, fontFamily: useMono ? 'ui-monospace, monospace' : 'inherit', fontSize: useMono ? 10.5 : 11, textAlign: 'right', minWidth: 0, ...(wrap ? { overflowWrap: 'anywhere' } : { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }) }}>{v}</span>
+    <span title={wrap ? undefined : v} style={{ color: COLORS.text, fontFamily: useMono ? 'ui-monospace, monospace' : 'inherit', fontSize: useMono ? 'var(--text-micro-size)' : 'var(--text-label-size)', textAlign: 'right', minWidth: 0, ...(wrap ? { overflowWrap: 'anywhere' } : { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }) }}>{v}</span>
   </div>
 }
 

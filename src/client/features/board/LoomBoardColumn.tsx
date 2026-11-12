@@ -28,6 +28,7 @@ function Card({ t, task, projectName, versionName, sessionId, live, onSelect }: 
   return <button
     type="button"
     data-loom-hover="card"
+    data-board-card={task.status}
     data-loom-running={live ? 'true' : undefined}
     className={`${classes.card} ${live ? classes.cardRunning : ''} ${dragging ? classes.cardDragging : ''}`}
     draggable
@@ -87,6 +88,7 @@ export function LoomBoardColumn(props: LoomBoardColumnProps): JSX.Element {
   return <div
     role="group"
     aria-label={t(meta.key)}
+    data-board-column={column.status}
     className={`${classes.column} ${over ? classes.columnOver : ''}`}
     onDragOver={event => {
       event.preventDefault()
@@ -102,7 +104,7 @@ export function LoomBoardColumn(props: LoomBoardColumnProps): JSX.Element {
     }}
   >
     <div className={classes.columnHead}>
-      <span aria-hidden className={classes.columnDot} style={{ background: meta.color }} />
+      <span aria-hidden className={classes.columnDot} />
       <span className={classes.columnName}>{t(meta.key)}</span>
       <span className={classes.columnCount}>{String(column.tasks.length)}</span>
       <span className={classes.columnSpacer} />

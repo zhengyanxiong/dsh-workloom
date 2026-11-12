@@ -8,6 +8,28 @@ Releases start at 0.1.8 in this repository.
 
 ## [Unreleased]
 
+## [0.3.4] - 2026-11-12
+
+### Added
+
+- Text size adds a 16px step alongside 13–15px.
+- Task execution controls now use a theme-aware primary, neutral and
+  destructive action hierarchy instead of identical outline buttons.
+- Kanban columns and cards use distinct business-status accents in every
+  theme, with card entrance, hover lift, drag-target pulse and running-card
+  motion; the reduced-motion preference still disables them.
+
+### Fixed
+
+- Appearance preview cards now keep their own palette when another theme is
+  selected, so the Blue preview no longer turns dark with the Dark theme.
+- The native primary action keeps the solid accent fill across Loom themes, so
+  the Session send button stays prominent instead of fading into the composer
+  surface.
+- Text size now scales every Workloom text role except headings: body, compact,
+  description, labels, micro text and mono metadata, plus embedded Session
+  content.
+
 ## [0.3.3] - 2026-11-11
 
 ### Added

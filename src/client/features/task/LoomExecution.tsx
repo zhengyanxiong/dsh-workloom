@@ -1,6 +1,7 @@
 /** Execution controls for the selected task: workspaces, sessions and business status. */
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { Button } from '../../ui/primitives.ts'
+import { LoomButton } from '../../ui/Button.tsx'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import type {
   AttachSessionRequest, CatalogSnapshot, CleanupWorkspaceRequest, CommitWorkspaceRequest, ExecutionRequest, ExecutionState, PrepareWorkspaceRequest, WorkspaceCommitResult,
@@ -302,9 +303,9 @@ export function ExecutionPanel({ t, task, snapshot, agentPresets = [], selectedS
       <span style={ownerMeta}>{t('session.agentPresetHint')}</span>
     </div>}
     {(task.status === 'running' || task.status === 'review') && workspace !== undefined && <div style={actionBar}>
-      {boundSession !== undefined && <Button size="sm" variant="outline" disabled={busy} onClick={continueSession}>{t('session.continue')}</Button>}
-      <Button size="sm" variant="outline" disabled={busy} onClick={() => { void openSession() }}>{t('session.new')}</Button>
-      {selectedSession !== undefined && current !== undefined && !current.sessionIds.includes(selectedSession) && <Button size="sm" variant="outline" disabled={busy} onClick={() => { void attach() }}>{t('session.open')}</Button>}
+      {boundSession !== undefined && <LoomButton size="sm" variant="primary" disabled={busy} onClick={continueSession}>{t('session.continue')}</LoomButton>}
+      <LoomButton size="sm" variant="secondary" disabled={busy} onClick={() => { void openSession() }}>{t('session.new')}</LoomButton>
+      {selectedSession !== undefined && current !== undefined && !current.sessionIds.includes(selectedSession) && <LoomButton size="sm" variant="secondary" disabled={busy} onClick={() => { void attach() }}>{t('session.open')}</LoomButton>}
     </div>}
     {workspace !== undefined && boundSession !== undefined && workspace.cleaned !== true && <div style={ownerBox}>
       <div style={ownerLine}>
@@ -321,19 +322,19 @@ export function ExecutionPanel({ t, task, snapshot, agentPresets = [], selectedS
       </div>
       {execution?.takeover !== null && execution?.takeover !== undefined && <p style={{ ...ownerMeta, color: execution.takeover.stopStatus === 'requested' ? COLORS.dim : COLORS.warn }}>{execution.takeover.stopStatus === 'requested' ? t('execution.stopping') : t('execution.blocked')}</p>}
       {execution?.owner !== null && execution?.owner !== undefined && !ownsExecution && <div style={actionBar}>
-        {!waitingExecution && <Button size="sm" variant="outline" disabled={busy || execution?.takeover !== null} onClick={() => { void acquire() }}>{t('execution.wait')}</Button>}
-        {waitingExecution && <Button size="sm" variant="outline" disabled={busy} onClick={() => { void cancelWait() }}>{t('execution.leaveQueue')}</Button>}
-        {!takeoverConfirm && <Button size="sm" variant="outline" disabled={busy || execution?.takeover !== null} onClick={() => { setTakeoverConfirm(true); setFailure(undefined) }}>{t('execution.takeover')}</Button>}
+        {!waitingExecution && <LoomButton size="sm" variant="secondary" disabled={busy || execution?.takeover !== null} onClick={() => { void acquire() }}>{t('execution.wait')}</LoomButton>}
+        {waitingExecution && <LoomButton size="sm" variant="secondary" disabled={busy} onClick={() => { void cancelWait() }}>{t('execution.leaveQueue')}</LoomButton>}
+        {!takeoverConfirm && <LoomButton size="sm" variant="danger" disabled={busy || execution?.takeover !== null} onClick={() => { setTakeoverConfirm(true); setFailure(undefined) }}>{t('execution.takeover')}</LoomButton>}
       </div>}
       {ownsExecution && (execution?.takeover === null || execution?.takeover === undefined) && <div style={actionBar}>
-        <Button size="sm" variant="outline" disabled={busy} onClick={() => { void release() }}>{t('execution.release')}</Button>
+        <LoomButton size="sm" variant="danger" disabled={busy} onClick={() => { void release() }}>{t('execution.release')}</LoomButton>
       </div>}
       {(execution?.owner === null || execution?.owner === undefined) && actorSession !== undefined && <div style={actionBar}>
-        <Button size="sm" variant="outline" disabled={busy} onClick={() => { void acquire() }}>{t('execution.acquire')}</Button>
+        <LoomButton size="sm" variant="primary" disabled={busy} onClick={() => { void acquire() }}>{t('execution.acquire')}</LoomButton>
       </div>}
     </div>}
     {workspace !== undefined && workspace.cleaned !== true && <div style={footer}>
-      <Button size="sm" variant="outline" disabled={busy} onClick={() => { setCleanOpen(true); setCleanFailure(undefined); setDiscardAllowed(false) }}>{t('workspace.cleanup')}</Button>
+      <LoomButton size="sm" variant="danger" disabled={busy} onClick={() => { setCleanOpen(true); setCleanFailure(undefined); setDiscardAllowed(false) }}>{t('workspace.cleanup')}</LoomButton>
       {busy && busyLabel !== undefined && <span role="status" style={{ ...alert, fontFamily: 'ui-monospace, monospace', fontSize: 'var(--text-label-size)' }}>{busyLabel}…</span>}
     </div>}
     {cleanOpen && workspace !== undefined && <LoomCleanupDialog

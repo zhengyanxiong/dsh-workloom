@@ -9,7 +9,7 @@ import { COLORS } from './tokens.ts'
 export const STATUS_META: Readonly<Record<TaskStatus, { readonly key: LoomKey; readonly color: string }>> = {
   pending: { key: 'task.status.pending', color: COLORS.faint },
   running: { key: 'task.status.running', color: COLORS.accent },
-  review: { key: 'task.status.review', color: COLORS.purple },
+  review: { key: 'task.status.review', color: COLORS.warn },
   completed: { key: 'task.status.completed', color: COLORS.green },
   failed: { key: 'task.status.failed', color: COLORS.error },
 }
