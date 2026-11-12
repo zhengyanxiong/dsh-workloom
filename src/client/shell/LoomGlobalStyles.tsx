@@ -29,6 +29,10 @@ export function LoomGlobalStyles({ fontSize }: LoomGlobalStylesProps): JSX.Eleme
         --text-body-size: ${String(fontSize)}px;
         --text-compact-size: ${String(fontSize - 1)}px;
         --text-small-size: ${String(fontSize - 2)}px;
+        --text-label-size: ${String(fontSize - 2.5)}px;
+        --text-micro-size: ${String(fontSize - 3.5)}px;
+        --text-nano-size: ${String(fontSize - 4)}px;
+        --text-mono-size: ${String(fontSize - 2)}px;
         --dsh-content-font-size: ${String(fontSize)}px;
       }
       .loom-palette { width: min(560px, calc(100vw - 48px)) !important; max-height: min(640px, calc(100vh - 96px)); padding: 0 !important; gap: 0 !important; overflow: hidden; }

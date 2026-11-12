@@ -20,21 +20,45 @@ it('keeps the native primary action on the solid accent', () => {
   expect(bridgeCss).toMatch(/--dsw-alias-button-info-hover:\s*color-mix\(in srgb, var\(--color-accent-solid\) 88%, var\(--color-bg\)\);/u)
 })
 
-it('scales Workloom body, compact and description text with the preference', () => {
+it('scales every Workloom supporting text role with the preference', () => {
   const regular = renderToStaticMarkup(createElement(LoomGlobalStyles, { fontSize: 14 }))
-  expect(regular).toContain('--text-body-size: 14px')
-  expect(regular).toContain('--text-compact-size: 13px')
-  expect(regular).toContain('--text-small-size: 12px')
+  for (const declaration of [
+    '--text-body-size: 14px',
+    '--text-compact-size: 13px',
+    '--text-small-size: 12px',
+    '--text-label-size: 11.5px',
+    '--text-micro-size: 10.5px',
+    '--text-nano-size: 10px',
+    '--text-mono-size: 12px',
+  ]) expect(regular).toContain(declaration)
 
   const small = renderToStaticMarkup(createElement(LoomGlobalStyles, { fontSize: 13 }))
-  expect(small).toContain('--text-body-size: 13px')
-  expect(small).toContain('--text-compact-size: 12px')
-  expect(small).toContain('--text-small-size: 11px')
+  for (const declaration of [
+    '--text-body-size: 13px',
+    '--text-compact-size: 12px',
+    '--text-small-size: 11px',
+    '--text-label-size: 10.5px',
+    '--text-micro-size: 9.5px',
+    '--text-nano-size: 9px',
+    '--text-mono-size: 11px',
+  ]) expect(small).toContain(declaration)
 
   const large = renderToStaticMarkup(createElement(LoomGlobalStyles, { fontSize: 15 }))
-  expect(large).toContain('--text-body-size: 15px')
-  expect(large).toContain('--text-compact-size: 14px')
-  expect(large).toContain('--text-small-size: 13px')
+  for (const declaration of [
+    '--text-body-size: 15px',
+    '--text-compact-size: 14px',
+    '--text-small-size: 13px',
+    '--text-label-size: 12.5px',
+    '--text-micro-size: 11.5px',
+    '--text-nano-size: 11px',
+    '--text-mono-size: 13px',
+  ]) expect(large).toContain(declaration)
+})
+
+it('keeps context-panel facts on preference-driven type tokens', () => {
+  const source = readFileSync(new URL('../../../src/client/features/version/LoomContextPanel.tsx', import.meta.url), 'utf8')
+  expect(source).not.toContain('fontSize: useMono ? 10.5 : 11')
+  expect(source).toContain("fontSize: useMono ? 'var(--text-micro-size)' : 'var(--text-label-size)'")
 })
 
 it('feeds the preference into embedded session text', () => {

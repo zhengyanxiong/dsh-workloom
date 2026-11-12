@@ -15,8 +15,9 @@ Releases start at 0.1.8 in this repository.
 - The native primary action keeps the solid accent fill across Loom themes, so
   the Session send button stays prominent instead of fading into the composer
   surface.
-- Body text size now scales Workloom body, compact and description text plus
-  embedded Session content, instead of only updating an otherwise unused token.
+- Text size now scales every Workloom text role except headings: body, compact,
+  description, labels, micro text and mono metadata, plus embedded Session
+  content.
 
 ## [0.3.3] - 2026-11-11
 
