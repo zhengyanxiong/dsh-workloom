@@ -1,6 +1,7 @@
-/* 由 design/tokens.json 生成，请勿手改。改 tokens.json 后重跑 build-tokens.mjs */
+/* 由 design/tokens.json 生成，请勿手改。改 tokens.json 后重跑 build-tokens.mjs；blue 主题复用基础调色板。 */
 
-:root {
+:root,
+[data-theme='blue'] {
   --color-bg: #FFFFFF;
   --color-surface: #FFFFFF;
   --color-panel: #F9FAFB;

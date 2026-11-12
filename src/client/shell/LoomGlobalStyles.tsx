@@ -27,6 +27,9 @@ export function LoomGlobalStyles({ fontSize }: LoomGlobalStylesProps): JSX.Eleme
         --loom-dim: var(--color-ink-3);
         --loom-faint: var(--color-muted);
         --text-body-size: ${String(fontSize)}px;
+        --text-compact-size: ${String(fontSize - 1)}px;
+        --text-small-size: ${String(fontSize - 2)}px;
+        --dsh-content-font-size: ${String(fontSize)}px;
       }
       .loom-palette { width: min(560px, calc(100vw - 48px)) !important; max-height: min(640px, calc(100vh - 96px)); padding: 0 !important; gap: 0 !important; overflow: hidden; }
       .loom-root [role='separator']:focus-visible { outline: 2px solid var(--color-accent) !important; outline-offset: 2px; }
