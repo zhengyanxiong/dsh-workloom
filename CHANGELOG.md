@@ -8,6 +8,8 @@ Releases start at 0.1.8 in this repository.
 
 ## [Unreleased]
 
+## [0.3.4] - 2026-11-12
+
 ### Added
 
 - Text size adds a 16px step alongside 13–15px.
