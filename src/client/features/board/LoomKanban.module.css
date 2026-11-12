@@ -237,19 +237,34 @@
   gap: var(--space-3);
 }
 
+.column[data-board-column='pending'],
+.card[data-board-card='pending'] { --board-accent: var(--color-muted); --board-soft: var(--color-line-soft); }
+.column[data-board-column='running'],
+.card[data-board-card='running'] { --board-accent: var(--color-accent); --board-soft: var(--color-accent-soft); }
+.column[data-board-column='review'],
+.card[data-board-card='review'] { --board-accent: var(--color-warning); --board-soft: var(--color-warning-soft); }
+.column[data-board-column='completed'],
+.card[data-board-card='completed'] { --board-accent: var(--color-success); --board-soft: var(--color-success-soft); }
+.column[data-board-column='failed'],
+.card[data-board-card='failed'] { --board-accent: var(--color-danger); --board-soft: var(--color-danger-soft); }
+
 .column {
+  --board-accent: var(--color-line-strong);
+  --board-soft: var(--color-line-soft);
   display: flex;
   flex-direction: column;
   min-width: 0;
   min-height: 220px;
   background: var(--color-surface);
   border: 1px solid var(--color-line);
+  border-top: 3px solid color-mix(in srgb, var(--board-accent) 52%, var(--color-line));
   border-radius: var(--radius-md);
   overflow: hidden;
+  transition: border-color 160ms var(--motion-ease), box-shadow 160ms var(--motion-ease), background-color 160ms var(--motion-ease);
 }
 
 .columnOver {
-  border-color: color-mix(in srgb, var(--color-accent) 46%, var(--color-line));
+  border-color: color-mix(in srgb, var(--board-accent) 52%, var(--color-line));
   box-shadow: var(--shadow-button);
 }
 
@@ -260,15 +275,16 @@
   gap: var(--space-2);
   height: 36px;
   padding: 0 var(--space-3);
-  background: var(--color-panel);
-  border-bottom: 1px solid var(--color-line);
+  background: color-mix(in srgb, var(--board-soft) 62%, var(--color-panel));
+  border-bottom: 1px solid color-mix(in srgb, var(--board-accent) 22%, var(--color-line));
 }
 
 .columnDot {
   flex: none;
-  width: 6px;
-  height: 6px;
+  width: 7px;
+  height: 7px;
   border-radius: var(--radius-pill);
+  background: var(--board-accent);
 }
 
 .columnName {
@@ -350,12 +366,15 @@
 }
 
 .card {
+  --board-accent: var(--color-line-strong);
+  --board-soft: var(--color-line-soft);
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
   width: 100%;
   padding: var(--space-3) var(--space-3) var(--space-2);
   border: 1px solid var(--color-line);
+  border-left: 3px solid color-mix(in srgb, var(--board-accent) 52%, var(--color-line));
   border-radius: var(--radius-md);
   background: var(--color-surface);
   color: inherit;
@@ -363,10 +382,17 @@
   text-align: left;
   cursor: pointer;
   box-shadow: var(--shadow-card);
+  transition: transform 150ms var(--motion-ease), border-color 150ms var(--motion-ease), box-shadow 150ms var(--motion-ease);
+}
+
+.card:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-float);
 }
 
 .cardDragging {
   opacity: .55;
+  transform: rotate(1deg) scale(.98);
 }
 
 .cardRunning {
@@ -434,7 +460,10 @@
 }
 
 .stateLabel {
-  color: var(--color-ink-3);
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-xs);
+  background: color-mix(in srgb, var(--board-soft) 58%, var(--color-surface));
+  color: color-mix(in srgb, var(--board-accent) 76%, var(--color-ink));
   font-size: var(--text-label-size);
   line-height: var(--text-label-lh);
   white-space: nowrap;
@@ -566,8 +595,25 @@
   50% { box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 30%, transparent); }
 }
 
+@keyframes loom-board-card-in {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes loom-board-over {
+  0%, 100% { box-shadow: 0 0 0 1px color-mix(in srgb, var(--board-accent) 24%, transparent); }
+  50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--board-accent) 18%, transparent); }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .card { animation: loom-board-card-in 180ms var(--motion-ease); }
+  .card.cardRunning { animation: loom-board-pulse 1.8s ease-in-out infinite; }
+  .columnOver { animation: loom-board-over 1.1s ease-in-out infinite; }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .cardRunning { animation: none; }
+  .cardRunning, .card, .columnOver { animation: none; }
+  .card:hover:not(:disabled), .cardDragging { transform: none; }
 }
 
 @container (max-width: 960px) {

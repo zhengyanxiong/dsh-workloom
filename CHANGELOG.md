@@ -11,6 +11,11 @@ Releases start at 0.1.8 in this repository.
 ### Added
 
 - Text size adds a 16px step alongside 13–15px.
+- Task execution controls now use a theme-aware primary, neutral and
+  destructive action hierarchy instead of identical outline buttons.
+- Kanban columns and cards use distinct business-status accents in every
+  theme, with card entrance, hover lift, drag-target pulse and running-card
+  motion; the reduced-motion preference still disables them.
 
 ### Fixed
 

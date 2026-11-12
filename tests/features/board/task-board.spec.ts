@@ -6,6 +6,7 @@ import type { BoardTask } from '../../../src/client/features/board/board.ts'
 import type { CatalogSnapshot, ProjectRecord, TaskRecord, VersionRecord } from 'dsh-workloom/types'
 import { LoomKanban } from '../../../src/client/features/board/LoomKanban.tsx'
 import { TaskBoard } from '../../../src/client/features/board/TaskBoard.tsx'
+import { STATUS_META } from '../../../src/client/ui/status.ts'
 import { en, type LoomKey } from '../../../src/client/shared/locales.ts'
 
 const t = (key: LoomKey) => en[key]
@@ -41,6 +42,26 @@ it('orders board columns from pending through completed', () => {
   for (const [index, position] of positions.entries()) {
     expect(position, order[index]).toBeGreaterThan(-1)
     if (index > 0) expect(position, order[index]).toBeGreaterThan(positions[index - 1]!)
+  }
+})
+
+it('keeps running and review visually distinct in every theme', () => {
+  expect(STATUS_META.review.color).toBe('var(--color-warning)')
+  expect(STATUS_META.review.color).not.toBe(STATUS_META.running.color)
+})
+
+it('marks columns and cards with their business status for theme-aware styling', () => {
+  const tasks = (['pending', 'running', 'review', 'completed', 'failed'] as const).map((status, index): TaskRecord => ({
+    id: brandString<TaskRecord['id']>(`t${String(index)}`),
+    versionId: version.id,
+    title: `${status} task`,
+    status,
+    attempts: [],
+  }))
+  const html = kanbanHtml(snapshotOf(tasks), { liveTaskIds: new Set([tasks[1]!.id]) })
+  for (const status of ['pending', 'running', 'review', 'completed', 'failed']) {
+    expect(html).toContain(`data-board-column="${status}"`)
+    expect(html).toContain(`data-board-card="${status}"`)
   }
 })
 
