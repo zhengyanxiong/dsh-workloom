@@ -8,6 +8,10 @@ Releases start at 0.1.8 in this repository.
 
 ## [Unreleased]
 
+### Added
+
+- Text size adds a 16px step alongside 13–15px.
+
 ### Fixed
 
 - Appearance preview cards now keep their own palette when another theme is

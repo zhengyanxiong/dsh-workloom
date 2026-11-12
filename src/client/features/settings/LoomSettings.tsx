@@ -4,6 +4,12 @@ import type { LoomThemePreference } from '../../theme/selection.ts'
 import { LoomSelect, type LoomSelectOption } from '../../ui/Select.tsx'
 import classes from './LoomSettings.module.css'
 
+/** Text-size steps offered by the settings page. */
+export const FONT_SIZES = [13, 14, 15, 16] as const
+
+/** One text-size preference value. */
+export type LoomFontSize = (typeof FONT_SIZES)[number]
+
 /** Browser-persisted workbench defaults. */
 export interface LoomPreferences {
   readonly view: 'workbench' | 'kanban'
@@ -14,8 +20,8 @@ export interface LoomPreferences {
   readonly theme: LoomThemePreference
   /** Card and row density; compact tightens spacing without shrinking text. */
   readonly density: 'comfortable' | 'compact'
-  /** Body text size in pixels; headings never scale with it. */
-  readonly fontSize: 13 | 14 | 15
+  /** Text size in pixels; headings never scale with it. */
+  readonly fontSize: LoomFontSize
   /** Disable Loom transitions and animations. */
   readonly reducedMotion: boolean
   readonly contextOpen: boolean
@@ -83,7 +89,7 @@ export function readPreferences(): LoomPreferences {
       const raw = record[key]
       return typeof raw === 'number' && Number.isFinite(raw) ? Math.min(Math.max(Math.round(raw), min), max) : fallback
     }
-    const fontSize = record.fontSize === 13 || record.fontSize === 15 ? record.fontSize : 14
+    const fontSize = FONT_SIZES.find(candidate => candidate === record.fontSize) ?? 14
     return {
       view, kanbanMode, boardView, theme, density, fontSize, reducedMotion, contextOpen, previewWrap,
       openOnLoad, collapseSidebar, autoCollapseSidebar,

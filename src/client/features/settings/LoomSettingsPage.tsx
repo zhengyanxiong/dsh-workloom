@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { IconCheckOutlineRegular, IconChevronLeftOutlineRegular, Switch } from '../../ui/primitives.ts'
 import type { ProjectRecord } from 'dsh-workloom/types'
-import { SESSION_LIMITS, SelectField, SettingRow, WIP_LIMITS, type LoomPreferences } from './LoomSettings.tsx'
+import { FONT_SIZES, SESSION_LIMITS, SelectField, SettingRow, WIP_LIMITS, type LoomPreferences } from './LoomSettings.tsx'
 import type { LoomKey } from '../../shared/locales.ts'
 import { resolveLoomTheme, type LoomThemeAttribute, type LoomThemePreference } from '../../theme/selection.ts'
 import { LoomButton } from '../../ui/Button.tsx'
@@ -174,8 +174,8 @@ export function LoomSettingsPage({ t, preferences, pinned, onChange, onUnpin, on
               <LoomSegmented
                 ariaLabel={t('settings.fontSize')}
                 value={String(preferences.fontSize)}
-                options={[13, 14, 15].map(size => ({ value: String(size), label: String(size) }))}
-                onChange={value => onChange({ ...preferences, fontSize: value === '13' ? 13 : value === '15' ? 15 : 14 })}
+                options={FONT_SIZES.map(size => ({ value: String(size), label: String(size) }))}
+                onChange={value => onChange({ ...preferences, fontSize: FONT_SIZES.find(size => String(size) === value) ?? 14 })}
               />
             } />
             <SettingRow label={t('settings.reducedMotion')} description={t('settings.reducedMotionHint')} control={

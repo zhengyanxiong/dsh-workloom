@@ -53,6 +53,18 @@ it('scales every Workloom supporting text role with the preference', () => {
     '--text-nano-size: 11px',
     '--text-mono-size: 13px',
   ]) expect(large).toContain(declaration)
+
+  const extraLarge = renderToStaticMarkup(createElement(LoomGlobalStyles, { fontSize: 16 }))
+  for (const declaration of [
+    '--text-body-size: 16px',
+    '--text-compact-size: 15px',
+    '--text-small-size: 14px',
+    '--text-label-size: 13.5px',
+    '--text-micro-size: 12.5px',
+    '--text-nano-size: 12px',
+    '--text-mono-size: 14px',
+    '--dsh-content-font-size: 16px',
+  ]) expect(extraLarge).toContain(declaration)
 })
 
 it('keeps context-panel facts on preference-driven type tokens', () => {
