@@ -35,6 +35,32 @@ export interface ProjectItemProps {
   readonly onDeleteTask: (task: TaskRecord) => void
 }
 
+/** One pinned-project shortcut; it never renders or expands the project subtree. */
+export interface PinnedProjectRowProps {
+  readonly candidate: ProjectRecord
+  readonly count: number
+  readonly active: boolean
+  readonly t: (key: LoomKey) => string
+  readonly onOpen: () => void
+  readonly onUnpin: () => void
+}
+
+/**
+ * Render a pinned project as an independent shortcut row.
+ * @param props - project identity, active state and shortcut intents.
+ * @returns the pinned row with only its unpin action.
+ */
+export function PinnedProjectRow({ candidate, count, active, t, onOpen, onUnpin }: PinnedProjectRowProps): JSX.Element {
+  return <div className={active ? 'loom-tree-row loom-tree-row-active' : 'loom-tree-row'} style={{ display: 'flex', alignItems: 'center', background: active ? COLORS.panel3 : 'transparent' }}>
+    <div style={{ flex: 1, minWidth: 0 }}>
+      <TreeRow depth={0} active={active} icon={<IconFolderOpenRegular />} label={candidate.config.name} title={candidate.config.name} count={String(count)} onClick={onOpen} />
+    </div>
+    <span className="loom-row-actions" style={{ display: 'flex', alignItems: 'center', gap: 0, flex: 'none', alignSelf: 'stretch' }}>
+      <PinButton pinned label={t('side.unpin')} onToggle={onUnpin} />
+    </span>
+  </div>
+}
+
 /**
  * Render one project row with nested versions and tasks.
  * @param props - project records, active selection and row intents.

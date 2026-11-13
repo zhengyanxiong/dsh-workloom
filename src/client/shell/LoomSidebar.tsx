@@ -7,7 +7,7 @@ import { COLORS } from '../ui/tokens.ts'
 import { metaLine, select } from '../ui/styles.ts'
 import type { LoomKey } from '../shared/locales.ts'
 import type { ActiveSession, RecentSession } from '../shared/projection.ts'
-import { ProjectItem } from './ProjectTree.tsx'
+import { PinnedProjectRow, ProjectItem } from './ProjectTree.tsx'
 import { SidebarSectionToggle, SidebarSessionRow } from './LoomSidebarParts.tsx'
 
 type Translate = (key: LoomKey, params?: Readonly<Record<string, string>>) => string
@@ -40,6 +40,8 @@ export interface LoomSidebarProps {
   readonly onToggleSection: (id: SectionId) => void
   readonly onSearch: (value: string) => void
   readonly onProject: (project: ProjectRecord) => void
+  /** Opens a pinned shortcut without toggling the project tree below. */
+  readonly onPinnedProject: (project: ProjectRecord) => void
   readonly onVersion: (project: ProjectRecord, version: VersionRecord) => void
   readonly onTask: (task: TaskRecord) => void
   readonly onPin: (project: ProjectRecord) => void
@@ -62,11 +64,11 @@ export interface LoomSidebarProps {
  * @param props - catalog, selection, session rows and navigation intents.
  * @returns the sidebar aside.
  */
-export function LoomSidebar({ className, t, snapshot, project, version, task, pinnedProjects, collapsedSections, expandedProjects, expandedVersions, search, taskSessionList, temporarySessionList, taskProjectBySession, taskTitleBySession, temporaryProjectBySession, boundRows, selected, sessionLimit, createDisabledTask, onToggleSection, onSearch, onProject, onVersion, onTask, onPin, onNewVersion, onEditProject, onDeleteProject, onEditVersion, onDeleteVersion, onNewTask, onEditTask, onDeleteTask, onSelectSession, onCreateProject, onCreateTask, onOpenTemporary , style}: LoomSidebarProps): JSX.Element {
+export function LoomSidebar({ className, t, snapshot, project, version, task, pinnedProjects, collapsedSections, expandedProjects, expandedVersions, search, taskSessionList, temporarySessionList, taskProjectBySession, taskTitleBySession, temporaryProjectBySession, boundRows, selected, sessionLimit, createDisabledTask, onToggleSection, onSearch, onProject, onPinnedProject, onVersion, onTask, onPin, onNewVersion, onEditProject, onDeleteProject, onEditVersion, onDeleteVersion, onNewTask, onEditTask, onDeleteTask, onSelectSession, onCreateProject, onCreateTask, onOpenTemporary , style}: LoomSidebarProps): JSX.Element {
   const projects = snapshot?.projects ?? []
   const pinned = projects.filter(candidate => pinnedProjects.includes(candidate.id))
   const versionsOf = (candidate: ProjectRecord): readonly VersionRecord[] => (snapshot?.versions ?? []).filter(item => item.projectId === candidate.id)
-  const projectItem = (candidate: ProjectRecord, isPinned: boolean, compact = false): JSX.Element => <ProjectItem
+  const projectItem = (candidate: ProjectRecord, isPinned: boolean): JSX.Element => <ProjectItem
     key={candidate.id}
     candidate={candidate}
     versions={versionsOf(candidate)}
@@ -74,7 +76,7 @@ export function LoomSidebar({ className, t, snapshot, project, version, task, pi
     activeProject={project === candidate.id}
     activeVersionId={task === undefined ? version : undefined}
     activeTaskId={task?.id}
-    open={!compact && expandedProjects.has(candidate.id)}
+    open={expandedProjects.has(candidate.id)}
     openVersions={expandedVersions}
     pinned={isPinned}
     t={t}
@@ -96,7 +98,15 @@ export function LoomSidebar({ className, t, snapshot, project, version, task, pi
       <SidebarSectionToggle label={t('side.pinned')} icon={<IconPinFillRegular size={12} />} open={!collapsedSections.has('pinned')} onToggle={() => onToggleSection('pinned')} />
       {!collapsedSections.has('pinned') && <>
         {pinned.length === 0 && <p style={{ ...metaLine, padding: '2px 14px 6px' }}>{t('side.pinHint')}</p>}
-        {pinned.map(candidate => projectItem(candidate, true, true))}
+        {pinned.map(candidate => <PinnedProjectRow
+          key={candidate.id}
+          candidate={candidate}
+          count={versionsOf(candidate).length}
+          active={project === candidate.id}
+          t={t}
+          onOpen={() => onPinnedProject(candidate)}
+          onUnpin={() => onPin(candidate)}
+        />)}
       </>}
     </section>
     <section style={{ marginBottom: 4 }}>
