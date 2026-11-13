@@ -88,6 +88,7 @@ export interface RegisterPreparedWorkspaceInput {
   readonly versionId: Lock['versionId']
   readonly lockId: Lock['id']
   readonly branches?: Readonly<Record<string, string>>
+  readonly heads?: Readonly<Record<string, string>>
   readonly projectId?: Branded<'loom.project'>
   readonly mode?: WorkspaceMode
   readonly rootPath?: string

@@ -448,12 +448,6 @@ function StartForm({ t, task, snapshot, versionId, agentPresets = [], actions }:
     if (selected === undefined) { report(t('task.start'), 'missing_workspace', ''); return }
     setBusy(true); setFailure(undefined)
     try {
-      if (actions.commitWorkspace !== undefined) {
-        const committed = await actions.commitWorkspace({ workspaceId: selected.id, message: 'Loom: checkpoint before execution' })
-        if (!committed.ok) { report(t('op.commit'), committed.error.code, committed.error.message); return }
-        const failed = committed.value.repositories.find(repository => repository.error !== undefined)
-        if (failed !== undefined) { report(t('op.commit'), 'workspace_commit_failed', `${failed.sourceId}: ${failed.error ?? ''}`); return }
-      }
       const started = await actions.startAttempt({ taskId: task.id, workspaceId: selected.id })
       if (!started.ok) { report(t('task.start'), started.error.code, started.error.message); return }
       const resolvedPreset = preset === '' ? projectPreset : preset

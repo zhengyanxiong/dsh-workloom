@@ -1,5 +1,5 @@
 import { execFile as execFileCallback } from 'node:child_process'
-import { lstat, mkdir, readdir, rm, rmdir, stat, symlink, unlink } from 'node:fs/promises'
+import { appendFile, lstat, mkdir, readFile, readdir, rm, rmdir, stat, symlink, unlink } from 'node:fs/promises'
 import { promisify } from 'node:util'
 import { basename, dirname, isAbsolute, join, normalize, relative, resolve, sep } from 'node:path'
 
@@ -246,6 +246,90 @@ export async function commitWorkingTree(worktree: string, message: string): Prom
   }
 }
 
+/** Workspace-local directory for agent-generated scratch files. */
+export const LOOM_TEMP_DIR = '.loomtmp'
+
+/**
+ * Create one workspace-level temporary directory and exclude it from every
+ * repository whose working tree contains it. Local Git excludes stay out of
+ * tracked `.gitignore` files, so reuse never turns scratch state into a commit.
+ * @param root - absolute workspace root.
+ * @param repositoryDirectories - working trees bound below the root.
+ * @returns the absolute `.loomtmp` path.
+ */
+export async function ensureWorkspaceTempDirectory(root: string, repositoryDirectories: readonly string[]): Promise<string> {
+  const tempPath = join(root, LOOM_TEMP_DIR)
+  await mkdir(tempPath, { recursive: true })
+  const seen = new Set<string>()
+  for (const directory of repositoryDirectories) {
+    const top = await localRepository(directory)
+    if (!inside(top, tempPath) || seen.has(top)) continue
+    seen.add(top)
+    const relativeTemp = relative(top, tempPath).split(sep).join('/')
+    const rule = `/${relativeTemp}/`
+    const excludePath = resolve(top, (await execFile('git', ['-C', top, 'rev-parse', '--git-path', 'info/exclude'], { windowsHide: true })).stdout.trim())
+    let content = ''
+    try { content = await readFile(excludePath, 'utf8') } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+    }
+    if (content.split(/\r?\n/u).includes(rule)) continue
+    await mkdir(dirname(excludePath), { recursive: true })
+    const prefix = content === '' || content.endsWith('\n') ? '' : '\n'
+    await appendFile(excludePath, `${prefix}# Loom ephemeral workspace files\n${rule}\n`, 'utf8')
+  }
+  return tempPath
+}
+
+/** One repository whose checkout must follow the user's selected branch. */
+export interface WorkspaceBranchSelection {
+  readonly sourceId: string
+  readonly directory: string
+  readonly branch: string
+}
+
+const BRANCH_NAME = /^(?![-.])[A-Za-z0-9._/-]+$/u
+
+/**
+ * Check out each repository's selected branch and record the resulting HEAD.
+ * A fetch refreshes the remote-tracking ref, but an existing local branch is
+ * never reset: the returned HEAD is the real checkout baseline, including any
+ * divergence from the version Lock.
+ * @param selections - source identity, worktree directory and selected branch.
+ * @returns source id to actual HEAD commit.
+ */
+export async function reconcileWorkspaceBranches(selections: readonly WorkspaceBranchSelection[]): Promise<Record<string, string>> {
+  const heads: Record<string, string> = {}
+  for (const selection of selections) {
+    const top = await localRepository(selection.directory)
+    if (!BRANCH_NAME.test(selection.branch) || selection.branch === 'HEAD') throw new WorkspacePreparationError('invalid_branch', [], undefined, selection.branch)
+    let remotes: string[] = []
+    try {
+      remotes = (await execFile('git', ['-C', top, 'remote'], { windowsHide: true })).stdout.split(/\r?\n/u).map(name => name.trim()).filter(name => name !== '')
+    } catch { remotes = [] }
+    const remote = remotes.find(name => selection.branch.startsWith(`${name}/`))
+    const branch = remote === undefined ? selection.branch : selection.branch.slice(remote.length + 1)
+    if (remote !== undefined) {
+      try {
+        await execFile('git', ['-C', top, 'fetch', '--no-tags', '--quiet', remote, `+refs/heads/${branch}:refs/remotes/${remote}/${branch}`], { windowsHide: true })
+      } catch { /* Local branches remain usable when the remote is offline or lacks the branch. */ }
+    }
+    const local = await branchTip(top, branch)
+    const tracked = remote === undefined ? undefined : await refTip(top, `refs/remotes/${remote}/${branch}`)
+    try {
+      if (local !== undefined) await execFile('git', ['-C', top, 'switch', '--quiet', branch], { windowsHide: true })
+      else if (remote !== undefined && tracked !== undefined) await execFile('git', ['-C', top, 'switch', '--quiet', '--track', '-c', branch, `${remote}/${branch}`], { windowsHide: true })
+      else if (await refTip(top, `${branch}^{commit}`) !== undefined) await execFile('git', ['-C', top, 'switch', '--quiet', '--detach', branch], { windowsHide: true })
+      else throw new WorkspacePreparationError('invalid_branch', [], undefined, selection.branch)
+    } catch (error) {
+      if (error instanceof WorkspacePreparationError) throw error
+      const detail = gitDetail(error)
+      throw new WorkspacePreparationError(/checked out/iu.test(detail ?? '') ? 'branch_checked_out' : 'branch_create_failed', [], error, detail ?? selection.branch)
+    }
+    heads[selection.sourceId] = await resolveHead(top)
+  }
+  return heads
+}
+
 /** Return porcelain status for one existing worktree without modifying it.
  * @param worktree - Absolute local worktree path.
  * @returns Git porcelain v1 status, empty when clean.
@@ -420,8 +504,12 @@ export async function removeLinkedWorkspace(root: string, links: readonly string
 }
 
 async function branchTip(repo: string, branch: string): Promise<string | undefined> {
+  return refTip(repo, `refs/heads/${branch}`)
+}
+
+async function refTip(repo: string, ref: string): Promise<string | undefined> {
   try {
-    return (await execFile('git', ['-C', repo, 'rev-parse', '--verify', `refs/heads/${branch}`], { windowsHide: true })).stdout.trim()
+    return (await execFile('git', ['-C', repo, 'rev-parse', '--verify', ref], { windowsHide: true })).stdout.trim()
   } catch { return undefined }
 }
 

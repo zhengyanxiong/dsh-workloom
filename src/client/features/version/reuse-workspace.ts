@@ -36,6 +36,8 @@ export interface ReuseWorkspaceInput {
   readonly versionId: string
   readonly projectId: string | undefined
   readonly lockId: string
+  /** Branch selected by the adopting version, keyed by source id. */
+  readonly branches?: Readonly<Record<string, string>> | undefined
 }
 
 /**
@@ -104,7 +106,9 @@ export async function reuseWorkspace(deps: ReuseWorkspaceDeps, input: ReuseWorks
     lockId: input.lockId,
     mode: 'direct',
     rootOwner: 'user',
+    checkoutBranches: true,
     ...(input.projectId === undefined ? {} : { projectId: input.projectId }),
+    ...(input.branches === undefined || Object.keys(input.branches).length === 0 ? {} : { branches: input.branches }),
     repositories: bindings.map(binding => ({ sourceId: binding.sourceId, path: binding.path, targetPath: binding.targetPath })),
   })
   if (!registered.ok) return failure('register', registered.error.code, registered.error.message)

@@ -5,6 +5,8 @@ import { ACTOR_LABEL, AUDIT_LABEL } from '../../ui/labels.ts'
 import { STATUS_META } from '../../ui/status.ts'
 import { formatTimestamp, shortCommit } from '../../shared/format.ts'
 import { LoomButton } from '../../ui/Button.tsx'
+import { LoomWorkspaceList, type LoadWorkspaceStatus } from '../workspace/LoomWorkspaceList.tsx'
+import { versionWorkspaceRows } from '../../shared/projection.ts'
 import { LoomSelect } from '../../ui/Select.tsx'
 import { absoluteTime, relativeTime } from '../../shared/time.ts'
 import type { LoomKey } from '../../shared/locales.ts'
@@ -27,6 +29,8 @@ export interface LoomProjectPageProps {
   readonly onEditProject: () => void
   readonly onEditVersion: () => void
   readonly onSession: (sessionId: string) => void
+  /** Optional Host status read for the project-wide workspace inventory. */
+  readonly loadWorkspaceStatus?: LoadWorkspaceStatus | undefined
   /** Archived Sessions hidden from the recent list and the Session counter. */
   readonly archivedSessionIds?: ReadonlySet<string> | undefined
 }
@@ -57,7 +61,7 @@ function updatedStamp(task: TaskRecord): number {
  * @param props - catalog, selected project/version and navigation intents.
  * @returns the project page.
  */
-export function LoomProjectPage({ t, snapshot, project, version, onProject, onVersion, onTask, onBoard, onNewTask, onNewVersion, onEditProject, onEditVersion, onSession, archivedSessionIds }: LoomProjectPageProps): JSX.Element {
+export function LoomProjectPage({ t, snapshot, project, version, onProject, onVersion, onTask, onBoard, onNewTask, onNewVersion, onEditProject, onEditVersion, onSession, archivedSessionIds, loadWorkspaceStatus }: LoomProjectPageProps): JSX.Element {
   const pageProject = project ?? snapshot.projects[0]
   if (pageProject === undefined) return <main className={classes.page}><div className={classes.inner}><p className={classes.empty}>{t('project.empty')}</p></div></main>
   const versions = snapshot.versions.filter(candidate => candidate.projectId === pageProject.id)
@@ -68,6 +72,10 @@ export function LoomProjectPage({ t, snapshot, project, version, onProject, onVe
   const lockCommit = shortCommit(activeLock)
   const lockTime = activeLock === undefined ? undefined : formatTimestamp(activeLock.repositories[0]?.committedAt ?? activeLock.createdAt)
   const projectTasks = snapshot.tasks.filter(task => versions.some(candidate => candidate.id === task.versionId))
+  // The project page owns the cross-version inventory; the version detail keeps
+  // its own focused list. Deduplicate a directory that appears through tasks.
+  const projectWorkspaceRows = versions.flatMap(candidate => versionWorkspaceRows(snapshot, candidate.id))
+    .filter((row, index, rows) => rows.findIndex(other => other.workspace.id === row.workspace.id) === index)
   const projectSessions = projectTasks.reduce((total, task) => total + task.attempts.reduce((sum, attempt) => sum + attempt.sessionIds.filter(sessionId => archivedSessionIds?.has(sessionId) !== true).length, 0), 0)
   const projectRunning = projectTasks.filter(task => task.status === 'running').length
   const stats: readonly ProjectStat[] = [
@@ -127,6 +135,7 @@ export function LoomProjectPage({ t, snapshot, project, version, onProject, onVe
             <p className={classes.description}>{activeVersion?.description ?? t('project.noDescription')}</p>
             <div className={classes.workspaceList}>{workspaces.map(workspace => <div key={workspace.id} className={classes.workspace}><span className={classes.workspaceName}>{workspace.label ?? workspace.id.slice(0, 8)}</span><span className={classes.workspacePath}>{workspace.rootPath ?? workspace.path ?? '—'}</span><span className={`${classes.workspaceStatus} ${workspace.preparation?.status === 'failed' ? classes.workspaceStatusFailed : workspace.preparation?.status === 'ready' ? '' : classes.workspaceStatusPending}`}><span className={classes.statusDot} style={{ background: workspace.preparation?.status === 'failed' ? 'var(--color-danger)' : workspace.preparation?.status === 'ready' ? 'var(--color-success)' : 'var(--color-warning)' }} />{workspace.preparation?.status === 'failed' ? t('project.workspaceGap') : workspace.preparation?.status === 'ready' ? t('project.ready') : t('project.workspacePending')}</span></div>)}{workspaces.length === 0 && <p className={classes.hint}>{t('project.noWorkspaces')}</p>}</div>
           </section>
+          <LoomWorkspaceList t={t} rows={projectWorkspaceRows} loadStatus={loadWorkspaceStatus} />
           <section className={classes.card}>
             <div className={classes.sectionHead}>
               <h2 className={classes.sectionTitle}>{t('nav.tasks')}</h2>

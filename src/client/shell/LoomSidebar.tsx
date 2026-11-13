@@ -66,7 +66,7 @@ export function LoomSidebar({ className, t, snapshot, project, version, task, pi
   const projects = snapshot?.projects ?? []
   const pinned = projects.filter(candidate => pinnedProjects.includes(candidate.id))
   const versionsOf = (candidate: ProjectRecord): readonly VersionRecord[] => (snapshot?.versions ?? []).filter(item => item.projectId === candidate.id)
-  const projectItem = (candidate: ProjectRecord, isPinned: boolean): JSX.Element => <ProjectItem
+  const projectItem = (candidate: ProjectRecord, isPinned: boolean, compact = false): JSX.Element => <ProjectItem
     key={candidate.id}
     candidate={candidate}
     versions={versionsOf(candidate)}
@@ -74,7 +74,7 @@ export function LoomSidebar({ className, t, snapshot, project, version, task, pi
     activeProject={project === candidate.id}
     activeVersionId={task === undefined ? version : undefined}
     activeTaskId={task?.id}
-    open={expandedProjects.has(candidate.id)}
+    open={!compact && expandedProjects.has(candidate.id)}
     openVersions={expandedVersions}
     pinned={isPinned}
     t={t}
@@ -96,7 +96,7 @@ export function LoomSidebar({ className, t, snapshot, project, version, task, pi
       <SidebarSectionToggle label={t('side.pinned')} icon={<IconPinFillRegular size={12} />} open={!collapsedSections.has('pinned')} onToggle={() => onToggleSection('pinned')} />
       {!collapsedSections.has('pinned') && <>
         {pinned.length === 0 && <p style={{ ...metaLine, padding: '2px 14px 6px' }}>{t('side.pinHint')}</p>}
-        {pinned.map(candidate => projectItem(candidate, true))}
+        {pinned.map(candidate => projectItem(candidate, true, true))}
       </>}
     </section>
     <section style={{ marginBottom: 4 }}>

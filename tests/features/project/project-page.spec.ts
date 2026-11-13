@@ -47,6 +47,32 @@ it('renders five project counters in one quiet row', () => {
   expect(html).not.toContain(en['project.activeWork'])
 })
 
+it('lists workspaces from every project version with their actual HEAD', () => {
+  const second: VersionRecord = { id: brandString<VersionRecord['id']>('v2'), projectId: project.id, name: 'v2', description: '', sources: [] }
+  const secondLock = { id: brandString<'loom.lock'>('lock2'), versionId: second.id, repositories: [{ sourceId: brandString<'loom.source'>('web'), commit: 'b'.repeat(40) }] }
+  const secondWorkspace = {
+    id: brandString<'loom.workspace'>('w2'), versionId: second.id, lockId: secondLock.id, rootPath: '/worktrees/shop-v2', path: '/worktrees/shop-v2',
+    heads: { web: 'a'.repeat(40) },
+  }
+  const html = renderToStaticMarkup(createElement(LoomProjectPage, {
+    t,
+    snapshot: { ...snapshot, versions: [version, second], locks: [lock, secondLock], workspaces: [workspace, secondWorkspace] },
+    project,
+    version,
+    onProject: () => undefined,
+    onVersion: () => undefined,
+    onTask: () => undefined,
+    onBoard: () => undefined,
+    onNewTask: () => undefined,
+    onNewVersion: () => undefined,
+    onEditProject: () => undefined,
+    onEditVersion: () => undefined,
+  }))
+  expect(html).toContain('/worktrees/shop-v2')
+  expect(html).toContain(en['workspace.actualHead'])
+  expect(html).toContain(en['workspace.actualHeadMismatch'])
+})
+
 it('shows the current-version status counts inline in the tasks header', () => {
   const html = render()
   expect(html).toContain('role="group"')

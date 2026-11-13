@@ -8,6 +8,26 @@ Releases start at 0.1.8 in this repository.
 
 ## [Unreleased]
 
+### Added
+
+- A project page now lists workspaces from every version with branch, actual
+  HEAD, uncommitted, unpushed and ownership facts.
+- Reused directories check out the adopting version's selected branch, record
+  the actual HEAD and mark a divergence from the Lock baseline.
+- Every workspace gets a `.loomtmp` scratch directory that local Git excludes
+  without editing tracked `.gitignore` files; the Agent prompt points temporary
+  files there.
+
+### Fixed
+
+- Starting a task or forking a Session no longer commits the workspace
+  automatically. Uncommitted work stays untouched and a dirty workspace is
+  refused by the Host's existing precondition.
+- Switching Sessions in the sidebar now aligns the topbar's project and version,
+  including temporary and unbound Sessions.
+- Pinned projects render as collapsed shortcuts and no longer duplicate the
+  expanded project tree.
+
 ## [0.3.4] - 2026-11-12
 
 ### Added

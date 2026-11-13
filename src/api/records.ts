@@ -155,6 +155,8 @@ export interface WorkspaceRecord extends Workspace {
    */
   label?: string | undefined
   branches?: Record<string, string> | undefined
+  /** Actual checked-out HEAD per source after the last branch reconcile. */
+  heads?: Record<string, string> | undefined
   managed?: boolean | undefined
   cleaned?: boolean | undefined
   /**

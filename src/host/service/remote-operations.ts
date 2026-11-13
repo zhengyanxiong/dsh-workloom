@@ -22,7 +22,7 @@ import type { Lock } from '../../domain/task.ts'
 import type { TemporarySessionRecord } from '../../api/records.ts'
 import type { ExecutionState } from '../../domain/execution.ts'
 import { parseProject } from '../../domain/project.ts'
-import { repositoryBranches } from '../../git/workspace.ts'
+import { ensureWorkspaceTempDirectory, reconcileWorkspaceBranches, repositoryBranches } from '../../git/workspace.ts'
 import { inspectWorkspace, sameRepositoryMappings } from './inspection.ts'
 import { prepareVersionWorkspace } from './version-workspace.ts'
 import {
@@ -164,10 +164,10 @@ export class RemoteOperations {
 
   /** Materialize a workspace from a version Lock and record it. @param request - owning baseline and an optional absolute root. @returns persisted workspace. */
   prepareWorkspace(run: RunCatalog, request: PrepareWorkspaceRequest): Promise<WorkspaceRecord> {
-    return run(catalog => {
+    return run(async catalog => {
       const parsed = workspaceRequest.parse(request)
       const path = parsed.path ?? join(this.workspacesDir, `workspace-${randomUUID().slice(0, 8)}`)
-      return catalog.prepareWorkspace({
+      const workspace = await catalog.prepareWorkspace({
         path,
         versionId: brandString<Lock['versionId']>(parsed.versionId),
         lockId: brandString<Lock['id']>(parsed.lockId),
@@ -183,6 +183,8 @@ export class RemoteOperations {
         ...(parsed.workspaceId === undefined ? {} : { workspaceId: brandString<WorkspaceRecord['id']>(parsed.workspaceId) }),
         ...(parsed.requireBranches === undefined ? {} : { requireBranches: parsed.requireBranches }),
       })
+      if (workspace.preparation?.status !== 'failed') await this.ensureWorkspaceTemp(catalog.snapshot(), workspace)
+      return workspace
     })
   }
 
@@ -279,7 +281,8 @@ export class RemoteOperations {
         const version = snapshot.versions.find(candidate => candidate.id === parsed.versionId)
         const projectId = registered.projectId ?? snapshot.versions.find(candidate => candidate.id === registered.versionId)?.projectId
         if (version !== undefined && projectId === version.projectId) {
-          await catalog.ensureWorkspaceBranches(registered.id)
+          const bound = await catalog.ensureWorkspaceBranches(registered.id)
+          await this.ensureWorkspaceTemp(catalog.snapshot(), bound)
           return catalog.ensureWorkspaceSkillLinks(registered.id)
         }
       }
@@ -304,18 +307,27 @@ export class RemoteOperations {
           if (branches[repository.sourceId] === undefined && repository.current !== undefined) branches[repository.sourceId] = repository.current
         }
       }
+      const selections = parsed.checkoutBranches === true && repositories !== undefined
+        ? repositories.flatMap(repository => {
+          const branch = branches[String(repository.sourceId)]
+          return branch === undefined ? [] : [{ sourceId: String(repository.sourceId), directory: repository.targetPath, branch }]
+        })
+        : []
+      const heads = selections.length === 0 ? undefined : await reconcileWorkspaceBranches(selections)
       const workspace = await catalog.registerPreparedWorkspace({
         path: parsed.path,
         versionId: brandString<Lock['versionId']>(parsed.versionId),
         lockId: brandString<Lock['id']>(parsed.lockId),
         ...(Object.keys(branches).length === 0 ? {} : { branches }),
+        ...(heads === undefined ? {} : { heads }),
         ...(parsed.mode === undefined ? {} : { mode: parsed.mode }),
         ...(parsed.projectId === undefined ? {} : { projectId: brandString<Branded<'loom.project'>>(parsed.projectId) }),
         ...(parsed.rootPath === undefined ? {} : { rootPath: parsed.rootPath }),
         ...(parsed.rootOwner === undefined ? {} : { rootOwner: parsed.rootOwner }),
         ...(repositories === undefined ? {} : { repositories }),
       })
-      await catalog.ensureWorkspaceBranches(workspace.id)
+      const bound = await catalog.ensureWorkspaceBranches(workspace.id)
+      await this.ensureWorkspaceTemp(catalog.snapshot(), bound)
       return catalog.ensureWorkspaceSkillLinks(workspace.id)
     })
   }
@@ -335,10 +347,20 @@ export class RemoteOperations {
       await this.ensureRepositoryCoverage(catalog, state, taskId, record)
       const workspace = await catalog.ensureWorkspaceBranches(workspaceId)
       if (workspace.cleaned === true) throw serviceError('workspace_cleaned')
+      await this.ensureWorkspaceTemp(catalog.snapshot(), workspace)
       if (await catalog.workspaceDirty(workspaceId)) throw serviceError('workspace_changes')
       await catalog.ensureWorkspaceSkillLinks(workspaceId)
       return catalog.startAttempt(taskId, workspaceId, parsed.allowBusy === true ? { allowBusy: true } : undefined)
     })
+  }
+
+  /**
+   * Create the workspace-local scratch directory and its local Git exclusions.
+   * @param state - catalog snapshot owning the workspace.
+   * @param workspace - prepared workspace whose root receives `.loomtmp`.
+   */
+  private async ensureWorkspaceTemp(state: CatalogSnapshot, workspace: WorkspaceRecord): Promise<void> {
+    await ensureWorkspaceTempDirectory(workspace.rootPath ?? workspace.path, workspaceBindings(state, workspace).map(binding => binding.targetPath))
   }
 
   /**

@@ -178,6 +178,11 @@ export interface RegisterWorkspaceRequest {
    */
   readonly branches?: Readonly<Record<string, string>>
   /**
+   * Reconcile each requested branch before registering: fetch a remote
+   * selection when possible and check it out, recording the actual HEAD.
+   */
+  readonly checkoutBranches?: boolean
+  /**
    * `direct` records existing directories; `linked` records links created by prepare.
    */
   readonly mode?: 'direct' | 'linked'

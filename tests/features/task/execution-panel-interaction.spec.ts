@@ -66,6 +66,55 @@ it('opens the takeover warning as a modal and closes it without taking over', as
   expect(document.querySelector('[role="dialog"][aria-modal="true"]')).toBeNull()
 })
 
+it('starts a task without committing the existing workspace automatically', async () => {
+  ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
+  const pendingTask: TaskRecord = { ...task, status: 'pending', attempts: [] }
+  const pendingSnapshot: CatalogSnapshot = {
+    ...snapshot,
+    tasks: [pendingTask],
+    workspaces: [workspace],
+    executions: [],
+  }
+  let commits = 0
+  let starts = 0
+  let opened = 0
+  const startingActions: ExecutionActions = {
+    ...actions,
+    commitWorkspace: async () => {
+      commits += 1
+      return { ok: true, value: { repositories: [], committed: 0 } }
+    },
+    startAttempt: async () => {
+      starts += 1
+      return { ok: true, value: pendingTask }
+    },
+    createSessionInWorkspace: async () => brandString<'SessionId'>('s-new'),
+    attachSession: async () => ({ ok: true, value: pendingTask }),
+    acquireExecution: async () => ({
+      ok: true,
+      value: { workspaceId: workspace.id, generation: brandNumber<'loom.execution-generation'>(1), owner: null, waiting: [], takeover: null },
+    }),
+    onSession: () => { opened += 1 },
+  }
+  container = document.createElement('div')
+  document.body.append(container)
+  root = createRoot(container)
+  await act(async () => {
+    root?.render(createElement(ExecutionPanel, {
+      t, task: pendingTask, snapshot: pendingSnapshot, selectedSession: undefined, actions: startingActions,
+      loadChanges: unused, wrap: false, onToggleWrap: () => {},
+    }))
+  })
+  const form = container.querySelector('form')
+  expect(form).not.toBeNull()
+  await act(async () => {
+    form?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+  })
+  expect(commits).toBe(0)
+  expect(starts).toBe(1)
+  expect(opened).toBe(1)
+})
+
 it('selects an existing version workspace instead of opening creation controls', async () => {
   ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
   const pendingTask: TaskRecord = { ...task, status: 'pending', attempts: [] }

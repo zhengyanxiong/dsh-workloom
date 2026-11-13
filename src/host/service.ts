@@ -5,7 +5,7 @@ import type {} from '@deepseek-ai/dsh-api-remote-access'
 import { brandString, type Branded } from '@deepseek-ai/dsh-brand'
 import { mkdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
-import { createCatalog, type Catalog, type TemporarySessionRecord } from './catalog.ts'
+import { createCatalog, workspaceBindings, type Catalog, type TemporarySessionRecord } from './catalog.ts'
 import type { ContextConfig, Config } from './service/config.ts'
 import { configSchema } from './service/config.ts'
 import { serviceError } from './service/errors.ts'
@@ -25,7 +25,7 @@ InspectWorkspaceRequest, WorkspaceInspection, CommitWorkspaceRequest, WorkspaceC
 } from '../types.ts'
 import type { Lock } from '../domain/task.ts'
 import { ExecutionError, type ExecutionState } from '../domain/execution.ts'
-import { resolveCommit, resolveCommitTime } from '../git/workspace.ts'
+import { ensureWorkspaceTempDirectory, resolveCommit, resolveCommitTime } from '../git/workspace.ts'
 import type {} from './events.ts'
 import type { LoomAgentRegistry } from './events.ts'
 import {
@@ -137,23 +137,29 @@ export default class LoomService extends TypertRemoteService {
       const workspace = this.current?.workspaces.find(candidate => candidate.cleaned !== true && (candidate.rootPath ?? candidate.path) === cwd)
       if (workspace === undefined) return
       const bindings = workspace.repositories ?? fallbackBindings(this.current, workspace)
-      if (bindings.every(binding => binding.path === '.')) return
       const prompt = agent.ctx.get('systemPrompt') as PromptContextRegistrar | undefined
+      const repositoryContext = bindings.some(binding => binding.path !== '.')
+        ? ['It contains these repositories; use the mapped path below for each one:', ...bindings.map(binding => `- ${binding.path === '.' ? '(workspace root)' : binding.path} -> ${binding.targetPath}${binding.branch === undefined ? '' : ` (branch ${binding.branch})`}`)]
+        : []
       prompt?.context({
         name: 'loom:workspace-repositories',
         order: 20,
         required: true,
         text: [
           `This Session runs in a Loom workspace whose only working directory is ${cwd}.`,
-          'It contains these repositories; use the mapped path below for each one:',
-          ...bindings.map(binding => `- ${binding.path === '.' ? '(workspace root)' : binding.path} -> ${binding.targetPath}${binding.branch === undefined ? '' : ` (branch ${binding.branch})`}`),
+          ...repositoryContext,
+          `Keep temporary or generated scratch files inside ${join(cwd, '.loomtmp')}; Loom excludes that directory from Git commits.`,
           'Skills from these repositories are aggregated into this workspace root, so the native session skill catalog discovers them automatically. When the catalog lists a matching skill, load it with the skill tool before acting instead of reading SKILL.md manually.',
         ].join('\n'),
       })
     })
     for (const workspace of catalog.snapshot().workspaces) {
       if (workspace.cleaned === true) continue
-      try { await catalog.ensureWorkspaceBranches(workspace.id) } catch (error) { this.ctx.logger.warn(`loom: branch reconciliation failed for ${workspace.path}: ${String(error)}`) }
+      try {
+        const bound = await catalog.ensureWorkspaceBranches(workspace.id)
+        const bindings = workspaceBindings(catalog.snapshot(), bound)
+        await ensureWorkspaceTempDirectory(bound.rootPath ?? bound.path, bindings.map(binding => binding.targetPath))
+      } catch (error) { this.ctx.logger.warn(`loom: workspace reconciliation failed for ${workspace.path}: ${String(error)}`) }
     }
     this.refreshSnapshot(catalog)
     // Recover contexts for Agents that already exist when the service reloads.

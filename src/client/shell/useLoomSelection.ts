@@ -62,11 +62,21 @@ export function useLoomSelection(input: LoomSelectionInput): LoomSelection {
   }
   const selectSession = (id: SessionId, owner?: TaskRecord): void => {
     const bound = boundRows.find(row => row.sessionId === id)
-    const nextTask = owner ?? bound?.task
+    const nextTask = owner ?? bound?.task ?? snapshot?.tasks.find(candidate => candidate.attempts.some(attempt => attempt.sessionIds.includes(id)))
     if (nextTask !== undefined) {
       setTask(nextTask)
       const nextVersion = snapshot?.versions.find(candidate => candidate.id === nextTask.versionId)
-      if (nextVersion !== undefined) { setProject(nextVersion.projectId); setVersion(nextVersion.id) }
+      setProject(nextVersion?.projectId)
+      setVersion(nextVersion?.id)
+    } else {
+      const temporary = snapshot?.temporarySessions.find(candidate => candidate.sessionId === id)
+      const temporaryWorkspace = temporary === undefined
+        ? undefined
+        : snapshot?.workspaces.find(candidate => (candidate.rootPath ?? candidate.path) === temporary.workspacePath)
+      const nextVersion = snapshot?.versions.find(candidate => candidate.id === temporaryWorkspace?.versionId)
+      setTask(undefined)
+      setProject(nextVersion?.projectId)
+      setVersion(nextVersion?.id)
     }
     setSelected(id); setView('workbench')
     navigate('session')

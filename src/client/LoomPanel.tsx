@@ -265,7 +265,7 @@ export function LoomPanel({ t, useSessions, useSessionStatus, retainSession, ope
   })
   const fork = useLoomForkSession({
     t, sessionId: runtimeSessionId, task: detailTask, workspace: detailWorkspace,
-    commitWorkspace, forkSession, attachSession,
+    forkSession, attachSession,
     onForked: child => { selectSession(child) },
     onChanged: () => { setAttempt(current => current + 1) },
   })
@@ -446,7 +446,7 @@ export function LoomPanel({ t, useSessions, useSessionStatus, retainSession, ope
         onNewTask={(record, item) => { setProject(record.id); setVersion(item.id); setTask(undefined); openCreate('task') }}
         onEditTask={(record, item) => { setProject(record.id); setVersion(item.versionId); setTask(item); openEdit('task') }}
         onDeleteTask={(record, item) => { setProject(record.id); setVersion(item.versionId); setTask(item); void treeDeleteActions.removeTask(item) }}
-        onSelectSession={(id, owner) => { setSelected(id as SessionId); setTask(owner); setView('workbench'); navigate('session') }}
+        onSelectSession={(id, owner) => selectSession(id as SessionId, owner)}
         onCreateProject={() => openCreate('project')}
         onCreateTask={() => openCreate('task')}
         onOpenTemporary={() => setTemporaryOpen(true)}

@@ -80,6 +80,7 @@ export async function registerPreparedWorkspace(runtime: WorkspaceRegisterRuntim
       rootOwner: layout.rootOwner,
       repositories,
       ...(input.branches === undefined || Object.keys(input.branches).length === 0 ? {} : { branches: input.branches }),
+      ...(input.heads === undefined || Object.keys(input.heads).length === 0 ? {} : { heads: input.heads }),
       ...(input.mode === 'managed' ? { managed: true } : {}),
       ...(skillLinks.length === 0 ? {} : { skillLinks }),
     }
