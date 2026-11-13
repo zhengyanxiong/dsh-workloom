@@ -20,7 +20,7 @@ it('renders a pinned project as a shortcut without duplicating its expanded tree
     expandedVersions: new Set([String(version.id)]), search: '', taskSessionList: [], temporarySessionList: [],
     taskProjectBySession: new Map(), taskTitleBySession: new Map(), temporaryProjectBySession: new Map(), boundRows: [],
     selected: undefined, sessionLimit: 5, createDisabledTask: false,
-    onToggleSection: noop, onSearch: noop, onProject: noop, onPinnedProject: noop, onVersion: noop, onTask: noop, onPin: noop,
+    onToggleSection: noop, onSearch: noop, onProject: noop, onPinnedProject: noop, onVersion: noop, onPinnedVersion: noop, onTask: noop, onPin: noop,
     onNewVersion: noop, onEditProject: noop, onDeleteProject: noop, onEditVersion: noop, onDeleteVersion: noop,
     onNewTask: noop, onEditTask: noop, onDeleteTask: noop, onSelectSession: noop, onCreateProject: noop,
     onCreateTask: noop, onOpenTemporary: noop,

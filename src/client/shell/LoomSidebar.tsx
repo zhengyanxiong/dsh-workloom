@@ -1,13 +1,13 @@
 /** Loom left sidebar: pinned projects, project tree and the session lists. */
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { CatalogSnapshot, ProjectRecord, TaskRecord, VersionRecord } from 'dsh-workloom/types'
-import type { CSSProperties } from 'react'
+import { useState, type CSSProperties } from 'react'
 import { Button, IconPinFillRegular, IconPlusOutlineRegular } from '../ui/primitives.ts'
 import { COLORS } from '../ui/tokens.ts'
 import { metaLine, select } from '../ui/styles.ts'
 import type { LoomKey } from '../shared/locales.ts'
 import type { ActiveSession, RecentSession } from '../shared/projection.ts'
-import { PinnedProjectRow, ProjectItem } from './ProjectTree.tsx'
+import { ProjectItem } from './ProjectTree.tsx'
 import { SidebarSectionToggle, SidebarSessionRow } from './LoomSidebarParts.tsx'
 
 type Translate = (key: LoomKey, params?: Readonly<Record<string, string>>) => string
@@ -43,6 +43,8 @@ export interface LoomSidebarProps {
   /** Opens a pinned shortcut without toggling the project tree below. */
   readonly onPinnedProject: (project: ProjectRecord) => void
   readonly onVersion: (project: ProjectRecord, version: VersionRecord) => void
+  /** Selects a version from the pinned subtree without toggling the project tree. */
+  readonly onPinnedVersion: (project: ProjectRecord, version: VersionRecord) => void
   readonly onTask: (task: TaskRecord) => void
   readonly onPin: (project: ProjectRecord) => void
   readonly onNewVersion: (project: ProjectRecord) => void
@@ -64,10 +66,27 @@ export interface LoomSidebarProps {
  * @param props - catalog, selection, session rows and navigation intents.
  * @returns the sidebar aside.
  */
-export function LoomSidebar({ className, t, snapshot, project, version, task, pinnedProjects, collapsedSections, expandedProjects, expandedVersions, search, taskSessionList, temporarySessionList, taskProjectBySession, taskTitleBySession, temporaryProjectBySession, boundRows, selected, sessionLimit, createDisabledTask, onToggleSection, onSearch, onProject, onPinnedProject, onVersion, onTask, onPin, onNewVersion, onEditProject, onDeleteProject, onEditVersion, onDeleteVersion, onNewTask, onEditTask, onDeleteTask, onSelectSession, onCreateProject, onCreateTask, onOpenTemporary , style}: LoomSidebarProps): JSX.Element {
+export function LoomSidebar({ className, t, snapshot, project, version, task, pinnedProjects, collapsedSections, expandedProjects, expandedVersions, search, taskSessionList, temporarySessionList, taskProjectBySession, taskTitleBySession, temporaryProjectBySession, boundRows, selected, sessionLimit, createDisabledTask, onToggleSection, onSearch, onProject, onPinnedProject, onVersion, onPinnedVersion, onTask, onPin, onNewVersion, onEditProject, onDeleteProject, onEditVersion, onDeleteVersion, onNewTask, onEditTask, onDeleteTask, onSelectSession, onCreateProject, onCreateTask, onOpenTemporary , style}: LoomSidebarProps): JSX.Element {
   const projects = snapshot?.projects ?? []
   const pinned = projects.filter(candidate => pinnedProjects.includes(candidate.id))
   const versionsOf = (candidate: ProjectRecord): readonly VersionRecord[] => (snapshot?.versions ?? []).filter(item => item.projectId === candidate.id)
+  // Pinned rows own their expansion so a pinned dropdown never opens the lower tree.
+  const [pinnedProjectsOpen, setPinnedProjectsOpen] = useState<ReadonlySet<string>>(new Set())
+  const [pinnedVersionsOpen, setPinnedVersionsOpen] = useState<ReadonlySet<string>>(new Set())
+  const togglePinnedProject = (id: string): void => {
+    setPinnedProjectsOpen(current => {
+      const next = new Set(current)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }
+  const togglePinnedVersion = (id: string): void => {
+    setPinnedVersionsOpen(current => {
+      const next = new Set(current)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }
   const projectItem = (candidate: ProjectRecord, isPinned: boolean): JSX.Element => <ProjectItem
     key={candidate.id}
     candidate={candidate}
@@ -98,17 +117,30 @@ export function LoomSidebar({ className, t, snapshot, project, version, task, pi
       <SidebarSectionToggle label={t('side.pinned')} icon={<IconPinFillRegular size={12} />} open={!collapsedSections.has('pinned')} onToggle={() => onToggleSection('pinned')} />
       {!collapsedSections.has('pinned') && <>
         {pinned.length === 0 && <p style={{ ...metaLine, padding: '2px 14px 6px' }}>{t('side.pinHint')}</p>}
-        {pinned.map(candidate => <PinnedProjectRow
+        {pinned.map(candidate => <ProjectItem
           key={candidate.id}
           candidate={candidate}
-          count={versionsOf(candidate).length}
-          active={project === candidate.id}
+          versions={versionsOf(candidate)}
+          tasks={snapshot?.tasks ?? []}
+          activeProject={project === candidate.id}
+          activeVersionId={task === undefined ? version : undefined}
+          activeTaskId={task?.id}
+          open={pinnedProjectsOpen.has(String(candidate.id))}
+          openVersions={pinnedVersionsOpen}
+          pinned
           t={t}
-          onOpen={() => onPinnedProject(candidate)}
+          onProject={() => { togglePinnedProject(String(candidate.id)); onPinnedProject(candidate) }}
+          onVersion={item => { togglePinnedVersion(String(item.id)); onPinnedVersion(candidate, item) }}
+          onTask={onTask}
+          onPin={() => onPin(candidate)}
           onNewVersion={() => onNewVersion(candidate)}
           onEditProject={() => onEditProject(candidate)}
           onDeleteProject={() => onDeleteProject(candidate)}
-          onUnpin={() => onPin(candidate)}
+          onEditVersion={item => onEditVersion(candidate, item)}
+          onDeleteVersion={item => onDeleteVersion(candidate, item)}
+          onNewTask={item => onNewTask(candidate, item)}
+          onEditTask={item => onEditTask(candidate, item)}
+          onDeleteTask={item => onDeleteTask(candidate, item)}
         />)}
       </>}
     </section>

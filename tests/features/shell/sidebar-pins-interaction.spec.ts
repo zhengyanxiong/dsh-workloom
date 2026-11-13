@@ -25,6 +25,8 @@ it('opens a pinned project through its own handler without touching the project 
   ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
   let pinnedOpens = 0
   let treeOpens = 0
+  let pinnedVersions = 0
+  let treeVersions = 0
   let unpins = 0
   let newVersions = 0
   let edits = 0
@@ -42,7 +44,8 @@ it('opens a pinned project through its own handler without touching the project 
       selected: undefined, sessionLimit: 5, createDisabledTask: false,
       onToggleSection: noop, onSearch: noop,
       onProject: () => { treeOpens += 1 }, onPinnedProject: () => { pinnedOpens += 1 },
-      onVersion: noop, onTask: noop, onPin: () => { unpins += 1 },
+      onVersion: () => { treeVersions += 1 }, onPinnedVersion: () => { pinnedVersions += 1 },
+      onTask: noop, onPin: () => { unpins += 1 },
       onNewVersion: () => { newVersions += 1 }, onEditProject: () => { edits += 1 },
       onDeleteProject: () => { deletes += 1 }, onEditVersion: noop, onDeleteVersion: noop, onNewTask: noop,
       onEditTask: noop, onDeleteTask: noop, onSelectSession: noop, onCreateProject: noop,
@@ -56,6 +59,11 @@ it('opens a pinned project through its own handler without touching the project 
   expect(treeOpens).toBe(0)
   const pinnedSection = container.querySelector('section')
   expect(pinnedSection).not.toBeNull()
+  const pinnedVersion = pinnedSection?.querySelector<HTMLButtonElement>('button[title="v-one"]')
+  expect(pinnedVersion).not.toBeNull()
+  await act(async () => { pinnedVersion?.dispatchEvent(new MouseEvent('click', { bubbles: true })) })
+  expect(pinnedVersions).toBe(1)
+  expect(treeVersions).toBe(0)
   const action = async (label: LoomKey): Promise<void> => {
     const button = pinnedSection?.querySelector<HTMLButtonElement>(`button[aria-label="${en[label]}"]`)
     expect(button).not.toBeNull()

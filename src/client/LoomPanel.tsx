@@ -437,6 +437,7 @@ export function LoomPanel({ t, useSessions, useSessionStatus, retainSession, ope
         onSearch={setSearch}
         onProject={record => { setProject(record.id); setVersion(undefined); setTask(undefined); setSelected(undefined); tree.toggleProject(record.id) }}
         onPinnedProject={record => { setProject(record.id); setVersion(undefined); setTask(undefined); setSelected(undefined); navigate('project') }}
+        onPinnedVersion={(record, item) => { setProject(record.id); setVersion(item.id); setTask(undefined); setSelected(undefined); navigate('project') }}
         onVersion={(record, item) => { setProject(record.id); setVersion(item.id); setTask(undefined); setSelected(undefined); tree.toggleVersion(item.id) }}
         onTask={selectTask}
         onPin={record => setPinnedProjects(current => current.includes(record.id) ? current.filter(id => id !== record.id) : [...current, record.id])}
