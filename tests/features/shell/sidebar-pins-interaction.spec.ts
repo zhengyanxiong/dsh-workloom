@@ -26,6 +26,9 @@ it('opens a pinned project through its own handler without touching the project 
   let pinnedOpens = 0
   let treeOpens = 0
   let unpins = 0
+  let newVersions = 0
+  let edits = 0
+  let deletes = 0
   const noop = (): void => undefined
   container = document.createElement('div')
   document.body.append(container)
@@ -39,8 +42,9 @@ it('opens a pinned project through its own handler without touching the project 
       selected: undefined, sessionLimit: 5, createDisabledTask: false,
       onToggleSection: noop, onSearch: noop,
       onProject: () => { treeOpens += 1 }, onPinnedProject: () => { pinnedOpens += 1 },
-      onVersion: noop, onTask: noop, onPin: () => { unpins += 1 }, onNewVersion: noop, onEditProject: noop,
-      onDeleteProject: noop, onEditVersion: noop, onDeleteVersion: noop, onNewTask: noop,
+      onVersion: noop, onTask: noop, onPin: () => { unpins += 1 },
+      onNewVersion: () => { newVersions += 1 }, onEditProject: () => { edits += 1 },
+      onDeleteProject: () => { deletes += 1 }, onEditVersion: noop, onDeleteVersion: noop, onNewTask: noop,
       onEditTask: noop, onDeleteTask: noop, onSelectSession: noop, onCreateProject: noop,
       onCreateTask: noop, onOpenTemporary: noop,
     }))
@@ -50,8 +54,19 @@ it('opens a pinned project through its own handler without touching the project 
   await act(async () => { pinnedButton?.dispatchEvent(new MouseEvent('click', { bubbles: true })) })
   expect(pinnedOpens).toBe(1)
   expect(treeOpens).toBe(0)
-  const unpinButton = [...container.querySelectorAll<HTMLButtonElement>(`button[aria-label="${en['side.unpin']}"]`)][0]
-  expect(unpinButton).toBeDefined()
-  await act(async () => { unpinButton?.dispatchEvent(new MouseEvent('click', { bubbles: true })) })
+  const pinnedSection = container.querySelector('section')
+  expect(pinnedSection).not.toBeNull()
+  const action = async (label: LoomKey): Promise<void> => {
+    const button = pinnedSection?.querySelector<HTMLButtonElement>(`button[aria-label="${en[label]}"]`)
+    expect(button).not.toBeNull()
+    await act(async () => { button?.dispatchEvent(new MouseEvent('click', { bubbles: true })) })
+  }
+  await action('version.new')
+  await action('project.edit')
+  await action('project.delete')
+  await action('side.unpin')
+  expect(newVersions).toBe(1)
+  expect(edits).toBe(1)
+  expect(deletes).toBe(1)
   expect(unpins).toBe(1)
 })

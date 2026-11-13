@@ -28,8 +28,9 @@ Releases start at 0.1.8 in this repository.
   refused by the Host's existing precondition.
 - Switching Sessions in the sidebar now aligns the topbar's project and version,
   including temporary and unbound Sessions.
-- Pinned projects are independent shortcut rows with their own open and unpin
-  handlers; they no longer duplicate or drive the expanded project tree.
+- Pinned projects are independent shortcut rows with their own open, new
+  version, edit, delete and unpin actions; they no longer duplicate or drive
+  the expanded project tree.
 
 ## [0.3.4] - 2026-11-12
 

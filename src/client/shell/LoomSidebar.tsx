@@ -105,6 +105,9 @@ export function LoomSidebar({ className, t, snapshot, project, version, task, pi
           active={project === candidate.id}
           t={t}
           onOpen={() => onPinnedProject(candidate)}
+          onNewVersion={() => onNewVersion(candidate)}
+          onEditProject={() => onEditProject(candidate)}
+          onDeleteProject={() => onDeleteProject(candidate)}
           onUnpin={() => onPin(candidate)}
         />)}
       </>}
