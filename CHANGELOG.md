@@ -17,6 +17,9 @@ Releases start at 0.1.8 in this repository.
 - Every workspace gets a `.loomtmp` scratch directory that local Git excludes
   without editing tracked `.gitignore` files; the Agent prompt points temporary
   files there.
+- The bottom panel's Run graph recursively shows the active task's Sessions,
+  descendant subagents and each Session's background jobs, with animated
+  running status and Session navigation.
 
 ### Fixed
 

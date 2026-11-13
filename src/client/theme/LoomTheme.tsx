@@ -26,6 +26,7 @@ import { cssText as settingsUpdateCss } from '../features/settings/LoomUpdateSec
 import { cssText as sessionHeaderCss } from '../features/session/LoomSessionHeader.module.css'
 import { cssText as sessionGraphCss } from '../features/session/LoomSessionGraph.module.css'
 import { cssText as sessionActivityCss } from '../features/session/LoomSessionActivity.module.css'
+import { cssText as runGraphCss } from '../features/session/LoomRunGraph.module.css'
 import classes from './LoomTheme.module.css'
 
 /** Class that bridges DSH component aliases onto Loom design tokens. */
@@ -62,5 +63,6 @@ export function LoomThemeStyles(): JSX.Element {
     <style data-loom-session-header>{sessionHeaderCss}</style>
     <style data-loom-session-graph>{sessionGraphCss}</style>
     <style data-loom-session-activity>{sessionActivityCss}</style>
+    <style data-loom-run-graph>{runGraphCss}</style>
   </>
 }

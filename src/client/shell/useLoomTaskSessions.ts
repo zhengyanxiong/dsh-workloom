@@ -12,6 +12,7 @@ import { executionForSession } from './useLoomSessionExecution.ts'
 import type { LoomTaskSessionRow } from '../features/session/LoomSessionGraph.tsx'
 import type { LoomSessionExecutionState } from '../features/session/LoomSessionGraph.tsx'
 import type { LoomSubagentRow } from '../features/session/LoomSessionActivity.tsx'
+import { collectSessionLineage, type RunGraphSessionInput } from '../features/session/run-graph.ts'
 
 /** Native Session summary fields used by the dock. */
 export interface SessionSummaryLike {
@@ -19,6 +20,7 @@ export interface SessionSummaryLike {
   readonly displayTitle?: string | undefined
   readonly running?: boolean
   readonly updatedAt?: number
+  readonly origin?: 'subagent' | undefined
 }
 
 /** Native projection fields used for the runtime subagent list. */
@@ -51,6 +53,8 @@ export interface LoomTaskSessions {
   readonly liveSnapshot: boolean
   readonly runtimeSessionId: SessionId | undefined
   readonly subagentRows: readonly LoomSubagentRow[]
+  /** Every loaded Session in the active task's lineage, for the run monitor. */
+  readonly runRows: readonly RunGraphSessionInput[]
 }
 
 /**
@@ -94,5 +98,6 @@ export function useLoomTaskSessions(input: LoomTaskSessionsInput): LoomTaskSessi
     mode: entry.mode,
     running: sessionById[entry.id]?.running === true,
   }))
-  return { taskSessions, activeSessionRows, sessionStates, archiveBlockedIds, liveSnapshot, runtimeSessionId, subagentRows }
+  const runRows = collectSessionLineage(taskSessions.map(row => String(row.sessionId)), sessionById)
+  return { taskSessions, activeSessionRows, sessionStates, archiveBlockedIds, liveSnapshot, runtimeSessionId, subagentRows, runRows }
 }
