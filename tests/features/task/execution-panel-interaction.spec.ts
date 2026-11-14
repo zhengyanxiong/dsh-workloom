@@ -115,6 +115,37 @@ it('starts a task without committing the existing workspace automatically', asyn
   expect(opened).toBe(1)
 })
 
+it('commits a workspace only after an explicit checkpoint confirmation', async () => {
+  ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
+  let commits = 0
+  const checkpointActions: ExecutionActions = {
+    ...actions,
+    commitWorkspace: async () => {
+      commits += 1
+      return { ok: true, value: { repositories: [], committed: 0 } }
+    },
+  }
+  container = document.createElement('div')
+  document.body.append(container)
+  root = createRoot(container)
+  await act(async () => {
+    root?.render(createElement(ExecutionPanel, {
+      t, task, snapshot, selectedSession: undefined, actions: checkpointActions,
+      loadChanges: unused, wrap: false, onToggleWrap: () => {},
+    }))
+  })
+  const button = (label: string): HTMLButtonElement => {
+    const found = [...document.querySelectorAll('button')].find(candidate => candidate.textContent === label)
+    if (found === undefined) throw new Error(`button ${label} is missing`)
+    return found
+  }
+  await act(async () => { button(en['workspace.checkpoint']).dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true })) })
+  expect(document.querySelector(`[role="dialog"][aria-label="${en['workspace.checkpoint']}"]`)).not.toBeNull()
+  expect(commits).toBe(0)
+  await act(async () => { button(en['workspace.checkpointConfirm']).dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true })) })
+  expect(commits).toBe(1)
+})
+
 it('selects an existing version workspace instead of opening creation controls', async () => {
   ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
   const pendingTask: TaskRecord = { ...task, status: 'pending', attempts: [] }

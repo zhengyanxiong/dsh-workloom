@@ -37,6 +37,8 @@ declare module '@deepseek-ai/cordis' {
     'agent/status'(payload: { readonly agent: LoomAgent; readonly status: 'idle' | 'running' }): void
     /** Native Session disposal; used to release or dequeue its execution token. */
     'session/disposed'(session: { readonly id: Branded<'SessionId'> }): void
+    /** Committed Session events; Loom folds workflow records without changing them. */
+    'session/event'(session: { readonly id: Branded<'SessionId'> }, event: { readonly type: string; readonly data: unknown }): void
     /** A Session opened in a Loom workspace; linked workspaces need full file access. */
     'session/created'(session: {
       readonly id: Branded<'SessionId'>

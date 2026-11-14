@@ -1,4 +1,5 @@
 /** Recursive run graph built from native Session lineage and background jobs. */
+import type { WorkflowRunView } from 'dsh-workloom/types'
 import type { LoomJobView } from '../../../ports/loom-jobs.ts'
 
 /** Display status shared by session and background-job nodes. */
@@ -12,6 +13,8 @@ export interface RunGraphSessionInput {
   readonly running: boolean
   readonly updatedAt: number
   readonly origin?: 'subagent' | undefined
+  /** Workflow records owned by this Session. */
+  readonly workflowRuns?: readonly WorkflowRunView[] | undefined
 }
 
 /** Native summary subset needed to walk Session lineage. */
@@ -75,7 +78,7 @@ export function collectSessionLineage(
 
 /** One session or job node in the rendered run tree. */
 export interface RunGraphNode {
-  readonly kind: 'session' | 'job'
+  readonly kind: 'session' | 'job' | 'workflow' | 'phase'
   readonly id: string
   readonly label: string
   readonly status: RunGraphStatus
@@ -100,6 +103,14 @@ function jobStatus(status: LoomJobView['status']): RunGraphStatus {
     case 'failed': return 'failed'
     case 'killed': return 'cancelled'
   }
+}
+
+function phaseStatus(members: readonly { readonly status: WorkflowRunView['status'] }[]): RunGraphStatus {
+  if (members.some(member => member.status === 'running')) return 'running'
+  if (members.some(member => member.status === 'failed')) return 'failed'
+  if (members.length > 0 && members.every(member => member.status === 'completed')) return 'completed'
+  if (members.length > 0 && members.every(member => member.status === 'cancelled')) return 'cancelled'
+  return 'idle'
 }
 
 function sortNodes(nodes: readonly RunGraphNode[]): RunGraphNode[] {
@@ -138,10 +149,62 @@ export function buildRunGraph(
     })
   }
   const roots: RunGraphNode[] = []
+  const parentOf = new Map<string, string | undefined>()
   for (const entry of byId.values()) {
     const parent = entry.node.parentId === undefined ? undefined : byId.get(entry.node.parentId)
+    parentOf.set(entry.node.id, parent?.node.id)
     if (parent === undefined) roots.push(entry.node)
     else parent.children.push(entry.node)
+  }
+  const detach = (node: RunGraphNode): void => {
+    const parentId = parentOf.get(node.id)
+    const siblings = parentId === undefined ? roots : byId.get(parentId)?.children
+    if (siblings === undefined) return
+    const index = siblings.indexOf(node)
+    if (index >= 0) siblings.splice(index, 1)
+  }
+  const claimed = new Set<string>()
+  for (const row of rows) {
+    const owner = byId.get(row.id)
+    if (owner === undefined || row.workflowRuns === undefined) continue
+    for (const run of row.workflowRuns) {
+      const phases: RunGraphNode[] = []
+      for (const phase of run.phases) {
+        const members: RunGraphNode[] = []
+        for (const member of phase.members) {
+          const existing = byId.get(member.childId)
+          if (existing !== undefined) {
+            if (claimed.has(member.childId)) continue
+            claimed.add(member.childId)
+            detach(existing.node)
+            members.push({
+              ...existing.node,
+              status: member.status,
+              origin: 'subagent',
+            })
+          } else {
+            members.push({
+              kind: 'session', id: member.childId, label: member.label, status: member.status,
+              origin: 'subagent', updatedAt: 0, children: [],
+            })
+          }
+        }
+        phases.push({
+          kind: 'phase',
+          id: `phase:${run.sessionId}:${run.runId}:${phase.phase ?? ''}`,
+          label: phase.phase ?? '',
+          status: phaseStatus(phase.members),
+          children: members,
+        })
+      }
+      owner.children.push({
+        kind: 'workflow',
+        id: `workflow:${run.sessionId}:${run.runId}`,
+        label: run.name,
+        status: run.status,
+        children: phases,
+      })
+    }
   }
   for (const [sessionId, jobs] of Object.entries(jobsBySession)) {
     const owner = byId.get(sessionId)

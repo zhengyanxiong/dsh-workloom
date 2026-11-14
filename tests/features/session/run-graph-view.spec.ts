@@ -30,7 +30,10 @@ it('renders the recursive run tree with session, subagent and job nodes', () => 
     currentSessionId: 'child',
     rows: [
       { id: 'root', label: 'Main session', running: true, updatedAt: 3 },
-      { id: 'child', parentId: 'root', label: 'Workflow agent', running: true, updatedAt: 2, origin: 'subagent' },
+      { id: 'child', parentId: 'root', label: 'Workflow agent', running: true, updatedAt: 2, origin: 'subagent', workflowRuns: [{
+        sessionId: 'child', runId: 'r1', name: 'review', status: 'running',
+        phases: [{ phase: 'analysis', members: [{ seq: 1, label: 'workflow member', childId: 'member', phase: 'analysis', status: 'running' }] }],
+      }] },
       { id: 'grandchild', parentId: 'child', label: 'Nested agent', running: false, updatedAt: 1, origin: 'subagent' },
     ],
     onOpenSession: () => {},
@@ -43,6 +46,10 @@ it('renders the recursive run tree with session, subagent and job nodes', () => 
   expect(html).toContain('Run tests')
   expect(html).toContain(en['run.kind.agent'])
   expect(html).toContain(en['run.kind.job'])
+  expect(html).toContain(en['run.kind.workflow'])
+  expect(html).toContain(en['run.kind.phase'])
+  expect(html).toContain('review')
+  expect(html).toContain('analysis')
   expect(html).toContain('role="tree"')
   expect(html).toContain('aria-level="3"')
 })

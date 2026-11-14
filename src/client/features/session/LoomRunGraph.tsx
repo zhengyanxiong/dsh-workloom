@@ -53,10 +53,14 @@ function NodeRow({ node, t, currentSessionId, onOpenSession }: {
   const active = isSession && node.id === currentSessionId
   const content = <>
     <StateDot state={dotState(node.status)} size={12} />
-    <span className={classes.kind}>{isSession
-      ? node.origin === 'subagent' ? t('run.kind.agent') : t('run.kind.session')
-      : t('run.kind.job')}</span>
-    <span className={classes.label} title={node.label}>{node.label}</span>
+    <span className={classes.kind}>{node.kind === 'workflow'
+      ? t('run.kind.workflow')
+      : node.kind === 'phase'
+        ? t('run.kind.phase')
+        : isSession
+          ? node.origin === 'subagent' ? t('run.kind.agent') : t('run.kind.session')
+          : t('run.kind.job')}</span>
+    <span className={classes.label} title={node.label}>{node.kind === 'phase' && node.label === '' ? t('run.unphased') : node.label}</span>
     <span className={`${classes.status} ${node.status === 'running' ? classes.statusRunning : ''}`}>{t(statusKey(node.status))}</span>
     {node.progress !== undefined && <span className={classes.detail}>{node.progress}</span>}
     {node.detail !== undefined && <span className={classes.detail} title={node.detail}>{node.detail}</span>}

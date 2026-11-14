@@ -25,6 +25,27 @@ it('flattens the graph in display order with depth', () => {
   ])
 })
 
+it('nests workflow runs, phases and member Sessions under their owner', () => {
+  const roots = buildRunGraph([
+    {
+      id: 'root', label: 'Main', running: true, updatedAt: 1,
+      workflowRuns: [{
+        sessionId: 'root', runId: 'r1', name: 'review', status: 'running',
+        phases: [{ phase: 'analysis', members: [{ seq: 1, label: 'schema agent', childId: 'child', phase: 'analysis', status: 'running' }] }],
+      }],
+    },
+    { id: 'child', parentId: 'root', label: 'Workflow agent', running: true, updatedAt: 2, origin: 'subagent' },
+  ], {})
+  const root = roots[0]!
+  const workflow = root.children.find(node => node.kind === 'workflow')
+  expect(workflow?.label).toBe('review')
+  const phase = workflow?.children[0]
+  expect(phase?.kind).toBe('phase')
+  expect(phase?.label).toBe('analysis')
+  expect(phase?.children[0]).toMatchObject({ kind: 'session', id: 'child', status: 'running' })
+  expect(root.children.some(node => node.kind === 'session')).toBe(false)
+})
+
 it('collects every descendant of the selected task Sessions', () => {
   const rows = collectSessionLineage(['root'], {
     root: { displayTitle: 'Root', running: true, updatedAt: 3 },

@@ -38,6 +38,7 @@ export const commitWorkspaceRequest = z.strictObject({ workspaceId: nonempty, me
 export const updateWorkspaceRequest = z.strictObject({ workspaceId: nonempty, label: z.string().max(80).optional() })
 export const deleteWorkspaceRequest = z.strictObject({ workspaceId: nonempty, deleteFiles: z.boolean().optional(), confirmPath: z.string().optional() })
 export const cleanupWorkspaceRequest = z.strictObject({ workspaceId: nonempty, discardChanges: z.boolean().optional() })
+export const workflowRunsRequest = z.strictObject({ sessionIds: z.array(nonempty).max(200) })
 export const executionRequest = z.strictObject({ workspaceId: nonempty, sessionId: nonempty })
 export const reorderExecutionQueueRequest = z.strictObject({ workspaceId: nonempty, sessionIds: z.array(nonempty) })
 export const releaseExecutionRequest = z.strictObject({ workspaceId: nonempty, sessionId: nonempty, generation: z.number().int().nonnegative() })

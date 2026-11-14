@@ -6,7 +6,7 @@ import type { InjectFace, PropsLocale, PropsRenderFactories, PropsRuntime, Sessi
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { fileAddressFor } from '@deepseek-ai/dsh-util-workspace-path'
 import type {
-  ProjectRecord, TaskRecord, VersionRecord, WorkspaceChangesRequest,
+  ProjectRecord, TaskRecord, VersionRecord, WorkspaceChangesRequest, WorkflowRunView,
 } from 'dsh-workloom/types'
 import type { LoomPreferences } from './features/settings/LoomSettings.tsx'
 import type { ExecutionActions } from './features/task/LoomExecution.tsx'
@@ -79,7 +79,7 @@ export type LoomPanelProps = PropsRuntime<'main'> & InjectFace<LoomInjected> & P
  * @param props - locale, native catalog, session acquisition, catalog actions, and renderer seats.
  * @returns the whole Loom page.
  */
-export function LoomPanel({ t, useSessions, useSessionStatus, retainSession, openResource, loadSnapshot, createProject, updateProject, deleteProject, createVersion, updateVersion, deleteVersion, createTask, updateTask, deleteTask, generateLock, prepareWorkspace, prepareWorkspaceSilent, registerWorkspace, repositoryBranches, inspectWorkspace, pickDirectory, listDirectory, requestDraftInitialization, startAttempt, attachSession, registerTemporarySession, listAgentPresets, transitionTask, createSessionInWorkspace, openPath, openPathApplications, openPathWith, workspaceChanges, workspaceChangeCount, workspaceStatus, readFile, readBytes, commitWorkspace, updateWorkspace, deleteWorkspace, cleanupWorkspace, cleanupWorkspaceSilent, acquireExecution, cancelExecution, reorderExecutionQueue, releaseExecution, takeoverExecution, forkSession, archivedSessionIds: readArchivedSessionIds, archiveSession, unarchiveSession, jobs, SessionProvider, renderSlot }: LoomPanelProps) {
+export function LoomPanel({ t, useSessions, useSessionStatus, retainSession, openResource, loadSnapshot, createProject, updateProject, deleteProject, createVersion, updateVersion, deleteVersion, createTask, updateTask, deleteTask, generateLock, prepareWorkspace, prepareWorkspaceSilent, registerWorkspace, repositoryBranches, inspectWorkspace, pickDirectory, listDirectory, requestDraftInitialization, startAttempt, attachSession, registerTemporarySession, listAgentPresets, transitionTask, createSessionInWorkspace, openPath, openPathApplications, openPathWith, workspaceChanges, workspaceChangeCount, workspaceStatus, workflowRuns, readFile, readBytes, commitWorkspace, updateWorkspace, deleteWorkspace, cleanupWorkspace, cleanupWorkspaceSilent, acquireExecution, cancelExecution, reorderExecutionQueue, releaseExecution, takeoverExecution, forkSession, archivedSessionIds: readArchivedSessionIds, archiveSession, unarchiveSession, jobs, SessionProvider, renderSlot }: LoomPanelProps) {
   const sessions = useSessions(state => state)
   const [preferences, setPreferences] = useLoomPreferences()
   const { route, setRoute, view, setView } = useLoomRoute(preferences.view)
@@ -111,6 +111,7 @@ export function LoomPanel({ t, useSessions, useSessionStatus, retainSession, ope
   const [version, setVersion] = useState<VersionRecord['id']>()
   const [task, setTask] = useState<TaskRecord>()
   const [selected, setSelected] = useState<SessionId>()
+  const [workflowRunViews, setWorkflowRunViews] = useState<readonly WorkflowRunView[]>([])
   const chrome = useLoomChromeState({ project, version, task })
   const { sidebarOpen, setSidebarOpen, sidebarCollapsed, setSidebarCollapsed, paletteOpen, setPaletteOpen, search, setSearch, temporaryOpen, setTemporaryOpen } = chrome
   const { held, failure, available, setPendingDraft, retry: retrySession } = useLoomSessionHold(selected, retainSession, requestDraftInitialization)
@@ -214,6 +215,23 @@ export function LoomPanel({ t, useSessions, useSessionStatus, retainSession, ope
     snapshot, task: detailTask, selected, archivedSessionIds,
     sessionById: sessions.byId, projections: sessions.projectionsBySession,
   })
+  const runSessionKey = runRows.map(row => String(row.id)).join('\u0000')
+  useEffect(() => {
+    if (runSessionKey === '') { setWorkflowRunViews([]); return }
+    let cancelled = false
+    const load = (): void => {
+      void workflowRuns({ sessionIds: runSessionKey.split('\u0000') })
+        .then(result => { if (!cancelled && result.ok) setWorkflowRunViews(result.value) })
+        .catch(() => { /* the next poll retries while the run graph stays mounted */ })
+    }
+    load()
+    const timer = setInterval(load, 2000)
+    return () => { cancelled = true; clearInterval(timer) }
+  }, [workflowRuns, runSessionKey])
+  const runRowsWithWorkflows = runRows.map(row => ({
+    ...row,
+    workflowRuns: workflowRunViews.filter(run => run.sessionId === row.id),
+  }))
   // Poll faster while a bound Session is running: the Host catalog carries the
   // execution owner, and a 5s poll would show that owner well after the turn
   // starts. Native session status is immediate, so it drives the cadence.
@@ -302,13 +320,6 @@ export function LoomPanel({ t, useSessions, useSessionStatus, retainSession, ope
     },
     onChanged: () => setAttempt(current => current + 1),
   }
-  const temporary: LoomTemporaryActions = {
-    pickDirectory: chooseDirectory,
-    createSessionInWorkspace,
-    registerTemporarySession,
-    onSession: (id) => { setTask(undefined); setSelected(id); setView('workbench'); navigate('session') },
-    onChanged: () => setAttempt(current => current + 1),
-  }
   const {
     selectTask, selectSession, activatePaletteItem, openAttemptSession, createTaskForVersion,
   } = useLoomSelection({
@@ -316,6 +327,13 @@ export function LoomPanel({ t, useSessions, useSessionStatus, retainSession, ope
     setProject, setVersion, setTask, setSelected, setExecutionSession,
     setView, setPaletteOpen, navigate, retrySession, openCreate,
   })
+  const temporary: LoomTemporaryActions = {
+    pickDirectory: chooseDirectory,
+    createSessionInWorkspace,
+    registerTemporarySession,
+    onSession: id => { selectSession(id) },
+    onChanged: () => setAttempt(current => current + 1),
+  }
   // An approval blocks its round until a human answers, so a Loom Session that
   // is waiting needs a signal outside the tab showing the conversation.
   const loomSessionIds = new Set<SessionId>([...boundIds, ...temporaryIds] as SessionId[])
@@ -555,7 +573,7 @@ export function LoomPanel({ t, useSessions, useSessionStatus, retainSession, ope
       pane={pane}
       audit={auditRows}
       sessionsContent={<LoomSessionGraph t={t} taskTitle={detailTask?.title} workspaceLabel={workspaceDisplay} rows={activeSessionRows} execution={runtimeExecution} usageBySession={usageBySession} currentSessionId={runtimeSessionId} sessionStates={sessionStates} busySessionId={sessionArchive.busySessionId ?? sessionExecution.busySessionId} showArchived={sessionArchive.showArchived} archivedSessionIds={archivedSessionIds} onToggleArchived={sessionArchive.toggleArchived} onArchiveSession={sessionArchive.archive} onUnarchiveSession={sessionArchive.restore} onReleaseSession={id => { void sessionExecution.releaseSession(id) }} onQueueSession={id => { void sessionExecution.queueSession(id) }} onLeaveQueue={id => { void sessionExecution.leaveQueue(id) }} onOpenSession={id => { selectSession(id) }} />}
-      runContent={<LoomRunGraph t={t} taskTitle={detailTask?.title} rows={runRows} jobs={jobs} currentSessionId={runtimeSessionId} onOpenSession={id => { selectSession(id) }} />}
+      runContent={<LoomRunGraph t={t} taskTitle={detailTask?.title} rows={runRowsWithWorkflows} jobs={jobs} currentSessionId={runtimeSessionId} onOpenSession={id => { selectSession(id) }} />}
       runtimeContent={<LoomSessionActivity t={t} sessionId={runtimeSessionId} subagents={subagentRows} jobs={jobs} workspaceAccess={workspaceAccess} openSession={id => { selectSession(id) }} forkSession={() => { void fork.forkSessionAction() }} forking={fork.forking} forkError={fork.forkError} canFork={runtimeSessionId !== undefined && detailTask !== undefined && detailWorkspace !== undefined} onClaim={() => { void ownership.claimWorkspace() }} claiming={ownership.claiming} claimError={ownership.claimError} />}
       graphContent={snapshot !== undefined && taskVersion !== undefined ? <LoomVersionGraph t={t} snapshot={snapshot} version={taskVersion} sessionLabel={sessionLabel} runningSessionIds={runningSessionIds} onSelectTask={selectTask} onRelease={(workspaceId, owner) => { void ownership.releaseOwner(workspaceId, owner) }} releasingWorkspaceId={ownership.releasingWorkspace} releaseError={ownership.releaseError} onReleaseAll={() => { void ownership.releaseAllStale() }} releasingAll={ownership.releasingAll} /> : undefined}
       sessionCount={activeSessionRows.filter(row => row.archived !== true).length}

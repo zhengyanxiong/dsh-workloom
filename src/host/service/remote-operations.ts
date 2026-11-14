@@ -5,7 +5,7 @@
  * transport and lifecycle stay on the service.
  */
 import { randomUUID } from 'node:crypto'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { brandString, type Branded } from '@deepseek-ai/dsh-brand'
 import { workspaceBindings, type Catalog } from '../catalog.ts'
 import type {
@@ -33,6 +33,7 @@ import {
   updateWorkspaceRequest, deleteWorkspaceRequest, versionRequest, workspaceChangesRequest, workspaceRequest,
 } from './requests.ts'
 import { serviceError } from './errors.ts'
+import { archiveWorkspaceTemp } from './artifacts.ts'
 import type { VersionContextRegistry } from './version-context.ts'
 
 /** Owner-checked catalog runner supplied by the service facade. */
@@ -40,10 +41,14 @@ export type RunCatalog = <T>(operation: (catalog: Catalog) => T | Promise<T>) =>
 
 /** Remote operation bodies that do not own service lifecycle. */
 export class RemoteOperations {
+  private readonly artifactsDir: string
+
   constructor(
     private readonly workspacesDir: string,
     private readonly versionContext: VersionContextRegistry,
-  ) {}
+  ) {
+    this.artifactsDir = join(dirname(workspacesDir), 'artifacts')
+  }
 
   /** Read a detached catalog snapshot. @returns current committed records. */
   snapshot(run: RunCatalog): Promise<CatalogSnapshot> { return run(catalog => catalog.snapshot()) }
@@ -242,13 +247,11 @@ export class RemoteOperations {
 
   /** Remove a workspace, optionally deleting its directory after path confirmation. @param request - workspace, delete-files flag and echoed root. @returns nothing after the record and optional files are gone. */
   deleteWorkspace(run: RunCatalog, request: DeleteWorkspaceRequest): Promise<void> {
-    return run(catalog => {
+    return run(async catalog => {
       const parsed = deleteWorkspaceRequest.parse(request)
-      return catalog.deleteWorkspace(
-        brandString<WorkspaceRecord['id']>(parsed.workspaceId),
-        parsed.deleteFiles === true,
-        parsed.confirmPath,
-      )
+      const workspaceId = brandString<WorkspaceRecord['id']>(parsed.workspaceId)
+      await this.archiveWorkspaceTemp(catalog, workspaceId)
+      return catalog.deleteWorkspace(workspaceId, parsed.deleteFiles === true, parsed.confirmPath)
     })
   }
 
@@ -264,8 +267,24 @@ export class RemoteOperations {
   cleanupWorkspace(run: RunCatalog, request: CleanupWorkspaceRequest): Promise<void> {
     return run(async catalog => {
       const parsed = cleanupWorkspaceRequest.parse(request)
-      await catalog.cleanupWorkspace(brandString<WorkspaceRecord['id']>(parsed.workspaceId), parsed.discardChanges === true)
+      const workspaceId = brandString<WorkspaceRecord['id']>(parsed.workspaceId)
+      await this.archiveWorkspaceTemp(catalog, workspaceId)
+      await catalog.cleanupWorkspace(workspaceId, parsed.discardChanges === true)
     })
+  }
+
+  /**
+   * Preserve a workspace's scratch directory before its root can be removed.
+   * @param catalog - live catalog owning the workspace.
+   * @param workspaceId - workspace whose `.loomtmp` is archived.
+   */
+  private async archiveWorkspaceTemp(catalog: Catalog, workspaceId: WorkspaceRecord['id']): Promise<void> {
+    const state = catalog.snapshot()
+    const workspace = state.workspaces.find(candidate => candidate.id === workspaceId)
+    if (workspace === undefined || workspace.cleaned === true) return
+    const projectId = workspace.projectId ?? state.versions.find(version => version.id === workspace.versionId)?.projectId
+    const destination = join(this.artifactsDir, projectId === undefined ? 'unassigned' : String(projectId), String(workspace.id))
+    await archiveWorkspaceTemp(workspace.rootPath ?? workspace.path, destination)
   }
 
   /** Record a prepared workspace whose files already exist. @param request - absolute path and owning baseline. @returns persisted workspace. */

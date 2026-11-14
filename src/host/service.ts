@@ -10,7 +10,8 @@ import type { ContextConfig, Config } from './service/config.ts'
 import { configSchema } from './service/config.ts'
 import { serviceError } from './service/errors.ts'
 import { fallbackBindings } from './service/inspection.ts'
-import { executionRequest } from './service/requests.ts'
+import { executionRequest, workflowRunsRequest } from './service/requests.ts'
+import { WorkflowMonitor } from './workflow-monitor.ts'
 import { VersionContextRegistry } from './service/version-context.ts'
 import { ExecutionOwnership } from './service/execution-runtime.ts'
 import { registerAgentTools } from './service/agent-tools.ts'
@@ -22,6 +23,7 @@ import type {
   VersionRecord, WorkspaceRecord, ExecutionRequest, ReleaseExecutionRequest, UpdateProjectRequest, UpdateVersionRequest, UpdateTaskRequest,
   DeleteProjectRequest, DeleteVersionRequest, DeleteTaskRequest, RegisterTemporarySessionRequest, ForgetTemporarySessionRequest,
 InspectWorkspaceRequest, WorkspaceInspection, CommitWorkspaceRequest, WorkspaceCommitResult, UpdateWorkspaceRequest, DeleteWorkspaceRequest, ReorderExecutionQueueRequest, RepositoryBranchesRequest, WorkspaceRepositoryChangesRecord,
+  WorkflowRunsRequest, WorkflowRunView,
 } from '../types.ts'
 import type { Lock } from '../domain/task.ts'
 import { ExecutionError, type ExecutionState } from '../domain/execution.ts'
@@ -75,6 +77,7 @@ export default class LoomService extends TypertRemoteService {
   private readonly versionContext: VersionContextRegistry
   private readonly execution: ExecutionOwnership
   private readonly operations: RemoteOperations
+  private readonly workflowMonitor = new WorkflowMonitor()
 
   constructor(ctx: Context, config: Config) {
     super(ctx, 'loom')
@@ -124,6 +127,7 @@ export default class LoomService extends TypertRemoteService {
   async [Service.init](): Promise<void> {
     const catalog = await this.catalog
     this.refreshSnapshot(catalog)
+    this.ctx.on('session/event', (session, event) => { this.workflowMonitor.observe(session.id, event) })
     this.ctx.on('session/created', session => {
       const cwd = session.header.cwd
       if (cwd === undefined) return
@@ -251,6 +255,11 @@ export default class LoomService extends TypertRemoteService {
   @Remote
   repositoryBranches(request: RepositoryBranchesRequest): Promise<{ topLevel: string; current?: string; branches: readonly string[] }> {
     return this.operations.repositoryBranches(operation => this.run(operation), request)
+  }
+
+  @Remote
+  async workflowRuns(request: WorkflowRunsRequest): Promise<readonly WorkflowRunView[]> {
+    return this.workflowMonitor.read(workflowRunsRequest.parse(request).sessionIds)
   }
 
   @Remote
