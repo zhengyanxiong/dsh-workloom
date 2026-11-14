@@ -11,7 +11,7 @@ import { commitWorkspace, workspaceChangeCount, workspaceChanges, workspaceDirty
 import { workspaceIn } from './catalog/selectors.ts'
 import { ensureWorkspaceBranches, ensureWorkspaceSkillLinks, updateWorkspace } from './catalog/workspace-write.ts'
 import { cleanupWorkspace, deleteWorkspace } from './catalog/workspace-lifecycle.ts'
-import { registerPreparedWorkspace } from './catalog/workspace-register.ts'
+import { recordWorkspaceArtifact, registerPreparedWorkspace } from './catalog/workspace-register.ts'
 import { extendWorkspace, prepareWorkspace } from './catalog/workspace-prepare.ts'
 import { acquireExecution, beginTakeover, cancelExecution, finishTakeover, releaseExecution, releaseSession, reorderExecutionQueue } from './catalog/execution-queue.ts'
 import { attachSession, forgetTemporarySession, registerTemporarySession, startAttempt, suggestTaskOutcome, transitionTask } from './catalog/task-lifecycle.ts'
@@ -187,9 +187,10 @@ export async function createCatalog(file: string, resolveCommit: (repo: string, 
     workspaceChanges: (workspaceId, attemptId) => workspaceChanges(state, workspaceId, attemptId),
     workspaceChangeCount: (workspaceId, attemptId) => workspaceChangeCount(state, workspaceId, attemptId),
     workspaceStatus: (workspaceId, attemptId) => workspaceStatus(state, workspaceId, attemptId),
-    commitWorkspace: (workspaceId, message) => commitWorkspace(state, workspaceId, message),
+    commitWorkspace: (workspaceId, message, paths) => commitWorkspace(state, workspaceId, message, paths),
     workspaceDirty: workspaceId => workspaceDirty(state, workspaceId),
     updateWorkspace: (workspaceId, label) => updateWorkspace(workspaceWrite, workspaceId, label),
+    recordWorkspaceArtifact: (workspaceId, artifact) => recordWorkspaceArtifact(workspaceRegister, workspaceId, artifact),
     deleteWorkspace: (workspaceId, deleteFiles, confirmPath) => deleteWorkspace(workspaceLifecycle, workspaceId, deleteFiles, confirmPath),
     cleanupWorkspace: (workspaceId, discardChanges) => cleanupWorkspace(workspaceLifecycle, workspaceId, discardChanges),
     registerPreparedWorkspace: input => registerPreparedWorkspace(workspaceRegister, input),

@@ -137,16 +137,17 @@ export function workspaceDirty(snapshot: CatalogSnapshot, workspaceId: Workspace
  * @param snapshot - Catalog snapshot.
  * @param workspaceId - Workspace identity.
  * @param message - Commit subject.
+ * @param paths - Selected relative paths per source; omitted commits each repository fully.
  * @returns per-repository commit results.
  */
-export async function commitWorkspace(snapshot: CatalogSnapshot, workspaceId: WorkspaceRecord['id'], message: string): Promise<WorkspaceCommitResult> {
+export async function commitWorkspace(snapshot: CatalogSnapshot, workspaceId: WorkspaceRecord['id'], message: string, paths?: Readonly<Record<string, readonly string[]>>): Promise<WorkspaceCommitResult> {
   const workspace = workspaceIn(snapshot, workspaceId)
   if (workspace.cleaned === true) throw new CatalogError('workspace_cleaned')
   const subject = message.trim() === '' ? 'Loom checkpoint' : message.trim().slice(0, 500)
   const repositories: WorkspaceCommitRepository[] = []
   for (const binding of workspaceBindings(snapshot, workspace)) {
     try {
-      const commit = await commitWorkingTree(binding.targetPath, subject)
+      const commit = await commitWorkingTree(binding.targetPath, subject, paths?.[binding.sourceId])
       repositories.push({ sourceId: binding.sourceId, path: binding.path, changed: commit !== undefined, ...(commit === undefined ? {} : { commit }) })
     } catch (error) {
       repositories.push({ sourceId: binding.sourceId, path: binding.path, changed: false, error: error instanceof Error ? error.message : String(error) })

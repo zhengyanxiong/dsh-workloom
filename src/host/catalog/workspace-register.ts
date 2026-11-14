@@ -9,7 +9,7 @@ import { isAbsolute, normalize, resolve } from 'node:path'
 import { brandString } from '@deepseek-ai/dsh-brand'
 import { admitWorkspaceLayout, WorkspaceLayoutError, type WorkspaceLayout, type WorkspaceRepositoryBinding, type WorkspaceRepositoryKind } from '../../domain/workspace.ts'
 import type { AuditEntry, AuditEvent } from '../../domain/audit.ts'
-import type { CatalogSnapshot, WorkspaceRecord } from '../../api/records.ts'
+import type { CatalogSnapshot, WorkspaceArtifactRecord, WorkspaceRecord } from '../../api/records.ts'
 import { linkWorkspaceSkills } from '../../git/workspace.ts'
 import type { RegisterPreparedWorkspaceInput } from './contract.ts'
 import { CatalogError } from './errors.ts'
@@ -87,5 +87,24 @@ export async function registerPreparedWorkspace(runtime: WorkspaceRegisterRuntim
     draft.workspaces.push(record)
     runtime.recordAudit(draft, 'workspace.prepared', 'system', { workspaceId: record.id, detail: rootPath })
     return record
+  })
+}
+
+/**
+ * Append one retained scratch archive to a workspace record.
+ * @param runtime - Catalog transaction surface.
+ * @param workspaceId - workspace that owns the archive.
+ * @param artifact - archive identity and absolute path.
+ */
+export async function recordWorkspaceArtifact(
+  runtime: WorkspaceRegisterRuntime,
+  workspaceId: WorkspaceRecord['id'],
+  artifact: WorkspaceArtifactRecord,
+): Promise<void> {
+  await runtime.transaction(draft => {
+    const index = draft.workspaces.findIndex(workspace => workspace.id === workspaceId)
+    if (index === -1) throw new CatalogError('missing_workspace')
+    const workspace = draft.workspaces[index]!
+    draft.workspaces[index] = { ...workspace, artifacts: [...workspace.artifacts ?? [], artifact] }
   })
 }

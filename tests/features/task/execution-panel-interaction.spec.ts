@@ -118,20 +118,23 @@ it('starts a task without committing the existing workspace automatically', asyn
 it('commits a workspace only after an explicit checkpoint confirmation', async () => {
   ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
   let commits = 0
+  let committedPaths: unknown
   const checkpointActions: ExecutionActions = {
     ...actions,
-    commitWorkspace: async () => {
+    commitWorkspace: async request => {
       commits += 1
+      committedPaths = request.paths
       return { ok: true, value: { repositories: [], committed: 0 } }
     },
   }
+  const changes = async () => ({ ok: true as const, value: { repositories: [{ repo: 'web', directory: '/tmp/web', files: [{ path: 'src/a.ts', added: 1, deleted: 0, binary: false, before: true, after: true, hunks: [] }] }] } })
   container = document.createElement('div')
   document.body.append(container)
   root = createRoot(container)
   await act(async () => {
     root?.render(createElement(ExecutionPanel, {
       t, task, snapshot, selectedSession: undefined, actions: checkpointActions,
-      loadChanges: unused, wrap: false, onToggleWrap: () => {},
+      loadChanges: changes, wrap: false, onToggleWrap: () => {},
     }))
   })
   const button = (label: string): HTMLButtonElement => {
@@ -139,11 +142,12 @@ it('commits a workspace only after an explicit checkpoint confirmation', async (
     if (found === undefined) throw new Error(`button ${label} is missing`)
     return found
   }
-  await act(async () => { button(en['workspace.checkpoint']).dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true })) })
+  await act(async () => { button(en['workspace.checkpoint']).dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true })); await Promise.resolve() })
   expect(document.querySelector(`[role="dialog"][aria-label="${en['workspace.checkpoint']}"]`)).not.toBeNull()
   expect(commits).toBe(0)
   await act(async () => { button(en['workspace.checkpointConfirm']).dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true })) })
   expect(commits).toBe(1)
+  expect(committedPaths).toEqual({ web: ['src/a.ts'] })
 })
 
 it('selects an existing version workspace instead of opening creation controls', async () => {

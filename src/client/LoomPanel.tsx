@@ -79,7 +79,7 @@ export type LoomPanelProps = PropsRuntime<'main'> & InjectFace<LoomInjected> & P
  * @param props - locale, native catalog, session acquisition, catalog actions, and renderer seats.
  * @returns the whole Loom page.
  */
-export function LoomPanel({ t, useSessions, useSessionStatus, retainSession, openResource, loadSnapshot, createProject, updateProject, deleteProject, createVersion, updateVersion, deleteVersion, createTask, updateTask, deleteTask, generateLock, prepareWorkspace, prepareWorkspaceSilent, registerWorkspace, repositoryBranches, inspectWorkspace, pickDirectory, listDirectory, requestDraftInitialization, startAttempt, attachSession, registerTemporarySession, listAgentPresets, transitionTask, createSessionInWorkspace, openPath, openPathApplications, openPathWith, workspaceChanges, workspaceChangeCount, workspaceStatus, workflowRuns, readFile, readBytes, commitWorkspace, updateWorkspace, deleteWorkspace, cleanupWorkspace, cleanupWorkspaceSilent, acquireExecution, cancelExecution, reorderExecutionQueue, releaseExecution, takeoverExecution, forkSession, archivedSessionIds: readArchivedSessionIds, archiveSession, unarchiveSession, jobs, SessionProvider, renderSlot }: LoomPanelProps) {
+export function LoomPanel({ t, useSessions, useSessionStatus, retainSession, openResource, loadSnapshot, createProject, updateProject, deleteProject, createVersion, updateVersion, deleteVersion, createTask, updateTask, deleteTask, generateLock, prepareWorkspace, prepareWorkspaceSilent, registerWorkspace, repositoryBranches, inspectWorkspace, pickDirectory, listDirectory, requestDraftInitialization, startAttempt, attachSession, registerTemporarySession, listAgentPresets, transitionTask, createSessionInWorkspace, openPath, openPathApplications, openPathWith, workspaceChanges, workspaceChangeCount, workspaceStatus, workflowRuns, restoreWorkspaceArtifact, readFile, readBytes, commitWorkspace, updateWorkspace, deleteWorkspace, cleanupWorkspace, cleanupWorkspaceSilent, acquireExecution, cancelExecution, reorderExecutionQueue, releaseExecution, takeoverExecution, forkSession, archivedSessionIds: readArchivedSessionIds, archiveSession, unarchiveSession, jobs, SessionProvider, renderSlot }: LoomPanelProps) {
   const sessions = useSessions(state => state)
   const [preferences, setPreferences] = useLoomPreferences()
   const { route, setRoute, view, setView } = useLoomRoute(preferences.view)
@@ -520,6 +520,8 @@ export function LoomPanel({ t, useSessions, useSessionStatus, retainSession, ope
         loadTaskChanges={loadTaskChanges}
         generateLock={generateLock}
         workspaceStatus={workspaceStatus}
+        openPath={openPath}
+        restoreWorkspaceArtifact={restoreWorkspaceArtifact}
         versionContext={versionContext}
         SessionProvider={SessionProvider}
         renderSlot={renderSlot}

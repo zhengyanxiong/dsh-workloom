@@ -84,3 +84,30 @@ it('shows the current-version status counts inline in the tasks header', () => {
   expect(html).toContain('abcdef1')
   expect(html).toContain(en['project.sessionRound'].replace('{round}', '1'))
 })
+
+it('lists retained scratch archives with open and restore actions', () => {
+  const artifactWorkspace = {
+    id: workspaceId, versionId: version.id, lockId: lock.id, path: '/worktrees/shop', rootPath: '/worktrees/shop',
+    artifacts: [{ id: 'a1', path: '/loom/artifacts/p1/w1/2026-11-14T15-00-00-000Z-abcd', createdAt: '2026-11-14T15:00:00.000Z' }],
+  }
+  const html = renderToStaticMarkup(createElement(LoomProjectPage, {
+    t,
+    snapshot: { ...snapshot, workspaces: [artifactWorkspace] },
+    project,
+    version,
+    onProject: () => undefined,
+    onVersion: () => undefined,
+    onTask: () => undefined,
+    onBoard: () => undefined,
+    onNewTask: () => undefined,
+    onNewVersion: () => undefined,
+    onEditProject: () => undefined,
+    onEditVersion: () => undefined,
+    onOpenPath: () => undefined,
+    onRestoreArtifact: async () => true,
+  }))
+  expect(html).toContain(en['project.artifacts'])
+  expect(html).toContain('/loom/artifacts/p1/w1/2026-11-14T15-00-00-000Z-abcd')
+  expect(html).toContain(en['project.openArtifact'])
+  expect(html).toContain(en['project.restoreArtifact'])
+})

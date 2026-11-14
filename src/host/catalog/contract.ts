@@ -11,7 +11,7 @@ import type { VersionTarget } from '../../domain/version.ts'
 import type { ExecutionOwner, ExecutionState, StopOutcome } from '../../domain/execution.ts'
 import type { WorkspaceMode, WorkspaceRepositoryBinding } from '../../domain/workspace.ts'
 import type { WorkspaceRepositoryChanges } from '../../git/workspace.ts'
-import type { CatalogSnapshot, ProjectRecord, TaskPriority, TaskRecord, TemporarySessionRecord, VersionRecord, WorkspaceRecord } from '../../api/records.ts'
+import type { CatalogSnapshot, ProjectRecord, TaskPriority, TaskRecord, TemporarySessionRecord, VersionRecord, WorkspaceArtifactRecord, WorkspaceRecord } from '../../api/records.ts'
 
 /**
  * A Session's advisory completion report; only a human transition confirms it.
@@ -134,9 +134,10 @@ export interface Catalog {
   /**
    * Commit every repository's uncommitted changes without pushing.
    */
-  commitWorkspace(workspaceId: WorkspaceRecord['id'], message: string): Promise<WorkspaceCommitResult>
+  commitWorkspace(workspaceId: WorkspaceRecord['id'], message: string, paths?: Readonly<Record<string, readonly string[]>>): Promise<WorkspaceCommitResult>
   workspaceDirty(workspaceId: WorkspaceRecord['id']): Promise<boolean>
   updateWorkspace(workspaceId: WorkspaceRecord['id'], label: string): Promise<WorkspaceRecord>
+  recordWorkspaceArtifact(workspaceId: WorkspaceRecord['id'], artifact: WorkspaceArtifactRecord): Promise<void>
   deleteWorkspace(workspaceId: WorkspaceRecord['id'], deleteFiles: boolean, confirmPath?: string): Promise<void>
   cleanupWorkspace(workspaceId: WorkspaceRecord['id'], discardChanges: boolean): Promise<void>
   ensureWorkspaceBranches(workspaceId: WorkspaceRecord['id']): Promise<WorkspaceRecord>

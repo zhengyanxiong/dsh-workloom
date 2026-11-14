@@ -21,9 +21,10 @@ Releases start at 0.1.8 in this repository.
   workflow runs, phases, descendant subagents and each Session's background
   jobs, with animated running status and Session navigation.
 - Cleaning up or deleting a workspace archives its `.loomtmp` under the Loom
-  artifacts directory before the root can be removed.
-- The execution panel offers an explicit checkpoint confirmation; starting a
-  task or forking still never commits automatically.
+  artifacts directory before the root can be removed, and the project page can
+  list, open and restore those archives.
+- The execution panel offers an explicit checkpoint with per-file selection;
+  starting a task or forking still never commits automatically.
 
 ### Fixed
 

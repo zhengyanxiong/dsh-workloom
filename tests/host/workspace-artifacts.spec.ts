@@ -2,7 +2,7 @@ import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { afterEach, expect, it } from 'vitest'
-import { archiveWorkspaceTemp } from '../../src/host/service/artifacts.ts'
+import { archiveWorkspaceTemp, restoreWorkspaceArtifact } from '../../src/host/service/artifacts.ts'
 
 const roots: string[] = []
 async function fixture(): Promise<{ root: string; archive: string }> {
@@ -33,4 +33,15 @@ it('does not create an archive when .loomtmp is missing or empty', async () => {
   expect(await archiveWorkspaceTemp(f.root, f.archive)).toBeUndefined()
   await mkdir(join(f.root, '.loomtmp'), { recursive: true })
   expect(await archiveWorkspaceTemp(f.root, f.archive)).toBeUndefined()
+})
+
+it('restores an archived snapshot into a workspace scratch directory', async () => {
+  const f = await fixture()
+  await mkdir(join(f.root, '.loomtmp'), { recursive: true })
+  await writeFile(join(f.root, '.loomtmp', 'result.txt'), 'restored output')
+  const archived = await archiveWorkspaceTemp(f.root, f.archive)
+  expect(archived).toBeDefined()
+  const target = join(f.root, 'restored')
+  await restoreWorkspaceArtifact(archived!, target)
+  expect(await readFile(join(target, '.loomtmp', 'result.txt'), 'utf8')).toBe('restored output')
 })

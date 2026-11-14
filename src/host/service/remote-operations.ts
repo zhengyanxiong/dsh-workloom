@@ -5,7 +5,7 @@
  * transport and lifecycle stay on the service.
  */
 import { randomUUID } from 'node:crypto'
-import { dirname, join } from 'node:path'
+import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { brandString, type Branded } from '@deepseek-ai/dsh-brand'
 import { workspaceBindings, type Catalog } from '../catalog.ts'
 import type {
@@ -16,7 +16,7 @@ import type {
   UpdateProjectRequest, UpdateVersionRequest, UpdateTaskRequest, DeleteProjectRequest, DeleteVersionRequest,
   DeleteTaskRequest, RegisterTemporarySessionRequest, ForgetTemporarySessionRequest, RepositoryBranchesRequest,
   InspectWorkspaceRequest, WorkspaceInspection, CommitWorkspaceRequest, WorkspaceCommitResult,
-  UpdateWorkspaceRequest, DeleteWorkspaceRequest, ReorderExecutionQueueRequest,
+  UpdateWorkspaceRequest, DeleteWorkspaceRequest, ReorderExecutionQueueRequest, RestoreWorkspaceArtifactRequest,
 } from '../../types.ts'
 import type { Lock } from '../../domain/task.ts'
 import type { TemporarySessionRecord } from '../../api/records.ts'
@@ -28,12 +28,12 @@ import { prepareVersionWorkspace } from './version-workspace.ts'
 import {
   attemptRequest, cleanupWorkspaceRequest, commitWorkspaceRequest, deleteProjectRequest, deleteTaskRequest, deleteVersionRequest,
   executionRequest, forgetTemporarySessionRequest, inspectWorkspaceRequest, lockRequest, registerWorkspaceRequest,
-  releaseExecutionRequest, reorderExecutionQueueRequest, repositoryBranchesRequest, sessionRequest, taskRequest,
+  releaseExecutionRequest, reorderExecutionQueueRequest, repositoryBranchesRequest, restoreArtifactRequest, sessionRequest, taskRequest,
   temporarySessionRequest, transitionRequest, updateProjectRequest, updateTaskRequest, updateVersionRequest,
   updateWorkspaceRequest, deleteWorkspaceRequest, versionRequest, workspaceChangesRequest, workspaceRequest,
 } from './requests.ts'
 import { serviceError } from './errors.ts'
-import { archiveWorkspaceTemp } from './artifacts.ts'
+import { archiveWorkspaceTemp, restoreWorkspaceArtifact } from './artifacts.ts'
 import type { VersionContextRegistry } from './version-context.ts'
 
 /** Owner-checked catalog runner supplied by the service facade. */
@@ -202,7 +202,7 @@ export class RemoteOperations {
   commitWorkspace(run: RunCatalog, request: CommitWorkspaceRequest): Promise<WorkspaceCommitResult> {
     return run(catalog => {
       const parsed = commitWorkspaceRequest.parse(request)
-      return catalog.commitWorkspace(brandString<WorkspaceRecord['id']>(parsed.workspaceId), parsed.message ?? 'Loom checkpoint')
+      return catalog.commitWorkspace(brandString<WorkspaceRecord['id']>(parsed.workspaceId), parsed.message ?? 'Loom checkpoint', parsed.paths)
     })
   }
 
@@ -284,7 +284,27 @@ export class RemoteOperations {
     if (workspace === undefined || workspace.cleaned === true) return
     const projectId = workspace.projectId ?? state.versions.find(version => version.id === workspace.versionId)?.projectId
     const destination = join(this.artifactsDir, projectId === undefined ? 'unassigned' : String(projectId), String(workspace.id))
-    await archiveWorkspaceTemp(workspace.rootPath ?? workspace.path, destination)
+    const archived = await archiveWorkspaceTemp(workspace.rootPath ?? workspace.path, destination)
+    if (archived !== undefined) {
+      await catalog.recordWorkspaceArtifact(workspaceId, { id: randomUUID(), path: archived, createdAt: new Date().toISOString() })
+    }
+  }
+
+  /** Restore one archived scratch snapshot into its workspace. @param request - workspace and archive identities. @returns nothing after the copy. */
+  restoreWorkspaceArtifact(run: RunCatalog, request: RestoreWorkspaceArtifactRequest): Promise<void> {
+    return run(async catalog => {
+      const parsed = restoreArtifactRequest.parse(request)
+      const workspaceId = brandString<WorkspaceRecord['id']>(parsed.workspaceId)
+      const workspace = catalog.snapshot().workspaces.find(candidate => candidate.id === workspaceId)
+      if (workspace === undefined) throw serviceError('missing_workspace')
+      if (workspace.cleaned === true) throw serviceError('workspace_cleaned')
+      const artifact = workspace.artifacts?.find(candidate => candidate.id === parsed.artifactId)
+      if (artifact === undefined) throw serviceError('missing_workspace_artifact')
+      const archivePath = resolve(artifact.path)
+      const inside = relative(resolve(this.artifactsDir), archivePath)
+      if (!isAbsolute(artifact.path) || inside.startsWith('..') || isAbsolute(inside)) throw serviceError('invalid_workspace_artifact')
+      await restoreWorkspaceArtifact(archivePath, workspace.rootPath ?? workspace.path)
+    })
   }
 
   /** Record a prepared workspace whose files already exist. @param request - absolute path and owning baseline. @returns persisted workspace. */

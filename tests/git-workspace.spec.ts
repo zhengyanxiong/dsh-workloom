@@ -303,3 +303,15 @@ it('commits dirty worktree changes without pushing them', async () => {
   expect(await resolveCommit(f.first, 'HEAD')).toBe(commit)
   expect(await commitWorkingTree(f.first, 'Loom checkpoint')).toBeUndefined()
 })
+
+it('commits only the selected paths during a checkpoint', async () => {
+  const f = await fixture()
+  await writeFile(join(f.first, 'file.txt'), 'selected')
+  await writeFile(join(f.first, 'other.txt'), 'not selected')
+  const commit = await commitWorkingTree(f.first, 'Loom checkpoint', ['file.txt'])
+  expect(commit).toBeDefined()
+  const status = await workingTreeStatus(f.first)
+  expect(status).not.toContain('file.txt')
+  expect(status).toContain('?? other.txt')
+  await expect(commitWorkingTree(f.first, 'Loom checkpoint', ['missing.txt'])).rejects.toThrow('commit_failed')
+})

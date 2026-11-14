@@ -4,6 +4,17 @@ import { cp, mkdir, readdir, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 
 /**
+ * Copy one archived snapshot back into the workspace scratch directory.
+ * @param archivePath - archived directory to restore.
+ * @param workspaceRoot - workspace root receiving `.loomtmp`.
+ */
+export async function restoreWorkspaceArtifact(archivePath: string, workspaceRoot: string): Promise<void> {
+  const destination = join(workspaceRoot, '.loomtmp')
+  await mkdir(destination, { recursive: true })
+  await cp(archivePath, destination, { recursive: true, force: true })
+}
+
+/**
  * Copy a workspace's `.loomtmp` into a project archive destination.
  * @param workspaceRoot - absolute workspace root containing `.loomtmp`.
  * @param destinationRoot - archive directory for one project/workspace.

@@ -20,7 +20,7 @@ import type {
   TransitionTaskRequest, UpdateProjectRequest, UpdateTaskRequest, UpdateVersionRequest, UpdateWorkspaceRequest,
   VersionRecord, WorkspaceChangesRequest, WorkspaceCommitResult, WorkspaceInspection, WorkspaceRecord,
   WorkspaceRepositoryChangesRecord, WorkspaceStatusResult, InspectWorkspaceRequest, DeleteWorkspaceRequest,
-  WorkflowRunsRequest, WorkflowRunView,
+  WorkflowRunsRequest, WorkflowRunView, RestoreWorkspaceArtifactRequest,
 } from '../api/index.ts'
 import type { AgentPresetOption } from '../api/agent.ts'
 import type { LoomJobsFace } from './loom-jobs.ts'
@@ -85,6 +85,7 @@ export interface LoomHostPort {
   workspaceChanges(request: WorkspaceChangesRequest): Promise<RemoteResult<{ repositories: WorkspaceRepositoryChangesRecord[] }>>
   /** Workflow records observed in the requested Sessions. */
   workflowRuns(request: WorkflowRunsRequest): Promise<RemoteResult<readonly WorkflowRunView[]>>
+  restoreWorkspaceArtifact(request: RestoreWorkspaceArtifactRequest): Promise<RemoteResult<void>>
   workspaceChangeCount(request: WorkspaceChangesRequest): Promise<RemoteResult<number>>
   workspaceStatus(request: WorkspaceChangesRequest): Promise<RemoteResult<WorkspaceStatusResult>>
   readFile(sessionId: SessionId, path: string, offset: number, signal: AbortSignal): Promise<RemoteResult<WorkspaceFileText>>

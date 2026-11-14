@@ -214,15 +214,18 @@ async function fetchCommit(repo: string, ref: string): Promise<string | undefine
 }
 
 /**
- * Commit every uncommitted change in one worktree without pushing it.
+ * Commit selected or every uncommitted change in one worktree without pushing it.
  * Branch identity comes from the user's normal Git configuration; hooks and
  * interactive prompts stay disabled so a checkpoint cannot run repository code.
  * @param worktree - absolute local worktree path.
  * @param message - non-empty commit subject.
- * @returns the new commit id, or undefined when the worktree was clean.
+ * @param paths - relative paths to stage; omitted stages the whole worktree.
+ * @returns the new commit id, or undefined when nothing was staged.
  */
-export async function commitWorkingTree(worktree: string, message: string): Promise<string | undefined> {
+export async function commitWorkingTree(worktree: string, message: string, paths?: readonly string[]): Promise<string | undefined> {
   const top = await localRepository(worktree)
+  const selected = paths === undefined ? undefined : [...new Set(paths.map(path => safeRelativePath(path)))]
+  if (selected !== undefined && selected.length === 0) return undefined
   const status = await workingTreeStatus(top)
   if (status.trim() === '') return undefined
   const env: NodeJS.ProcessEnv = { ...process.env, GIT_TERMINAL_PROMPT: '0', GIT_CONFIG_NOSYSTEM: '1' }
@@ -235,7 +238,15 @@ export async function commitWorkingTree(worktree: string, message: string): Prom
     return result.stdout
   }
   try {
-    await run(['-C', top, 'add', '-A'])
+    await run(selected === undefined ? ['-C', top, 'add', '-A'] : ['-C', top, 'add', '-A', '--', ...selected])
+    if (selected !== undefined) {
+      try {
+        await run(['-C', top, 'diff', '--cached', '--quiet'])
+        return undefined
+      } catch (error) {
+        if ((error as { code?: unknown }).code !== 1) throw error
+      }
+    }
     await run(['-C', top, '-c', 'commit.gpgsign=false', 'commit', '--no-verify', '-m', message])
     const commit = (await run(['-C', top, 'rev-parse', 'HEAD'])).trim()
     if (!COMMIT.test(commit)) throw new WorkspacePreparationError('commit_failed')

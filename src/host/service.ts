@@ -23,7 +23,7 @@ import type {
   VersionRecord, WorkspaceRecord, ExecutionRequest, ReleaseExecutionRequest, UpdateProjectRequest, UpdateVersionRequest, UpdateTaskRequest,
   DeleteProjectRequest, DeleteVersionRequest, DeleteTaskRequest, RegisterTemporarySessionRequest, ForgetTemporarySessionRequest,
 InspectWorkspaceRequest, WorkspaceInspection, CommitWorkspaceRequest, WorkspaceCommitResult, UpdateWorkspaceRequest, DeleteWorkspaceRequest, ReorderExecutionQueueRequest, RepositoryBranchesRequest, WorkspaceRepositoryChangesRecord,
-  WorkflowRunsRequest, WorkflowRunView,
+  WorkflowRunsRequest, WorkflowRunView, RestoreWorkspaceArtifactRequest,
 } from '../types.ts'
 import type { Lock } from '../domain/task.ts'
 import { ExecutionError, type ExecutionState } from '../domain/execution.ts'
@@ -255,6 +255,11 @@ export default class LoomService extends TypertRemoteService {
   @Remote
   repositoryBranches(request: RepositoryBranchesRequest): Promise<{ topLevel: string; current?: string; branches: readonly string[] }> {
     return this.operations.repositoryBranches(operation => this.run(operation), request)
+  }
+
+  @Remote
+  restoreWorkspaceArtifact(request: RestoreWorkspaceArtifactRequest): Promise<void> {
+    return this.operations.restoreWorkspaceArtifact(operation => this.run(operation), request)
   }
 
   @Remote
