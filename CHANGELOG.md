@@ -8,6 +8,8 @@ Releases start at 0.1.8 in this repository.
 
 ## [Unreleased]
 
+## [0.3.5] - 2026-11-15
+
 ### Added
 
 - A project page now lists workspaces from every version with branch, actual
