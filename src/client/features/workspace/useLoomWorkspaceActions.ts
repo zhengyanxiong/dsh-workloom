@@ -126,6 +126,7 @@ export function useLoomWorkspaceActions(input: LoomWorkspaceActionsInput): LoomW
       versionId: version.id,
       projectId: ownerProjectId,
       lockId,
+      branches: Object.fromEntries(version.sources.map(source => [String(source.sourceId), source.ref])),
     })
   }
   const addVersionWorkspace = async (workspace: VersionWorkspaceInput): Promise<RemoteResult<WorkspaceRecord>> => {

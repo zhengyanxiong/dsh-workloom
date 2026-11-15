@@ -35,6 +35,11 @@ export interface WorkspaceRepositoryStatusRecord extends WorkspaceRepositoryChan
    */
   readonly unpushedUnavailable?: boolean | undefined
 }
+/** Restore one archived scratch snapshot into a workspace `.loomtmp`. */
+export interface RestoreWorkspaceArtifactRequest {
+  readonly workspaceId: string
+  readonly artifactId: string
+}
 /**
  * Commit every repository's uncommitted changes in a workspace, without pushing.
  */
@@ -44,6 +49,8 @@ export interface CommitWorkspaceRequest {
    * Commit subject; the Host trims and caps it.
    */
   readonly message?: string
+  /** Selected relative paths per source id; omitted commits each repository fully. */
+  readonly paths?: Readonly<Record<string, readonly string[]>> | undefined
 }
 /**
  * One repository's commit result, including a per-repository failure.
@@ -177,6 +184,11 @@ export interface RegisterWorkspaceRequest {
    * Branch per source id; omitted entries keep the repository's current branch.
    */
   readonly branches?: Readonly<Record<string, string>>
+  /**
+   * Reconcile each requested branch before registering: fetch a remote
+   * selection when possible and check it out, recording the actual HEAD.
+   */
+  readonly checkoutBranches?: boolean
   /**
    * `direct` records existing directories; `linked` records links created by prepare.
    */

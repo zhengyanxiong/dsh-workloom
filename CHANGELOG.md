@@ -8,6 +8,35 @@ Releases start at 0.1.8 in this repository.
 
 ## [Unreleased]
 
+### Added
+
+- A project page now lists workspaces from every version with branch, actual
+  HEAD, uncommitted, unpushed and ownership facts.
+- Reused directories check out the adopting version's selected branch, record
+  the actual HEAD and mark a divergence from the Lock baseline.
+- Every workspace gets a `.loomtmp` scratch directory that local Git excludes
+  without editing tracked `.gitignore` files; the Agent prompt points temporary
+  files there.
+- The bottom panel's Run graph recursively shows the active task's Sessions,
+  workflow runs, phases, descendant subagents and each Session's background
+  jobs, with animated running status and Session navigation.
+- Cleaning up or deleting a workspace archives its `.loomtmp` under the Loom
+  artifacts directory before the root can be removed, and the project page can
+  list, open and restore those archives.
+- The execution panel offers an explicit checkpoint with per-file selection;
+  starting a task or forking still never commits automatically.
+
+### Fixed
+
+- Starting a task or forking a Session no longer commits the workspace
+  automatically. Uncommitted work stays untouched and a dirty workspace is
+  refused by the Host's existing precondition.
+- Switching Sessions in the sidebar or creating a temporary Session now aligns
+  the topbar's project and version, including temporary and unbound Sessions.
+- Pinned projects have an independent dropdown for versions and tasks with
+  their own open, new version, edit, delete and unpin actions; expanding or
+  selecting a pinned version never drives the lower project tree.
+
 ## [0.3.4] - 2026-11-12
 
 ### Added

@@ -4,7 +4,7 @@ import { mkdtemp, mkdir, readFile, realpath, rm, writeFile, access } from 'node:
 import { tmpdir } from 'node:os'
 import { delimiter, join, resolve } from 'node:path'
 import { afterEach, expect, it } from 'vitest'
-import { commitWorkingTree, prepareWorkspace, repositoryBranches, resolveCommit, workingTreeStatus, WorkspacePreparationError } from '../src/git/workspace.ts'
+import { commitWorkingTree, ensureWorkspaceTempDirectory, prepareWorkspace, reconcileWorkspaceBranches, repositoryBranches, resolveCommit, workingTreeStatus, WorkspacePreparationError } from '../src/git/workspace.ts'
 
 const exec = promisify(execFile)
 const roots: string[] = []
@@ -63,6 +63,49 @@ it('refreshes remote branches and resolves a branch name from the remote tip', a
   // stale clone cannot pin the commit it last saw either.
   await exec('git', ['-C', clone, 'update-ref', `refs/remotes/origin/${branch}`, stale])
   expect(await resolveCommit(clone, `origin/${branch}`)).toBe(remoteTip)
+})
+
+it('creates a locally ignored .loomtmp without editing tracked Git files', async () => {
+  const f = await fixture()
+  await ensureWorkspaceTempDirectory(f.first, [f.first])
+  expect((await exec('git', ['-C', f.first, 'status', '--porcelain', '--untracked-files=all'])).stdout.trim()).toBe('')
+  await writeFile(join(f.first, '.loomtmp', 'generated.txt'), 'temporary')
+  expect((await exec('git', ['-C', f.first, 'status', '--porcelain', '--untracked-files=all'])).stdout.trim()).toBe('')
+  const exclude = await readFile(join(f.first, '.git', 'info', 'exclude'), 'utf8')
+  expect(exclude).toContain('.loomtmp/')
+  await ensureWorkspaceTempDirectory(f.first, [f.first])
+  expect((await readFile(join(f.first, '.git', 'info', 'exclude'), 'utf8')).match(/^\/\.loomtmp\/$/gmu)).toHaveLength(1)
+  await expect(access(join(f.first, '.gitignore'))).rejects.toThrow()
+})
+
+it('checks out the selected branch and reports the actual HEAD without resetting it', async () => {
+  const f = await fixture()
+  const initial = (await exec('git', ['-C', f.first, 'rev-parse', 'HEAD'])).stdout.trim()
+  await exec('git', ['-C', f.first, 'switch', '--quiet', '-c', 'feature/reused'])
+  await writeFile(join(f.first, 'file.txt'), 'feature tip')
+  await exec('git', ['-C', f.first, 'commit', '--quiet', '-am', 'feature tip'])
+  const feature = (await exec('git', ['-C', f.first, 'rev-parse', 'HEAD'])).stdout.trim()
+  await exec('git', ['-C', f.first, 'switch', '--quiet', '--detach', initial])
+  const heads = await reconcileWorkspaceBranches([{ sourceId: 'source-a', directory: f.first, branch: 'feature/reused' }])
+  expect((await exec('git', ['-C', f.first, 'symbolic-ref', '--short', 'HEAD'])).stdout.trim()).toBe('feature/reused')
+  expect(heads).toEqual({ 'source-a': feature })
+  expect(feature).not.toBe(initial)
+})
+
+it('creates a local tracking branch for a remote-selected branch', async () => {
+  const f = await fixture()
+  const remote = join(f.base, 'remote.git')
+  await exec('git', ['init', '--quiet', '--bare', remote])
+  await exec('git', ['-C', f.second, 'remote', 'add', 'origin', remote])
+  await exec('git', ['-C', f.second, 'push', '--quiet', 'origin', 'HEAD:feature/remote'])
+  const clone = join(f.base, 'clone')
+  await exec('git', ['clone', '--quiet', remote, clone])
+  await exec('git', ['-C', clone, 'config', 'user.name', 'Loom Test'])
+  await exec('git', ['-C', clone, 'config', 'user.email', 'loom@example.invalid'])
+  const tip = (await exec('git', ['-C', f.second, 'rev-parse', 'HEAD'])).stdout.trim()
+  const heads = await reconcileWorkspaceBranches([{ sourceId: 'source-b', directory: clone, branch: 'origin/feature/remote' }])
+  expect((await exec('git', ['-C', clone, 'symbolic-ref', '--short', 'HEAD'])).stdout.trim()).toBe('feature/remote')
+  expect(heads).toEqual({ 'source-b': tip })
 })
 
 it('prepares a workspace from a SHA-256 repository', async () => {
@@ -259,4 +302,16 @@ it('commits dirty worktree changes without pushing them', async () => {
   expect(await workingTreeStatus(f.first)).toBe('')
   expect(await resolveCommit(f.first, 'HEAD')).toBe(commit)
   expect(await commitWorkingTree(f.first, 'Loom checkpoint')).toBeUndefined()
+})
+
+it('commits only the selected paths during a checkpoint', async () => {
+  const f = await fixture()
+  await writeFile(join(f.first, 'file.txt'), 'selected')
+  await writeFile(join(f.first, 'other.txt'), 'not selected')
+  const commit = await commitWorkingTree(f.first, 'Loom checkpoint', ['file.txt'])
+  expect(commit).toBeDefined()
+  const status = await workingTreeStatus(f.first)
+  expect(status).not.toContain('file.txt')
+  expect(status).toContain('?? other.txt')
+  await expect(commitWorkingTree(f.first, 'Loom checkpoint', ['missing.txt'])).rejects.toThrow('commit_failed')
 })

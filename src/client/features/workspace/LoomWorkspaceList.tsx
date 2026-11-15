@@ -114,6 +114,9 @@ export function LoomWorkspaceList({ t, rows, loadStatus }: LoomWorkspaceListProp
           const summary = state.kind === 'ready' ? summarize(state.status) : undefined
           const unpushed = state.kind === 'ready' ? unpushedCommits(state.status) : undefined
           const branches = Object.entries(workspace.branches ?? {})
+          const heads = Object.entries(workspace.heads ?? {})
+          const lockedCommits = new Map((row.lock?.repositories ?? []).map(repository => [String(repository.sourceId), repository.commit]))
+          const driftedHeads = new Set(heads.filter(([sourceId, head]) => lockedCommits.get(sourceId) !== undefined && lockedCommits.get(sourceId) !== head).map(([sourceId]) => sourceId))
           // "Idle" means the Host has not answered yet; never present that as a clean tree.
           const uncommitted = state.kind === 'loading'
             ? t('workspace.readingStatus')
@@ -157,6 +160,11 @@ export function LoomWorkspaceList({ t, rows, loadStatus }: LoomWorkspaceListProp
                 <span style={branches.length === 0 ? mutedValue : fieldValue}>{branches.length === 0
                   ? t('ctx.noBranch')
                   : branches.map(([sourceId, branch]) => <span key={sourceId} style={{ display: 'block', minWidth: 0 }}><span style={mono}>{sourceId}</span> · {branch}</span>)}</span>
+              </div>
+              <div style={field}><span style={fieldLabel}>{t('workspace.actualHead')}</span>
+                <span style={heads.length === 0 ? mutedValue : fieldValue}>{heads.length === 0
+                  ? t('workspace.actualHeadUnknown')
+                  : heads.map(([sourceId, head]) => <span key={sourceId} style={{ display: 'block', minWidth: 0 }}><span style={mono}>{sourceId}</span> · <span style={mono}>{head.slice(0, 7)}</span>{driftedHeads.has(sourceId) && <> <Tag tone="warning">{t('workspace.actualHeadMismatch')}</Tag></>}</span>)}</span>
               </div>
               <div style={field}><span style={fieldLabel}>{t('workspace.uncommitted')}</span>
                 <span style={summary !== undefined && summary.files > 0 ? { ...fieldValue, color: COLORS.warn } : state.kind === 'failed' ? { ...fieldValue, color: COLORS.error } : mutedValue}>{uncommitted}</span>

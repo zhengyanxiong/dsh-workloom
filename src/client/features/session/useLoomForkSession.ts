@@ -1,8 +1,8 @@
 /**
- * Checkpoint-and-fork action for an attached Session.
+ * Fork action for an attached Session.
  *
- * Forking first commits the workbench so the child Session starts from a known
- * state, then forks the native Session and attaches it to the same task.
+ * Forking the native Session and attaching it to the same task never mutates the
+ * workspace; uncommitted work stays exactly as the user left it.
  */
 import { useState } from 'react'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
@@ -18,7 +18,6 @@ export interface LoomForkSessionInput {
   readonly sessionId: SessionId | undefined
   readonly task: TaskRecord | undefined
   readonly workspace: WorkspaceRecord | undefined
-  readonly commitWorkspace: LoomHostPort['commitWorkspace']
   readonly forkSession: LoomHostPort['forkSession']
   readonly attachSession: LoomHostPort['attachSession']
   /** Show the forked child Session in the conversation. */
@@ -41,17 +40,13 @@ export interface LoomForkSession {
  * @returns fork state and the fork action.
  */
 export function useLoomForkSession(input: LoomForkSessionInput): LoomForkSession {
-  const { t, sessionId, task, workspace, commitWorkspace, forkSession, attachSession, onForked, onChanged } = input
+  const { t, sessionId, task, workspace, forkSession, attachSession, onForked, onChanged } = input
   const [forking, setForking] = useState(false)
   const [forkError, setForkError] = useState<string>()
   const forkSessionAction = async (): Promise<void> => {
     if (sessionId === undefined || task === undefined || workspace === undefined) return
     setForking(true); setForkError(undefined)
     try {
-      const committed = await commitWorkspace({ workspaceId: workspace.id, message: 'Loom: checkpoint before fork' })
-      if (!committed.ok) { setForkError(`${t('runtime.forkFailed')}${committed.error.message}`); return }
-      const failed = committed.value.repositories.find(repository => repository.error !== undefined)
-      if (failed !== undefined) { setForkError(`${t('runtime.forkFailed')}${failed.sourceId}: ${failed.error ?? ''}`); return }
       const child = await forkSession({ sessionId, increaseTitle: true })
       const attached = await attachSession({ taskId: task.id, sessionId: child })
       if (!attached.ok) { setForkError(`${t('runtime.forkFailed')}${attached.error.message}`); return }

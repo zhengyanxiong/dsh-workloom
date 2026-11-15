@@ -46,7 +46,7 @@ function deps(overrides: {
   }
 }
 
-const input = { workspace, versionId: 'v-new', projectId: 'p1', lockId: 'lock-new' }
+const input = { workspace, versionId: 'v-new', projectId: 'p1', lockId: 'lock-new', branches: { web: 'origin/main', api: 'main' } }
 
 it('keeps the cleaned flag when projecting a workspace record into a reuse target', () => {
   expect(reuseTargetOf({ ...workspace, cleaned: true })).toMatchObject({ id: 'ws-old', cleaned: true })
@@ -80,6 +80,8 @@ it('retires the old record before registering the same directories for the new v
     mode: 'direct',
     rootOwner: 'user',
     projectId: 'p1',
+    checkoutBranches: true,
+    branches: { web: 'origin/main', api: 'main' },
     repositories: [
       { sourceId: 'web', path: 'web', targetPath: '/work/old/web' },
       { sourceId: 'api', path: 'api', targetPath: '/work/old/api' },

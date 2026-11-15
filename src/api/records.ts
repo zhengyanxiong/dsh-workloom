@@ -144,6 +144,13 @@ export interface WorkspaceCleanup {
   readonly residual?: readonly string[] | undefined
   readonly repositories: readonly WorkspaceCleanupRepository[]
 }
+/** One archived `.loomtmp` snapshot retained under the project artifact root. */
+export interface WorkspaceArtifactRecord {
+  readonly id: string
+  readonly path: string
+  readonly createdAt: string
+}
+
 /**
  * Already-prepared workspace metadata; a cleaned record keeps its history but no longer owns
  * files.
@@ -155,6 +162,10 @@ export interface WorkspaceRecord extends Workspace {
    */
   label?: string | undefined
   branches?: Record<string, string> | undefined
+  /** Actual checked-out HEAD per source after the last branch reconcile. */
+  heads?: Record<string, string> | undefined
+  /** Project-scoped scratch archives retained after cleanup. */
+  artifacts?: readonly WorkspaceArtifactRecord[] | undefined
   managed?: boolean | undefined
   cleaned?: boolean | undefined
   /**

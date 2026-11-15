@@ -11,7 +11,7 @@ import classes from './LoomBottomPanel.module.css'
 
 type Translate = (key: LoomKey) => string
 
-export type LoomBottomPane = 'diff' | 'sessions' | 'runtime' | 'graph' | 'audit' | 'costs'
+export type LoomBottomPane = 'diff' | 'sessions' | 'run' | 'runtime' | 'graph' | 'audit' | 'costs'
 type Pane = LoomBottomPane
 
 /** Bottom panel inputs; pane content never invents measurements. */
@@ -24,6 +24,7 @@ export interface LoomBottomPanelProps {
   readonly audit: readonly AuditEntry[]
   /** Active task/session context for the bottom tabs. */
   readonly sessionsContent?: ReactNode | undefined
+  readonly runContent?: ReactNode | undefined
   readonly runtimeContent?: ReactNode | undefined
   readonly graphContent?: ReactNode | undefined
   readonly sessionCount?: number | undefined
@@ -52,6 +53,7 @@ function CountBadge({ count }: { count: number }): ReactNode {
 const PANES: readonly { id: Pane; key: LoomKey }[] = [
   { id: 'diff', key: 'diff' },
   { id: 'sessions', key: 'bottom.sessions' },
+  { id: 'run', key: 'bottom.run' },
   { id: 'runtime', key: 'bottom.runtime' },
   { id: 'graph', key: 'bottom.graph' },
   { id: 'audit', key: 'bottom.activity' },
@@ -64,7 +66,7 @@ const PANES: readonly { id: Pane; key: LoomKey }[] = [
  * @returns the bottom region of the Loom page.
  */
 export function LoomBottomPanel(props: LoomBottomPanelProps): ReactNode {
-  const { t, collapsed, height, pane, audit, sessionsContent, runtimeContent, graphContent, sessionCount, runningCount, diffCount, usage, workspaceId, attemptId, loadChanges, onChangesCount, wrap, onToggleWrap, onOpenInRight, onToggle, onPane } = props
+  const { t, collapsed, height, pane, audit, sessionsContent, runContent, runtimeContent, graphContent, sessionCount, runningCount, diffCount, usage, workspaceId, attemptId, loadChanges, onChangesCount, wrap, onToggleWrap, onOpenInRight, onToggle, onPane } = props
   const [diffFullscreen, setDiffFullscreen] = useState(false)
   // The sessions pane used to force a 420px body while the splitter clamps to
   // the panel maximum, so dragging that tab changed state but nothing moved.
@@ -85,9 +87,10 @@ export function LoomBottomPanel(props: LoomBottomPanelProps): ReactNode {
       {!collapsed && pane === 'diff' && <button type="button" className={classes.fullscreenButton} title={t('diff.fullscreen')} aria-label={t('diff.fullscreen')} onClick={() => setDiffFullscreen(true)}><IconFullscreenOutlineRegular size={13} />{t('diff.fullscreen')}</button>}
       <button type="button" onClick={onToggle} className={`${classes.toggleButton} ${!collapsed && pane === 'diff' ? classes.toggleButtonWithFullscreen : ''}`}>{collapsed ? `▴ ${t('bottom.expand')}` : `▾ ${t('bottom.collapse')}`}</button>
     </div>
-    {!collapsed && <div className={`${classes.body} ${pane === 'sessions' || pane === 'runtime' || pane === 'graph' ? classes.bodyText : classes.bodyMono}`} style={{ height: bodyHeight }}>
+    {!collapsed && <div className={`${classes.body} ${pane === 'sessions' || pane === 'run' || pane === 'runtime' || pane === 'graph' ? classes.bodyText : classes.bodyMono}`} style={{ height: bodyHeight }}>
       {pane === 'diff' && diffBody}
       {pane === 'sessions' && sessionsContent}
+      {pane === 'run' && runContent}
       {pane === 'runtime' && runtimeContent}
       {pane === 'graph' && graphContent}
       {pane === 'audit' && (audit.length === 0

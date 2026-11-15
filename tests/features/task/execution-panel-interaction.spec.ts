@@ -66,6 +66,90 @@ it('opens the takeover warning as a modal and closes it without taking over', as
   expect(document.querySelector('[role="dialog"][aria-modal="true"]')).toBeNull()
 })
 
+it('starts a task without committing the existing workspace automatically', async () => {
+  ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
+  const pendingTask: TaskRecord = { ...task, status: 'pending', attempts: [] }
+  const pendingSnapshot: CatalogSnapshot = {
+    ...snapshot,
+    tasks: [pendingTask],
+    workspaces: [workspace],
+    executions: [],
+  }
+  let commits = 0
+  let starts = 0
+  let opened = 0
+  const startingActions: ExecutionActions = {
+    ...actions,
+    commitWorkspace: async () => {
+      commits += 1
+      return { ok: true, value: { repositories: [], committed: 0 } }
+    },
+    startAttempt: async () => {
+      starts += 1
+      return { ok: true, value: pendingTask }
+    },
+    createSessionInWorkspace: async () => brandString<'SessionId'>('s-new'),
+    attachSession: async () => ({ ok: true, value: pendingTask }),
+    acquireExecution: async () => ({
+      ok: true,
+      value: { workspaceId: workspace.id, generation: brandNumber<'loom.execution-generation'>(1), owner: null, waiting: [], takeover: null },
+    }),
+    onSession: () => { opened += 1 },
+  }
+  container = document.createElement('div')
+  document.body.append(container)
+  root = createRoot(container)
+  await act(async () => {
+    root?.render(createElement(ExecutionPanel, {
+      t, task: pendingTask, snapshot: pendingSnapshot, selectedSession: undefined, actions: startingActions,
+      loadChanges: unused, wrap: false, onToggleWrap: () => {},
+    }))
+  })
+  const form = container.querySelector('form')
+  expect(form).not.toBeNull()
+  await act(async () => {
+    form?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+  })
+  expect(commits).toBe(0)
+  expect(starts).toBe(1)
+  expect(opened).toBe(1)
+})
+
+it('commits a workspace only after an explicit checkpoint confirmation', async () => {
+  ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
+  let commits = 0
+  let committedPaths: unknown
+  const checkpointActions: ExecutionActions = {
+    ...actions,
+    commitWorkspace: async request => {
+      commits += 1
+      committedPaths = request.paths
+      return { ok: true, value: { repositories: [], committed: 0 } }
+    },
+  }
+  const changes = async () => ({ ok: true as const, value: { repositories: [{ repo: 'web', directory: '/tmp/web', files: [{ path: 'src/a.ts', added: 1, deleted: 0, binary: false, before: true, after: true, hunks: [] }] }] } })
+  container = document.createElement('div')
+  document.body.append(container)
+  root = createRoot(container)
+  await act(async () => {
+    root?.render(createElement(ExecutionPanel, {
+      t, task, snapshot, selectedSession: undefined, actions: checkpointActions,
+      loadChanges: changes, wrap: false, onToggleWrap: () => {},
+    }))
+  })
+  const button = (label: string): HTMLButtonElement => {
+    const found = [...document.querySelectorAll('button')].find(candidate => candidate.textContent === label)
+    if (found === undefined) throw new Error(`button ${label} is missing`)
+    return found
+  }
+  await act(async () => { button(en['workspace.checkpoint']).dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true })); await Promise.resolve() })
+  expect(document.querySelector(`[role="dialog"][aria-label="${en['workspace.checkpoint']}"]`)).not.toBeNull()
+  expect(commits).toBe(0)
+  await act(async () => { button(en['workspace.checkpointConfirm']).dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true })) })
+  expect(commits).toBe(1)
+  expect(committedPaths).toEqual({ web: ['src/a.ts'] })
+})
+
 it('selects an existing version workspace instead of opening creation controls', async () => {
   ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
   const pendingTask: TaskRecord = { ...task, status: 'pending', attempts: [] }

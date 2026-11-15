@@ -5,7 +5,7 @@
  * transport and lifecycle stay on the service.
  */
 import { randomUUID } from 'node:crypto'
-import { join } from 'node:path'
+import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { brandString, type Branded } from '@deepseek-ai/dsh-brand'
 import { workspaceBindings, type Catalog } from '../catalog.ts'
 import type {
@@ -16,23 +16,24 @@ import type {
   UpdateProjectRequest, UpdateVersionRequest, UpdateTaskRequest, DeleteProjectRequest, DeleteVersionRequest,
   DeleteTaskRequest, RegisterTemporarySessionRequest, ForgetTemporarySessionRequest, RepositoryBranchesRequest,
   InspectWorkspaceRequest, WorkspaceInspection, CommitWorkspaceRequest, WorkspaceCommitResult,
-  UpdateWorkspaceRequest, DeleteWorkspaceRequest, ReorderExecutionQueueRequest,
+  UpdateWorkspaceRequest, DeleteWorkspaceRequest, ReorderExecutionQueueRequest, RestoreWorkspaceArtifactRequest,
 } from '../../types.ts'
 import type { Lock } from '../../domain/task.ts'
 import type { TemporarySessionRecord } from '../../api/records.ts'
 import type { ExecutionState } from '../../domain/execution.ts'
 import { parseProject } from '../../domain/project.ts'
-import { repositoryBranches } from '../../git/workspace.ts'
+import { ensureWorkspaceTempDirectory, reconcileWorkspaceBranches, repositoryBranches } from '../../git/workspace.ts'
 import { inspectWorkspace, sameRepositoryMappings } from './inspection.ts'
 import { prepareVersionWorkspace } from './version-workspace.ts'
 import {
   attemptRequest, cleanupWorkspaceRequest, commitWorkspaceRequest, deleteProjectRequest, deleteTaskRequest, deleteVersionRequest,
   executionRequest, forgetTemporarySessionRequest, inspectWorkspaceRequest, lockRequest, registerWorkspaceRequest,
-  releaseExecutionRequest, reorderExecutionQueueRequest, repositoryBranchesRequest, sessionRequest, taskRequest,
+  releaseExecutionRequest, reorderExecutionQueueRequest, repositoryBranchesRequest, restoreArtifactRequest, sessionRequest, taskRequest,
   temporarySessionRequest, transitionRequest, updateProjectRequest, updateTaskRequest, updateVersionRequest,
   updateWorkspaceRequest, deleteWorkspaceRequest, versionRequest, workspaceChangesRequest, workspaceRequest,
 } from './requests.ts'
 import { serviceError } from './errors.ts'
+import { archiveWorkspaceTemp, restoreWorkspaceArtifact } from './artifacts.ts'
 import type { VersionContextRegistry } from './version-context.ts'
 
 /** Owner-checked catalog runner supplied by the service facade. */
@@ -40,10 +41,14 @@ export type RunCatalog = <T>(operation: (catalog: Catalog) => T | Promise<T>) =>
 
 /** Remote operation bodies that do not own service lifecycle. */
 export class RemoteOperations {
+  private readonly artifactsDir: string
+
   constructor(
     private readonly workspacesDir: string,
     private readonly versionContext: VersionContextRegistry,
-  ) {}
+  ) {
+    this.artifactsDir = join(dirname(workspacesDir), 'artifacts')
+  }
 
   /** Read a detached catalog snapshot. @returns current committed records. */
   snapshot(run: RunCatalog): Promise<CatalogSnapshot> { return run(catalog => catalog.snapshot()) }
@@ -164,10 +169,10 @@ export class RemoteOperations {
 
   /** Materialize a workspace from a version Lock and record it. @param request - owning baseline and an optional absolute root. @returns persisted workspace. */
   prepareWorkspace(run: RunCatalog, request: PrepareWorkspaceRequest): Promise<WorkspaceRecord> {
-    return run(catalog => {
+    return run(async catalog => {
       const parsed = workspaceRequest.parse(request)
       const path = parsed.path ?? join(this.workspacesDir, `workspace-${randomUUID().slice(0, 8)}`)
-      return catalog.prepareWorkspace({
+      const workspace = await catalog.prepareWorkspace({
         path,
         versionId: brandString<Lock['versionId']>(parsed.versionId),
         lockId: brandString<Lock['id']>(parsed.lockId),
@@ -183,6 +188,8 @@ export class RemoteOperations {
         ...(parsed.workspaceId === undefined ? {} : { workspaceId: brandString<WorkspaceRecord['id']>(parsed.workspaceId) }),
         ...(parsed.requireBranches === undefined ? {} : { requireBranches: parsed.requireBranches }),
       })
+      if (workspace.preparation?.status !== 'failed') await this.ensureWorkspaceTemp(catalog.snapshot(), workspace)
+      return workspace
     })
   }
 
@@ -195,7 +202,7 @@ export class RemoteOperations {
   commitWorkspace(run: RunCatalog, request: CommitWorkspaceRequest): Promise<WorkspaceCommitResult> {
     return run(catalog => {
       const parsed = commitWorkspaceRequest.parse(request)
-      return catalog.commitWorkspace(brandString<WorkspaceRecord['id']>(parsed.workspaceId), parsed.message ?? 'Loom checkpoint')
+      return catalog.commitWorkspace(brandString<WorkspaceRecord['id']>(parsed.workspaceId), parsed.message ?? 'Loom checkpoint', parsed.paths)
     })
   }
 
@@ -240,13 +247,11 @@ export class RemoteOperations {
 
   /** Remove a workspace, optionally deleting its directory after path confirmation. @param request - workspace, delete-files flag and echoed root. @returns nothing after the record and optional files are gone. */
   deleteWorkspace(run: RunCatalog, request: DeleteWorkspaceRequest): Promise<void> {
-    return run(catalog => {
+    return run(async catalog => {
       const parsed = deleteWorkspaceRequest.parse(request)
-      return catalog.deleteWorkspace(
-        brandString<WorkspaceRecord['id']>(parsed.workspaceId),
-        parsed.deleteFiles === true,
-        parsed.confirmPath,
-      )
+      const workspaceId = brandString<WorkspaceRecord['id']>(parsed.workspaceId)
+      await this.archiveWorkspaceTemp(catalog, workspaceId)
+      return catalog.deleteWorkspace(workspaceId, parsed.deleteFiles === true, parsed.confirmPath)
     })
   }
 
@@ -262,7 +267,43 @@ export class RemoteOperations {
   cleanupWorkspace(run: RunCatalog, request: CleanupWorkspaceRequest): Promise<void> {
     return run(async catalog => {
       const parsed = cleanupWorkspaceRequest.parse(request)
-      await catalog.cleanupWorkspace(brandString<WorkspaceRecord['id']>(parsed.workspaceId), parsed.discardChanges === true)
+      const workspaceId = brandString<WorkspaceRecord['id']>(parsed.workspaceId)
+      await this.archiveWorkspaceTemp(catalog, workspaceId)
+      await catalog.cleanupWorkspace(workspaceId, parsed.discardChanges === true)
+    })
+  }
+
+  /**
+   * Preserve a workspace's scratch directory before its root can be removed.
+   * @param catalog - live catalog owning the workspace.
+   * @param workspaceId - workspace whose `.loomtmp` is archived.
+   */
+  private async archiveWorkspaceTemp(catalog: Catalog, workspaceId: WorkspaceRecord['id']): Promise<void> {
+    const state = catalog.snapshot()
+    const workspace = state.workspaces.find(candidate => candidate.id === workspaceId)
+    if (workspace === undefined || workspace.cleaned === true) return
+    const projectId = workspace.projectId ?? state.versions.find(version => version.id === workspace.versionId)?.projectId
+    const destination = join(this.artifactsDir, projectId === undefined ? 'unassigned' : String(projectId), String(workspace.id))
+    const archived = await archiveWorkspaceTemp(workspace.rootPath ?? workspace.path, destination)
+    if (archived !== undefined) {
+      await catalog.recordWorkspaceArtifact(workspaceId, { id: randomUUID(), path: archived, createdAt: new Date().toISOString() })
+    }
+  }
+
+  /** Restore one archived scratch snapshot into its workspace. @param request - workspace and archive identities. @returns nothing after the copy. */
+  restoreWorkspaceArtifact(run: RunCatalog, request: RestoreWorkspaceArtifactRequest): Promise<void> {
+    return run(async catalog => {
+      const parsed = restoreArtifactRequest.parse(request)
+      const workspaceId = brandString<WorkspaceRecord['id']>(parsed.workspaceId)
+      const workspace = catalog.snapshot().workspaces.find(candidate => candidate.id === workspaceId)
+      if (workspace === undefined) throw serviceError('missing_workspace')
+      if (workspace.cleaned === true) throw serviceError('workspace_cleaned')
+      const artifact = workspace.artifacts?.find(candidate => candidate.id === parsed.artifactId)
+      if (artifact === undefined) throw serviceError('missing_workspace_artifact')
+      const archivePath = resolve(artifact.path)
+      const inside = relative(resolve(this.artifactsDir), archivePath)
+      if (!isAbsolute(artifact.path) || inside.startsWith('..') || isAbsolute(inside)) throw serviceError('invalid_workspace_artifact')
+      await restoreWorkspaceArtifact(archivePath, workspace.rootPath ?? workspace.path)
     })
   }
 
@@ -279,7 +320,8 @@ export class RemoteOperations {
         const version = snapshot.versions.find(candidate => candidate.id === parsed.versionId)
         const projectId = registered.projectId ?? snapshot.versions.find(candidate => candidate.id === registered.versionId)?.projectId
         if (version !== undefined && projectId === version.projectId) {
-          await catalog.ensureWorkspaceBranches(registered.id)
+          const bound = await catalog.ensureWorkspaceBranches(registered.id)
+          await this.ensureWorkspaceTemp(catalog.snapshot(), bound)
           return catalog.ensureWorkspaceSkillLinks(registered.id)
         }
       }
@@ -304,18 +346,27 @@ export class RemoteOperations {
           if (branches[repository.sourceId] === undefined && repository.current !== undefined) branches[repository.sourceId] = repository.current
         }
       }
+      const selections = parsed.checkoutBranches === true && repositories !== undefined
+        ? repositories.flatMap(repository => {
+          const branch = branches[String(repository.sourceId)]
+          return branch === undefined ? [] : [{ sourceId: String(repository.sourceId), directory: repository.targetPath, branch }]
+        })
+        : []
+      const heads = selections.length === 0 ? undefined : await reconcileWorkspaceBranches(selections)
       const workspace = await catalog.registerPreparedWorkspace({
         path: parsed.path,
         versionId: brandString<Lock['versionId']>(parsed.versionId),
         lockId: brandString<Lock['id']>(parsed.lockId),
         ...(Object.keys(branches).length === 0 ? {} : { branches }),
+        ...(heads === undefined ? {} : { heads }),
         ...(parsed.mode === undefined ? {} : { mode: parsed.mode }),
         ...(parsed.projectId === undefined ? {} : { projectId: brandString<Branded<'loom.project'>>(parsed.projectId) }),
         ...(parsed.rootPath === undefined ? {} : { rootPath: parsed.rootPath }),
         ...(parsed.rootOwner === undefined ? {} : { rootOwner: parsed.rootOwner }),
         ...(repositories === undefined ? {} : { repositories }),
       })
-      await catalog.ensureWorkspaceBranches(workspace.id)
+      const bound = await catalog.ensureWorkspaceBranches(workspace.id)
+      await this.ensureWorkspaceTemp(catalog.snapshot(), bound)
       return catalog.ensureWorkspaceSkillLinks(workspace.id)
     })
   }
@@ -335,10 +386,20 @@ export class RemoteOperations {
       await this.ensureRepositoryCoverage(catalog, state, taskId, record)
       const workspace = await catalog.ensureWorkspaceBranches(workspaceId)
       if (workspace.cleaned === true) throw serviceError('workspace_cleaned')
+      await this.ensureWorkspaceTemp(catalog.snapshot(), workspace)
       if (await catalog.workspaceDirty(workspaceId)) throw serviceError('workspace_changes')
       await catalog.ensureWorkspaceSkillLinks(workspaceId)
       return catalog.startAttempt(taskId, workspaceId, parsed.allowBusy === true ? { allowBusy: true } : undefined)
     })
+  }
+
+  /**
+   * Create the workspace-local scratch directory and its local Git exclusions.
+   * @param state - catalog snapshot owning the workspace.
+   * @param workspace - prepared workspace whose root receives `.loomtmp`.
+   */
+  private async ensureWorkspaceTemp(state: CatalogSnapshot, workspace: WorkspaceRecord): Promise<void> {
+    await ensureWorkspaceTempDirectory(workspace.rootPath ?? workspace.path, workspaceBindings(state, workspace).map(binding => binding.targetPath))
   }
 
   /**

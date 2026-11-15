@@ -15,6 +15,7 @@ import { COLORS } from '../../ui/tokens.ts'
 import { failureKey, failureReport, thrownFailureReport } from '../../ui/failure.ts'
 import type { FailureReport } from '../../ui/failure.ts'
 import { LoomCleanupDialog, type LoomCleanupFailure } from '../dialogs/LoomCleanupDialog.tsx'
+import { LoomCheckpointDialog, type LoomCheckpointFile } from '../dialogs/LoomCheckpointDialog.tsx'
 import { LoomTakeoverDialog } from '../dialogs/LoomTakeoverDialog.tsx'
 import { LoomPreparationPanel } from './LoomPreparationPanel.tsx'
 import { LoomSelect } from '../../ui/Select.tsx'
@@ -142,6 +143,11 @@ export function ExecutionPanel({ t, task, snapshot, agentPresets = [], selectedS
   const [failure, setFailure] = useState<OperationFailure>()
   const [cleanOpen, setCleanOpen] = useState(false)
   const [cleanFailure, setCleanFailure] = useState<LoomCleanupFailure>()
+  const [checkpointOpen, setCheckpointOpen] = useState(false)
+  const [checkpointBusy, setCheckpointBusy] = useState(false)
+  const [checkpointFailure, setCheckpointFailure] = useState<string>()
+  const [checkpointFiles, setCheckpointFiles] = useState<readonly LoomCheckpointFile[]>([])
+  const [checkpointLoading, setCheckpointLoading] = useState(false)
   const [discardAllowed, setDiscardAllowed] = useState(false)
   const [takeoverConfirm, setTakeoverConfirm] = useState(false)
   const [busyLabel, setBusyLabel] = useState<string>()
@@ -219,6 +225,31 @@ export function ExecutionPanel({ t, task, snapshot, agentPresets = [], selectedS
     } catch (error) {
       setCleanFailure({ code: 'workspace_cleanup_failed', message: error instanceof Error ? error.message : String(error) })
     } finally { setBusy(false); setPolling(false); setBusyLabel(undefined) }
+  }
+  async function openCheckpoint(): Promise<void> {
+    if (workspace === undefined) return
+    setCheckpointOpen(true); setCheckpointFailure(undefined); setCheckpointFiles([]); setCheckpointLoading(true)
+    try {
+      const result = await loadChanges({ workspaceId: workspace.id })
+      if (!result.ok) { setCheckpointFailure(`${t('workspace.checkpointFailed')}: ${result.error.message}`); return }
+      setCheckpointFiles(result.value.repositories.flatMap(repository => repository.files.map(file => ({ sourceId: repository.repo, path: file.path }))))
+    } catch (error) {
+      setCheckpointFailure(`${t('workspace.checkpointFailed')}: ${error instanceof Error ? error.message : String(error)}`)
+    } finally { setCheckpointLoading(false) }
+  }
+  async function checkpoint(paths: Readonly<Record<string, readonly string[]>>): Promise<void> {
+    if (workspace === undefined || actions.commitWorkspace === undefined) return
+    setCheckpointBusy(true); setCheckpointFailure(undefined)
+    try {
+      const result = await actions.commitWorkspace({ workspaceId: workspace.id, message: 'Loom: checkpoint', paths })
+      if (!result.ok) { setCheckpointFailure(`${t('workspace.checkpointFailed')}: ${result.error.message}`); return }
+      const failed = result.value.repositories.find(repository => repository.error !== undefined)
+      if (failed !== undefined) { setCheckpointFailure(`${t('workspace.checkpointFailed')}: ${failed.sourceId}: ${failed.error ?? ''}`); return }
+      setCheckpointOpen(false)
+      actions.onChanged()
+    } catch (error) {
+      setCheckpointFailure(`${t('workspace.checkpointFailed')}: ${error instanceof Error ? error.message : String(error)}`)
+    } finally { setCheckpointBusy(false) }
   }
   async function retryPrepare(): Promise<void> {
     if (workspace === undefined) return
@@ -334,9 +365,20 @@ export function ExecutionPanel({ t, task, snapshot, agentPresets = [], selectedS
       </div>}
     </div>}
     {workspace !== undefined && workspace.cleaned !== true && <div style={footer}>
+      {actions.commitWorkspace !== undefined && <LoomButton size="sm" variant="secondary" disabled={busy || checkpointBusy} onClick={() => { void openCheckpoint() }}>{t('workspace.checkpoint')}</LoomButton>}
       <LoomButton size="sm" variant="danger" disabled={busy} onClick={() => { setCleanOpen(true); setCleanFailure(undefined); setDiscardAllowed(false) }}>{t('workspace.cleanup')}</LoomButton>
       {busy && busyLabel !== undefined && <span role="status" style={{ ...alert, fontFamily: 'ui-monospace, monospace', fontSize: 'var(--text-label-size)' }}>{busyLabel}…</span>}
     </div>}
+    {checkpointOpen && workspace !== undefined && <LoomCheckpointDialog
+      t={t}
+      workspace={workspace}
+      files={checkpointFiles}
+      loading={checkpointLoading}
+      busy={checkpointBusy}
+      failure={checkpointFailure}
+      onConfirm={paths => { void checkpoint(paths) }}
+      onCancel={() => { setCheckpointOpen(false); setCheckpointFailure(undefined) }}
+    />}
     {cleanOpen && workspace !== undefined && <LoomCleanupDialog
       t={t}
       workspace={live ?? workspace}
@@ -448,12 +490,6 @@ function StartForm({ t, task, snapshot, versionId, agentPresets = [], actions }:
     if (selected === undefined) { report(t('task.start'), 'missing_workspace', ''); return }
     setBusy(true); setFailure(undefined)
     try {
-      if (actions.commitWorkspace !== undefined) {
-        const committed = await actions.commitWorkspace({ workspaceId: selected.id, message: 'Loom: checkpoint before execution' })
-        if (!committed.ok) { report(t('op.commit'), committed.error.code, committed.error.message); return }
-        const failed = committed.value.repositories.find(repository => repository.error !== undefined)
-        if (failed !== undefined) { report(t('op.commit'), 'workspace_commit_failed', `${failed.sourceId}: ${failed.error ?? ''}`); return }
-      }
       const started = await actions.startAttempt({ taskId: task.id, workspaceId: selected.id })
       if (!started.ok) { report(t('task.start'), started.error.code, started.error.message); return }
       const resolvedPreset = preset === '' ? projectPreset : preset

@@ -4,7 +4,7 @@ import type {
   TypertRemoteInfo,
   TypertRemoteMethod,
 } from '@deepseek-ai/dsh-typert-protocol'
-import type { AttachSessionRequest, CatalogSnapshot, CleanupWorkspaceRequest, CommitWorkspaceRequest, CreateTaskRequest, CreateVersionRequest, DeleteProjectRequest, DeleteTaskRequest, DeleteVersionRequest, DeleteWorkspaceRequest, ExecutionRequest, ExecutionState, ForgetTemporarySessionRequest, GenerateLockRequest, InspectWorkspaceRequest, Lock, PrepareWorkspaceRequest, ProjectConfig, ProjectRecord, RegisterTemporarySessionRequest, RegisterWorkspaceRequest, ReleaseExecutionRequest, ReorderExecutionQueueRequest, RepositoryBranchesRequest, StartAttemptRequest, TaskRecord, TemporarySessionRecord, TransitionTaskRequest, UpdateProjectRequest, UpdateTaskRequest, UpdateVersionRequest, UpdateWorkspaceRequest, VersionRecord, WorkspaceChangesRequest, WorkspaceCommitResult, WorkspaceInspection, WorkspaceRecord, WorkspaceRepositoryChangesRecord, WorkspaceStatusResult } from 'dsh-workloom/types'
+import type { AttachSessionRequest, CatalogSnapshot, CleanupWorkspaceRequest, CommitWorkspaceRequest, CreateTaskRequest, CreateVersionRequest, DeleteProjectRequest, DeleteTaskRequest, DeleteVersionRequest, DeleteWorkspaceRequest, ExecutionRequest, ExecutionState, ForgetTemporarySessionRequest, GenerateLockRequest, InspectWorkspaceRequest, Lock, PrepareWorkspaceRequest, ProjectConfig, ProjectRecord, RegisterTemporarySessionRequest, RegisterWorkspaceRequest, ReleaseExecutionRequest, ReorderExecutionQueueRequest, RepositoryBranchesRequest, StartAttemptRequest, TaskRecord, TemporarySessionRecord, TransitionTaskRequest, UpdateProjectRequest, UpdateTaskRequest, UpdateVersionRequest, UpdateWorkspaceRequest, VersionRecord, WorkspaceChangesRequest, WorkspaceCommitResult, WorkspaceInspection, WorkspaceRecord, WorkspaceRepositoryChangesRecord, WorkspaceStatusResult, WorkflowRunsRequest, WorkflowRunView, RestoreWorkspaceArtifactRequest } from 'dsh-workloom/types'
 
 declare module '@deepseek-ai/dsh-typert-protocol' {
   interface TypertRemoteNamespace$6c6f6f6d {
@@ -40,6 +40,8 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
     workspaceChangeCount: (request: WorkspaceChangesRequest) => Promise<RemoteResult<number>>
     workspaceChanges: (request: WorkspaceChangesRequest) => Promise<RemoteResult<{ repositories: WorkspaceRepositoryChangesRecord[]; }>>
     workspaceStatus: (request: WorkspaceChangesRequest) => Promise<RemoteResult<WorkspaceStatusResult>>
+    workflowRuns: (request: WorkflowRunsRequest) => Promise<RemoteResult<readonly WorkflowRunView[]>>
+    restoreWorkspaceArtifact: (request: RestoreWorkspaceArtifactRequest) => Promise<RemoteResult<void>>
   }
   interface TypertRemoteMap {
     'loom/acquireExecution': (request: ExecutionRequest) => Promise<RemoteResult<ExecutionState>>
@@ -74,6 +76,8 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
     'loom/workspaceChangeCount': (request: WorkspaceChangesRequest) => Promise<RemoteResult<number>>
     'loom/workspaceChanges': (request: WorkspaceChangesRequest) => Promise<RemoteResult<{ repositories: WorkspaceRepositoryChangesRecord[]; }>>
     'loom/workspaceStatus': (request: WorkspaceChangesRequest) => Promise<RemoteResult<WorkspaceStatusResult>>
+    'loom/workflowRuns': (request: WorkflowRunsRequest) => Promise<RemoteResult<readonly WorkflowRunView[]>>
+    'loom/restoreWorkspaceArtifact': (request: RestoreWorkspaceArtifactRequest) => Promise<RemoteResult<void>>
   }
   interface TypertRemoteNamespaceMap {
     'loom': TypertRemoteNamespace$6c6f6f6d
@@ -113,6 +117,8 @@ export declare const TYPERT_REMOTE: TypertRemoteInfo<{
   readonly 'loom/workspaceChangeCount': TypertRemoteMethod<{ readonly 'request': WorkspaceChangesRequest }, number>
   readonly 'loom/workspaceChanges': TypertRemoteMethod<{ readonly 'request': WorkspaceChangesRequest }, { repositories: WorkspaceRepositoryChangesRecord[]; }>
   readonly 'loom/workspaceStatus': TypertRemoteMethod<{ readonly 'request': WorkspaceChangesRequest }, WorkspaceStatusResult>
+  readonly 'loom/workflowRuns': TypertRemoteMethod<{ readonly 'request': WorkflowRunsRequest }, readonly WorkflowRunView[]>
+  readonly 'loom/restoreWorkspaceArtifact': TypertRemoteMethod<{ readonly 'request': RestoreWorkspaceArtifactRequest }, void>
 }>
 export default TYPERT_REMOTE
 //# sourceMappingURL=typert.remote-client.d.ts.map

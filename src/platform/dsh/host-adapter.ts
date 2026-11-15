@@ -17,7 +17,7 @@ import type {
   PrepareWorkspaceRequest, ProjectConfig, RegisterTemporarySessionRequest, RegisterWorkspaceRequest, ReleaseExecutionRequest,
   ReorderExecutionQueueRequest, RepositoryBranchesRequest, StartAttemptRequest, TransitionTaskRequest, UpdateProjectRequest,
   UpdateTaskRequest, UpdateVersionRequest, UpdateWorkspaceRequest, WorkspaceChangesRequest, WorkspaceStatusResult,
-  DeleteWorkspaceRequest,
+  DeleteWorkspaceRequest, WorkflowRunsRequest, WorkflowRunView, RestoreWorkspaceArtifactRequest,
 } from '../../api/index.ts'
 import type { LoomHostPort, LoomSessionArchiveOutcome } from '../../ports/loom-host.ts'
 import type { LoomJobsFace } from '../../ports/loom-jobs.ts'
@@ -83,6 +83,8 @@ export function createLoomHost(ui: LoomUi, t: Translate): LoomHostPort {
     listAgentPresets: () => ui.remote.agentPresets.list(),
     transitionTask: (request: TransitionTaskRequest) => notified(ui.remote.loom.transitionTask(request), 'notice.taskMoved'),
     workspaceChanges: (request: WorkspaceChangesRequest) => ui.remote.loom.workspaceChanges(request),
+    workflowRuns: (request: WorkflowRunsRequest): Promise<RemoteResult<readonly WorkflowRunView[]>> => ui.remote.loom.workflowRuns(request),
+    restoreWorkspaceArtifact: (request: RestoreWorkspaceArtifactRequest): Promise<RemoteResult<void>> => ui.remote.loom.restoreWorkspaceArtifact(request),
     workspaceChangeCount: async (request: WorkspaceChangesRequest): Promise<RemoteResult<number>> => {
       // A refreshed client can outlive a Host that predates this lightweight
       // method. Try it, then fall back to the full read rather than failing
