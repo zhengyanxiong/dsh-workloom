@@ -71,9 +71,74 @@ const policy: TaskExtensionPolicy = {
   assertEnabled: () => { throw new Error('disabled') },
 }
 
-void fakeDefinition
-void profile
-void task
+import { createLoomExtensionHost, ExtensionHostError } from '../../src/platform/dsh/extension-host.ts'
+
+const createHost = () => createLoomExtensionHost()
+
+const createFakeDefinition = (onActivate?: (context: LoomExtensionContext<FakeConfig>) => LoomExtensionActivation) => ({
+  ...fakeDefinition,
+  activate: onActivate ?? fakeDefinition.activate,
+})
+
+describe('extension host policy', () => {
+  it('resolves profile defaults and task overrides', () => {
+    const host = createHost()
+    host.register(fakeDefinition)
+    host.bindSession({ sessionId, taskId })
+
+    expect(host.resolvePolicy({ sessionId, extensionId, profile: { enabled: false, config: { endpoint: 'x' } } }).enabled).toBe(false)
+    expect(host.resolvePolicy({ sessionId, extensionId, profile: { enabled: true, config: { endpoint: 'x' } } }).enabled).toBe(true)
+    expect(host.resolvePolicy({ sessionId, extensionId, profile: { enabled: true, config: { endpoint: 'x' } }, task: { enabled: false } }).enabled).toBe(false)
+  })
+
+  it('rejects invalid task configuration, unknown extensions, invalid booleans, and unbound sessions', () => {
+    const host = createHost()
+    host.register(fakeDefinition)
+    expect(() => host.resolvePolicy({ sessionId, extensionId, profile: { enabled: true, config: { endpoint: 'x' } } })).toThrowError(ExtensionHostError)
+    host.bindSession({ sessionId, taskId })
+    expect(() => host.resolvePolicy({ sessionId, extensionId, profile: { enabled: true, config: { endpoint: 'x' } }, task: { enabled: 'yes' } })).toThrowError(ExtensionHostError)
+    expect(() => host.resolvePolicy({ sessionId, extensionId: brandString<LoomExtensionId>('missing'), profile: { enabled: true, config: { endpoint: 'x' } } })).toThrowError(ExtensionHostError)
+    expect(() => host.resolvePolicy({ sessionId, extensionId, profile: { enabled: true, config: { endpoint: 'x' } }, task: { enabled: true, config: { endpoint: 'override' } } })).toThrowError(ExtensionHostError)
+  })
+
+  it('rejects a request identity that disagrees with the trusted session binding', () => {
+    const host = createHost()
+    host.register(fakeDefinition)
+    host.bindSession({ sessionId, taskId })
+    expect(() => host.resolvePolicy({ sessionId, taskId: brandString<LoomTaskId>('other'), extensionId, profile: { config: { endpoint: 'x' } } })).toThrowError(ExtensionHostError)
+  })
+})
+
+describe('extension host activation and contributions', () => {
+  it('activates once across enabled tasks and filters contributions by policy', async () => {
+    const host = createHost()
+    let activations = 0
+    let disposals = 0
+    host.register(createFakeDefinition(context => {
+      activations += 1
+      context.registerCapability({ kind: 'tool', extensionId, toolName: 'fake_tool' })
+      context.registerCapability({ kind: 'ui', extensionId, slot: 'conversation.view', viewId: 'fake-view' })
+      context.registerControlledApi(fakeApi)
+      return { dispose: () => { disposals += 1 } }
+    }))
+    const otherTask = brandString<LoomTaskId>('task-2')
+    const otherSession = brandString<LoomSessionId>('session-2')
+    host.bindSession({ sessionId, taskId })
+    host.bindSession({ sessionId: otherSession, taskId: otherTask })
+    host.resolvePolicy({ sessionId, extensionId, profile, task: { enabled: true } })
+    host.resolvePolicy({ sessionId: otherSession, extensionId, profile, task: { enabled: true } })
+    expect(activations).toBe(1)
+    expect(host.filterCapabilities(sessionId)).toHaveLength(2)
+    expect(host.filterCapabilities(otherSession)).toHaveLength(2)
+    expect(host.filterCapabilities(sessionId, { enabled: false })).toHaveLength(0)
+    await expect(host.callControlledApi({ sessionId, extensionId, method: fakeApi.method, input: { query: 'ok' } })).resolves.toEqual({ ok: true })
+    await expect(host.callControlledApi({ sessionId, extensionId, method: fakeApi.method, input: { query: 'ok' }, taskId: otherTask })).rejects.toThrowError(ExtensionHostError)
+    await host.dispose()
+    expect(disposals).toBe(1)
+    await host.dispose()
+    expect(disposals).toBe(1)
+  })
+})
 void policy
 describe('extension capability contracts', () => {
   it('keeps fake extensions type-safe without implementing host behavior', () => {

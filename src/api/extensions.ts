@@ -103,10 +103,19 @@ export interface LoomExtensionHost {
   }): () => void
   resolvePolicy(input: {
     readonly sessionId: LoomSessionId
+    readonly taskId?: LoomTaskId | undefined
     readonly extensionId: LoomExtensionId
     readonly profile: LoomExtensionProfileConfig<unknown>
     readonly task?: LoomExtensionTaskConfig | undefined
   }): TaskExtensionPolicy
   visible(extensionId: LoomExtensionId, sessionId: LoomSessionId): boolean
+  filterCapabilities(sessionId: LoomSessionId, policy?: TaskExtensionPolicy): readonly ExtensionCapability[]
+  callControlledApi(input: {
+    readonly sessionId: LoomSessionId
+    readonly taskId?: LoomTaskId | undefined
+    readonly extensionId: LoomExtensionId
+    readonly method: string
+    readonly input: unknown
+  }): Promise<unknown>
   dispose(): Promise<void>
 }
