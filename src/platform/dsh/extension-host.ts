@@ -40,8 +40,8 @@ interface Binding {
 }
 
 interface ApiEntry {
-  readonly definition: ControlledApiDefinition<never, never>
   readonly extensionId: LoomExtensionId
+  readonly invoke: (input: unknown) => Promise<unknown>
 }
 
 interface ActivationRecord {
@@ -72,7 +72,7 @@ const toApiEntry = <Input, Output>(
   definition: ControlledApiDefinition<Input, Output>,
 ): ApiEntry => ({
   extensionId,
-  definition: definition as ControlledApiDefinition<never, never>,
+  invoke: async input => definition.handle(definition.parse(input)),
 })
 
 /** Create an in-memory, DSH-independent Loom extension host. */
@@ -231,8 +231,7 @@ export function createLoomExtensionHost(): LoomExtensionHost {
       const entry = activations.get(input.extensionId)?.apis.get(input.method)
       if (entry === undefined) throw new ExtensionHostError('extension_unavailable', `API method is unavailable: ${input.method}`)
       try {
-        const parsed = entry.definition.parse(input.input)
-        return await entry.definition.handle(parsed)
+        return await entry.invoke(input.input)
       } catch (error) {
         if (error instanceof ExtensionHostError) throw error
         throw new ExtensionHostError('invalid_input', error instanceof Error ? error.message : 'invalid API input')
