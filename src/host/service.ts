@@ -16,6 +16,8 @@ import { VersionContextRegistry } from './service/version-context.ts'
 import { ExecutionOwnership } from './service/execution-runtime.ts'
 import { registerAgentTools } from './service/agent-tools.ts'
 import { RemoteOperations } from './service/remote-operations.ts'
+import { createLoomExtensionHost } from './extension-host.ts'
+import type { LoomExtensionHost } from '../api/extensions.ts'
 export type { ContextConfig, Config } from './service/config.ts'
 import type {
   AttachSessionRequest, CatalogSnapshot, CreateTaskRequest, CreateVersionRequest, GenerateLockRequest,
@@ -78,6 +80,7 @@ export default class LoomService extends TypertRemoteService {
   private readonly execution: ExecutionOwnership
   private readonly operations: RemoteOperations
   private readonly workflowMonitor = new WorkflowMonitor()
+  private readonly extensionHost: LoomExtensionHost
 
   constructor(ctx: Context, config: Config) {
     super(ctx, 'loom')
@@ -100,6 +103,7 @@ export default class LoomService extends TypertRemoteService {
       getAgents: () => this.ctx.get('agents') as LoomAgentRegistry | undefined,
     })
     this.operations = new RemoteOperations(this.workspacesDir, this.versionContext)
+    this.extensionHost = createLoomExtensionHost()
     mkdirSync(dirname(admitted.catalogFile), { recursive: true })
     mkdirSync(this.workspacesDir, { recursive: true })
     this.catalog = createCatalog(admitted.catalogFile, resolveCommit, resolveCommitTime)
@@ -110,6 +114,7 @@ export default class LoomService extends TypertRemoteService {
       // Drop runtime-context registrations on the still-live Agents before the
       // service disappears, so a reloaded Host cannot inherit stale pointers.
       this.versionContext.disposeAll()
+      await this.extensionHost.dispose()
       await Promise.allSettled([this.catalog, ...this.pending])
     }, 'loom: settle catalog operations')
   }

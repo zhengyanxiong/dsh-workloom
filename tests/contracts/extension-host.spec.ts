@@ -71,7 +71,7 @@ const policy: TaskExtensionPolicy = {
   assertEnabled: () => { throw new Error('disabled') },
 }
 
-import { createLoomExtensionHost, ExtensionHostError } from '../../src/platform/dsh/extension-host.ts'
+import { createLoomExtensionHost, ExtensionHostError } from '../../src/host/extension-host.ts'
 
 const createHost = () => createLoomExtensionHost()
 
