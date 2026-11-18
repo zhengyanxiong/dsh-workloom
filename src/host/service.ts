@@ -17,7 +17,7 @@ import { ExecutionOwnership } from './service/execution-runtime.ts'
 import { registerAgentTools } from './service/agent-tools.ts'
 import { RemoteOperations } from './service/remote-operations.ts'
 import { createLoomExtensionHost } from './extension-host.ts'
-import type { LoomExtensionHost } from '../api/extensions.ts'
+import type { LoomExtensionHost, LoomSessionId, LoomTaskId } from '../api/extensions.ts'
 export type { ContextConfig, Config } from './service/config.ts'
 import type {
   AttachSessionRequest, CatalogSnapshot, CreateTaskRequest, CreateVersionRequest, GenerateLockRequest,
@@ -81,6 +81,7 @@ export default class LoomService extends TypertRemoteService {
   private readonly operations: RemoteOperations
   private readonly workflowMonitor = new WorkflowMonitor()
   private readonly extensionHost: LoomExtensionHost
+  private readonly extensionSessionBindings = new Map<string, () => void>()
 
   constructor(ctx: Context, config: Config) {
     super(ctx, 'loom')
@@ -114,6 +115,8 @@ export default class LoomService extends TypertRemoteService {
       // Drop runtime-context registrations on the still-live Agents before the
       // service disappears, so a reloaded Host cannot inherit stale pointers.
       this.versionContext.disposeAll()
+      for (const disposeBinding of this.extensionSessionBindings.values()) disposeBinding()
+      this.extensionSessionBindings.clear()
       await this.extensionHost.dispose()
       await Promise.allSettled([this.catalog, ...this.pending])
     }, 'loom: settle catalog operations')
@@ -141,6 +144,19 @@ export default class LoomService extends TypertRemoteService {
     })
     this.ctx.on('agent/created', ({ agent }) => {
       this.versionContext.syncVersionContext(agent.session.id)
+      const binding = this.versionContext.findSessionBinding(agent.session.id)
+      if (binding !== undefined) {
+        const sessionId = brandString<LoomSessionId>(agent.session.id)
+        const taskId = brandString<LoomTaskId>(binding.taskId)
+        try {
+          const prior = this.extensionSessionBindings.get(sessionId)
+          prior?.()
+          const disposeBinding = this.extensionHost.bindSession({ sessionId, taskId })
+          this.extensionSessionBindings.set(sessionId, disposeBinding)
+        } catch (error) {
+          this.ctx.logger.warn(`loom: extension session binding failed: ${String(error)}`)
+        }
+      }
       const cwd = agent.session.header.cwd
       if (cwd === undefined) return
       const workspace = this.current?.workspaces.find(candidate => candidate.cleaned !== true && (candidate.rootPath ?? candidate.path) === cwd)
@@ -197,6 +213,9 @@ export default class LoomService extends TypertRemoteService {
     })
     this.ctx.on('session/disposed', session => {
       this.versionContext.disposeVersionContext(session.id)
+      const sessionId = brandString<LoomSessionId>(session.id)
+      this.extensionSessionBindings.get(sessionId)?.()
+      this.extensionSessionBindings.delete(sessionId)
       void this.execution.releaseSession(session.id)
     })
     registerAgentTools(this.ctx, catalog, () => this.refreshSnapshot(catalog), sessionId => this.execution.takeoverForAgent(sessionId))
