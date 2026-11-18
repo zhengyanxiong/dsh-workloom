@@ -6,11 +6,32 @@ import type { GlobalStandardProps, InjectFace, PropsRenderFactories, SessionStan
 import type { ConversationViewsProps, ViewTab } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import { COLORS } from '../../ui/tokens.ts'
 
+/** A conversation view with optional owner authorization metadata. */
+export interface LoomConversationView {
+  readonly tab: ViewTab
+  readonly extensionId?: string | undefined
+  readonly visible?: boolean | undefined
+}
+
+/** Keep native views and extension views with explicit positive authorization. */
+export function filterConversationViews(views: readonly LoomConversationView[]): readonly ViewTab[] {
+  return views
+    .filter(view => view.extensionId === undefined || view.visible === true)
+    .map(view => view.tab)
+}
+
+/** Select a preferred tab, then Chat, then the first visible tab. */
+export function resolveConversationView(tabs: readonly ViewTab[], preferredView: string | null): ViewTab | undefined {
+  return (preferredView === null ? undefined : tabs.find(tab => tab.id === preferredView))
+    ?? tabs.find(tab => tab.id === DEFAULT_VIEW_ID)
+    ?? tabs[0]
+}
+
 /** View roster supplied by the Loom conversation registration. */
 interface ConversationEmbedInjected {
   readonly hooks: {
     /** Registered native conversation views, with their localized labels. */
-    readonly conversationViews: ObservableSnapshot<readonly ViewTab[]>
+    readonly conversationViews: ObservableSnapshot<readonly (ViewTab | LoomConversationView)[]>
   }
 }
 
@@ -68,7 +89,8 @@ export function ConversationEmbed({
 }: ConversationEmbedProps) {
   const session = useSession(value => value)
   const conversation = useConversation(value => value)
-  const tabs = useConversationViews(value => value)
+  const conversationViews = useConversationViews(value => value)
+  const tabs = filterConversationViews(conversationViews.map(view => 'tab' in view ? view : { tab: view }))
   const [preferredView, setPreferredView] = useState<string | null>(null)
   const active = conversation.activeTargets.size > 0
     || (!session.blank && !session.awaitingFirstTurn)
@@ -78,9 +100,7 @@ export function ConversationEmbed({
   const settling = shellPhase === 'blank' && session.openState === 'loading' && summaryBlank !== true
   const hero = shellPhase === 'blank' && (session.openState === 'open' || summaryBlank === true)
   const phase = settling ? 'settling' : hero ? 'hero' : 'active'
-  const activeView = (preferredView === null ? undefined : tabs.find(tab => tab.id === preferredView))
-    ?? tabs.find(tab => tab.id === DEFAULT_VIEW_ID)
-    ?? tabs[0]
+  const activeView = resolveConversationView(tabs, preferredView)
   return (
     <>
       {phase === 'active' && tabs.length > 1 && (

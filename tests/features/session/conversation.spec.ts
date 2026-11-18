@@ -5,7 +5,7 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, expect, it } from 'vitest'
 import type { RenderFactorySlot } from '@deepseek-ai/dsh-client-ui-slots'
 import type { ViewTab } from '@deepseek-ai/dsh-client-ui-conversation/client'
-import { ConversationEmbed } from '../../../src/client/features/session/ConversationEmbed.tsx'
+import { ConversationEmbed, filterConversationViews } from '../../../src/client/features/session/ConversationEmbed.tsx'
 
 /** Minimal native view host contract used to record which view renders. */
 interface ViewHostProps {
@@ -63,6 +63,18 @@ async function mount(tabs: readonly ViewTab[]): Promise<string[] | undefined> {
   })
   return rendered
 }
+
+it('filters extension views by explicit authorization while retaining native views', () => {
+  expect(filterConversationViews([
+    { tab: { id: 'chat', label: '对话' } },
+    { tab: { id: 'enabled', label: '启用' }, extensionId: 'fake.extension', visible: true },
+    { tab: { id: 'disabled', label: '禁用' }, extensionId: 'fake.extension', visible: false },
+    { tab: { id: 'unknown', label: '未知' }, extensionId: 'fake.extension' },
+  ])).toEqual([
+    { id: 'chat', label: '对话' },
+    { id: 'enabled', label: '启用' },
+  ])
+})
 
 it('renders native view tabs and switches the factory to the selected view', async () => {
   const rendered = await mount([{ id: 'chat', label: '对话' }, { id: 'trajectory', label: '轨迹' }])
