@@ -101,6 +101,19 @@ describe('extension host policy', () => {
     expect(() => host.resolvePolicy({ sessionId, extensionId, profile: { enabled: true, config: { endpoint: 'x' } }, task: { enabled: true, config: { endpoint: 'override' } } })).toThrowError(ExtensionHostError)
   })
 
+  it('keeps a replacement session binding after the old disposer runs', () => {
+    const host = createHost()
+    host.register(fakeDefinition)
+    const first = host.bindSession({ sessionId, taskId })
+    const replacement = host.bindSession({ sessionId, taskId })
+
+    first()
+    expect(() => host.resolvePolicy({ sessionId, extensionId, profile: { config: { endpoint: 'x' } } })).not.toThrow()
+
+    replacement()
+    expect(() => host.resolvePolicy({ sessionId, extensionId, profile: { config: { endpoint: 'x' } } })).toThrowError(ExtensionHostError)
+  })
+
   it('rejects a request identity that disagrees with the trusted session binding', () => {
     const host = createHost()
     host.register(fakeDefinition)

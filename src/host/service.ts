@@ -122,6 +122,20 @@ export default class LoomService extends TypertRemoteService {
     }, 'loom: settle catalog operations')
   }
 
+  private bindExtensionSession(sessionId: string): void {
+    const binding = this.versionContext.findSessionBinding(brandString<Branded<'SessionId'>>(sessionId))
+    if (binding === undefined) return
+    const brandedSessionId = brandString<LoomSessionId>(sessionId)
+    const taskId = brandString<LoomTaskId>(binding.taskId)
+    try {
+      this.extensionSessionBindings.get(brandedSessionId)?.()
+      const disposeBinding = this.extensionHost.bindSession({ sessionId: brandedSessionId, taskId })
+      this.extensionSessionBindings.set(brandedSessionId, disposeBinding)
+    } catch (error) {
+      this.ctx.logger.warn(`loom: extension session binding failed: ${String(error)}`)
+    }
+  }
+
   /** Replace the synchronous snapshot cache and invalidate derived version contexts. */
   private refreshSnapshot(catalog: Catalog): void {
     try {
@@ -144,19 +158,7 @@ export default class LoomService extends TypertRemoteService {
     })
     this.ctx.on('agent/created', ({ agent }) => {
       this.versionContext.syncVersionContext(agent.session.id)
-      const binding = this.versionContext.findSessionBinding(agent.session.id)
-      if (binding !== undefined) {
-        const sessionId = brandString<LoomSessionId>(agent.session.id)
-        const taskId = brandString<LoomTaskId>(binding.taskId)
-        try {
-          const prior = this.extensionSessionBindings.get(sessionId)
-          prior?.()
-          const disposeBinding = this.extensionHost.bindSession({ sessionId, taskId })
-          this.extensionSessionBindings.set(sessionId, disposeBinding)
-        } catch (error) {
-          this.ctx.logger.warn(`loom: extension session binding failed: ${String(error)}`)
-        }
-      }
+      this.bindExtensionSession(agent.session.id)
       const cwd = agent.session.header.cwd
       if (cwd === undefined) return
       const workspace = this.current?.workspaces.find(candidate => candidate.cleaned !== true && (candidate.rootPath ?? candidate.path) === cwd)
@@ -189,7 +191,10 @@ export default class LoomService extends TypertRemoteService {
     this.refreshSnapshot(catalog)
     // Recover contexts for Agents that already exist when the service reloads.
     const agents = this.ctx.get('agents') as LoomAgentRegistry | undefined
-    for (const agent of agents?.list?.() ?? []) this.versionContext.syncVersionContext(agent.session.id)
+    for (const agent of agents?.list?.() ?? []) {
+      this.versionContext.syncVersionContext(agent.session.id)
+      this.bindExtensionSession(agent.session.id)
+    }
     this.ctx.on('tools/pre-execute', async (exec, next) => {
       if (exec.agent === undefined) return next()
       if (exec.name === 'loom_request_takeover') {

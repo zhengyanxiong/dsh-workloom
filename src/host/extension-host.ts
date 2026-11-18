@@ -37,6 +37,7 @@ export type ExtensionHostErrorCode =
 
 interface Binding {
   readonly taskId: LoomTaskId
+  readonly token: symbol
 }
 
 interface ApiEntry {
@@ -207,8 +208,11 @@ export function createLoomExtensionHost(): LoomExtensionHost {
         const existing = bindings.get(input.sessionId)
         if (existing?.taskId !== input.taskId) throw new ExtensionHostError('identity_mismatch', `session is already bound: ${input.sessionId}`)
       }
-      bindings.set(input.sessionId, { taskId: input.taskId })
-      return () => { if (bindings.get(input.sessionId)?.taskId === input.taskId) bindings.delete(input.sessionId) }
+      bindings.set(input.sessionId, { taskId: input.taskId, token: Symbol(input.sessionId) })
+      const token = bindings.get(input.sessionId)!.token
+      return () => {
+        if (bindings.get(input.sessionId)?.token === token) bindings.delete(input.sessionId)
+      }
     },
     resolvePolicy,
     visible(extensionId, sessionId) {
