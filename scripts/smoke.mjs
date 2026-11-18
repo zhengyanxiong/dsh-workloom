@@ -25,10 +25,16 @@ const cdpPort = Number(process.env.SMOKE_CDP_PORT ?? 9225)
 const dist = resolve(root, 'dist-smoke')
 const logPath = resolve(root, '.smoke-3090.log')
 const chromePath = process.env.CHROME_PATH ?? '/home/bernie/.cache/ms-playwright/chromium-1228/chrome-linux64/chrome'
+const pnpmCommand = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm'
 
 /** Run one command and inherit output. */
 async function run(command, args) {
-  await exec(command, args, { cwd: root, env: process.env, maxBuffer: 16 * 1024 * 1024 })
+  await exec(command, args, {
+    cwd: root,
+    env: process.env,
+    maxBuffer: 16 * 1024 * 1024,
+    shell: process.platform === 'win32',
+  })
 }
 
 /** Wait for a free port without binding it for long. */
@@ -197,11 +203,11 @@ async function checkBrowser(url) {
 async function main() {
   await assertPortFree()
   console.log('1/6 typecheck')
-  await run('pnpm', ['run', 'typecheck'])
+  await run(pnpmCommand, ['run', 'typecheck'])
   console.log('2/6 tests')
-  await run('pnpm', ['test'])
+  await run(pnpmCommand, ['test'])
   console.log('3/6 build')
-  await run('pnpm', ['run', 'build'])
+  await run(pnpmCommand, ['run', 'build'])
   console.log('4/6 stage')
   await run(process.execPath, ['scripts/stage.mjs', harness, dist])
   console.log('5/6 prepare profile')
