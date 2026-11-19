@@ -28,12 +28,12 @@ const chromePath = process.env.CHROME_PATH ?? '/home/bernie/.cache/ms-playwright
 const pnpmCommand = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm'
 
 /** Run one command and inherit output. */
-async function run(command, args) {
+async function run(command, args, shell = process.platform === 'win32') {
   await exec(command, args, {
     cwd: root,
     env: process.env,
     maxBuffer: 16 * 1024 * 1024,
-    shell: process.platform === 'win32',
+    shell,
   })
 }
 
@@ -55,7 +55,7 @@ async function prepareProfile() {
   const profileDir = join(smokeHome, 'profiles', smokeProfile)
   const link = join(profileDir, 'node_modules', 'dsh-workloom')
   await rm(link, { recursive: true, force: true })
-  await symlink(dist, link, 'dir')
+  await symlink(dist, link, process.platform === 'win32' ? 'junction' : 'dir')
   try {
     await cp(join(templateHome, 'loom', 'catalog.json'), join(smokeHome, 'loom', 'catalog.json'))
   } catch {
@@ -209,7 +209,7 @@ async function main() {
   console.log('3/6 build')
   await run(pnpmCommand, ['run', 'build'])
   console.log('4/6 stage')
-  await run(process.execPath, ['scripts/stage.mjs', harness, dist])
+  await run(process.execPath, ['scripts/stage.mjs', harness, dist], false)
   console.log('5/6 prepare profile')
   await prepareProfile()
   console.log('6/6 start and verify 3090')
