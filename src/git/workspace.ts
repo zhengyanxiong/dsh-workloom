@@ -1,5 +1,5 @@
 import { execFile as execFileCallback } from 'node:child_process'
-import { appendFile, lstat, mkdir, readFile, readdir, rm, rmdir, stat, symlink, unlink } from 'node:fs/promises'
+import { appendFile, lstat, mkdir, readFile, readdir, realpath, rm, rmdir, stat, symlink, unlink } from 'node:fs/promises'
 import { promisify } from 'node:util'
 import { basename, dirname, isAbsolute, join, normalize, relative, resolve, sep } from 'node:path'
 
@@ -271,12 +271,13 @@ export const LOOM_TEMP_DIR = '.loomtmp'
 export async function ensureWorkspaceTempDirectory(root: string, repositoryDirectories: readonly string[]): Promise<string> {
   const tempPath = join(root, LOOM_TEMP_DIR)
   await mkdir(tempPath, { recursive: true })
+  const canonicalTempPath = await realpath(tempPath)
   const seen = new Set<string>()
   for (const directory of repositoryDirectories) {
-    const top = await localRepository(directory)
-    if (!inside(top, tempPath) || seen.has(top)) continue
+    const top = await realpath(await localRepository(directory))
+    if (!inside(top, canonicalTempPath) || seen.has(top)) continue
     seen.add(top)
-    const relativeTemp = relative(top, tempPath).split(sep).join('/')
+    const relativeTemp = relative(top, canonicalTempPath).split(sep).join('/')
     const rule = `/${relativeTemp}/`
     const excludePath = resolve(top, (await execFile('git', ['-C', top, 'rev-parse', '--git-path', 'info/exclude'], { windowsHide: true })).stdout.trim())
     let content = ''

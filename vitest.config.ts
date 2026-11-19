@@ -22,5 +22,7 @@ export default defineConfig({
     // modules from the Web shell's frozen table; transform them through Vite
     // rather than letting Node resolve them as external ESM.
     server: { deps: { inline: [/@deepseek-ai\//] } },
+    testTimeout: process.platform === 'win32' ? 30_000 : 5_000,
+    fileParallelism: process.platform !== 'win32',
   },
 })
