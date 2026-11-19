@@ -7,6 +7,7 @@ import type {
   LoomExtensionContext,
   LoomExtensionDefinition,
   LoomExtensionId,
+  LoomExtensionLogger,
   LoomExtensionProfileConfig,
   LoomExtensionTaskConfig,
   LoomSessionId,
@@ -73,12 +74,40 @@ const policy: TaskExtensionPolicy = {
 
 import { createLoomExtensionHost, ExtensionHostError } from '../../src/host/extension-host.ts'
 
-const createHost = () => createLoomExtensionHost()
+const createHost = (logger?: LoomExtensionLogger) => createLoomExtensionHost({ logger })
+
 
 const createFakeDefinition = (onActivate?: (context: LoomExtensionContext<FakeConfig>) => LoomExtensionActivation) => ({
   ...fakeDefinition,
   activate: onActivate ?? fakeDefinition.activate,
 })
+
+describe('extension host diagnostics', () => {
+  it('emits lifecycle and authorization events without API payloads', async () => {
+    const events: Array<{ event: string; [key: string]: unknown }> = []
+    const logger: LoomExtensionLogger = {
+      debug: event => events.push(event),
+      info: event => events.push(event),
+      warn: event => events.push(event),
+      error: event => events.push(event),
+    }
+    const host = createHost(logger)
+    host.register(fakeDefinition)
+    host.bindSession({ sessionId, taskId })
+    const resolved = host.resolvePolicy({ sessionId, extensionId, profile, task: { enabled: true } })
+    host.filterCapabilities(sessionId, resolved)
+    await host.callControlledApi({ sessionId, taskId, extensionId, method: fakeApi.method, input: { query: 'secret-query' } })
+    await host.dispose()
+    expect(events.map(event => event.event)).toEqual(expect.arrayContaining([
+      'extension_registered', 'session_bound', 'extension_policy_resolved',
+      'extension_activation_started', 'extension_activation_completed',
+      'capabilities_visible', 'controlled_api_completed',
+      'extension_host_dispose_started', 'extension_host_dispose_completed',
+    ]))
+    expect(JSON.stringify(events)).not.toContain('secret-query')
+  })
+})
+
 
 describe('extension host policy', () => {
   it('resolves profile defaults and task overrides', () => {

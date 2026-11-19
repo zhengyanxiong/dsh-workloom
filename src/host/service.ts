@@ -104,7 +104,14 @@ export default class LoomService extends TypertRemoteService {
       getAgents: () => this.ctx.get('agents') as LoomAgentRegistry | undefined,
     })
     this.operations = new RemoteOperations(this.workspacesDir, this.versionContext)
-    this.extensionHost = createLoomExtensionHost()
+    this.extensionHost = createLoomExtensionHost({
+      logger: {
+        debug: event => this.ctx.logger.debug(`loom.extension ${JSON.stringify(event)}`),
+        info: event => this.ctx.logger.info(`loom.extension ${JSON.stringify(event)}`),
+        warn: event => this.ctx.logger.warn(`loom.extension ${JSON.stringify(event)}`),
+        error: event => this.ctx.logger.error(`loom.extension ${JSON.stringify(event)}`),
+      },
+    })
     mkdirSync(dirname(admitted.catalogFile), { recursive: true })
     mkdirSync(this.workspacesDir, { recursive: true })
     this.catalog = createCatalog(admitted.catalogFile, resolveCommit, resolveCommitTime)

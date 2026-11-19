@@ -94,6 +94,31 @@ export interface TaskExtensionPolicy {
   assertEnabled(): void
 }
 
+/** Diagnostic event emitted by the Extension Host without business payloads. */
+export interface LoomExtensionLogEvent {
+  readonly event: string
+  readonly extensionId?: LoomExtensionId | undefined
+  readonly sessionId?: LoomSessionId | undefined
+  readonly taskId?: LoomTaskId | undefined
+  readonly method?: string | undefined
+  readonly capabilityKind?: ExtensionCapability['kind'] | undefined
+  readonly enabled?: boolean | undefined
+  readonly count?: number | undefined
+  readonly errorCode?: string | undefined
+}
+
+/** Optional diagnostic sink for Extension Host lifecycle and authorization events. */
+export interface LoomExtensionLogger {
+  debug(event: LoomExtensionLogEvent): void
+  info(event: LoomExtensionLogEvent): void
+  warn(event: LoomExtensionLogEvent): void
+  error(event: LoomExtensionLogEvent): void
+}
+
+/** Options for creating an in-memory Extension Host. */
+export interface LoomExtensionHostOptions {
+  readonly logger?: LoomExtensionLogger | undefined
+}
 /** Public API for registering and resolving Loom extension contracts. */
 export interface LoomExtensionHost {
   register<ProviderConfig>(definition: LoomExtensionDefinition<ProviderConfig>): () => void
