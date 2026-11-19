@@ -1,6 +1,9 @@
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { expect, it } from 'vitest'
 import { parseProject, projectSubProjects } from '../../../src/domain/project.ts'
 
+const testRoot = join(tmpdir(), 'loom-subprojects')
 const input = () => ({
   name: 'Product',
   subProjects: [
@@ -53,9 +56,9 @@ it('keeps the sub-project id on a workspace repository binding', async () => {
   const layout = {
     projectId: 'p1' as never,
     mode: 'linked' as const,
-    rootPath: '/ws',
+    rootPath: testRoot,
     rootOwner: 'user' as const,
-    repositories: [{ sourceId: 'shop' as never, subProjectId: 'web' as never, path: 'shop', targetPath: '/repos/shop', kind: 'link' as const }],
+    repositories: [{ sourceId: 'shop' as never, subProjectId: 'web' as never, path: 'shop', targetPath: join(testRoot, 'shop'), kind: 'link' as const }],
   }
   expect(() => admitWorkspaceLayout(layout)).not.toThrow()
 })
