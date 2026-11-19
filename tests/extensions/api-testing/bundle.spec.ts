@@ -61,6 +61,38 @@ it('creates and reads fake runs through controlled APIs', async () => {
   expect(read).toEqual(created)
 })
 
+it('rejects oversized and identity-shaped API inputs before provider execution', async () => {
+  const host = setup()
+  host.resolvePolicy({ sessionId, extensionId, profile: { enabled: true, config: { provider: 'fake' } } })
+  await expect(host.callControlledApi({
+    sessionId,
+    taskId,
+    extensionId,
+    method: 'api-testing.create-run',
+    input: { caseName: 'x'.repeat(201) },
+  })).rejects.toMatchObject({ code: 'invalid_input' })
+  await expect(host.callControlledApi({
+    sessionId,
+    taskId,
+    extensionId,
+    method: 'api-testing.get-run',
+    input: { runId: '' },
+  })).rejects.toMatchObject({ code: 'invalid_input' })
+  await expect(host.callControlledApi({
+    sessionId,
+    taskId,
+    extensionId,
+    method: 'api-testing.get-run',
+    input: { runId: 'x'.repeat(201) },
+  })).rejects.toMatchObject({ code: 'invalid_input' })
+  await expect(host.callControlledApi({
+    sessionId,
+    taskId,
+    extensionId,
+    method: 'api-testing.create-run',
+    input: { caseName: 'smoke', sessionId: 'spoofed' },
+  })).rejects.toMatchObject({ code: 'invalid_input' })
+})
 it('fails closed for disabled policy, malformed input, unbound session, and wrong task identity', async () => {
   const host = setup()
   host.resolvePolicy({ sessionId, extensionId, profile: { enabled: true, config: { provider: 'fake' } }, task: { enabled: false } })
@@ -71,6 +103,15 @@ it('fails closed for disabled policy, malformed input, unbound session, and wron
   await expect(host.callControlledApi({ sessionId: brandString<LoomSessionId>('missing'), extensionId, method: 'api-testing.create-run', input: { caseName: 'missing' } })).rejects.toMatchObject({ code: 'session_unbound' })
 })
 
+it('rejects a policy belonging to another session when filtering capabilities', () => {
+  const host = setup()
+  const otherSession = brandString<LoomSessionId>('session-filter-other')
+  const otherTask = brandString<LoomTaskId>('task-filter-other')
+  host.bindSession({ sessionId: otherSession, taskId: otherTask })
+  host.resolvePolicy({ sessionId, extensionId, profile: { enabled: true, config: { provider: 'fake' } } })
+  const otherPolicy = host.resolvePolicy({ sessionId: otherSession, extensionId, profile: { enabled: true, config: { provider: 'fake' } } })
+  expect(() => host.filterCapabilities(sessionId, otherPolicy)).toThrowError(expect.objectContaining({ code: 'identity_mismatch' }))
+})
 it('activates once across sessions and disposes the bundle', async () => {
   const host = setup()
   const otherSession = brandString<LoomSessionId>('session-api-2')

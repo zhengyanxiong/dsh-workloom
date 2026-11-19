@@ -201,14 +201,15 @@ export function createLoomExtensionHost(options: LoomExtensionHostOptions = {}):
       event: 'extension_policy_resolved', extensionId: input.extensionId, sessionId: input.sessionId,
       taskId: binding.taskId, enabled,
     })
-     if (enabled) {
-       try {
-         activate(input.extensionId, definition.validateProfileConfig(input.profile.config))
-       } catch (error) {
-         if (error instanceof ExtensionHostError) throw error
-         throw new ExtensionHostError('invalid_config', error instanceof Error ? error.message : 'invalid profile config')
-       }
-     }
+    const validatedConfig = (() => {
+      try {
+        return definition.validateProfileConfig(input.profile.config)
+      } catch (error) {
+        if (error instanceof ExtensionHostError) throw error
+        throw new ExtensionHostError('invalid_config', 'invalid profile config')
+      }
+    })()
+    if (enabled) activate(input.extensionId, validatedConfig)
     const policy: TaskExtensionPolicy = {
       extensionId: input.extensionId,
       taskId: binding.taskId,
@@ -251,6 +252,9 @@ export function createLoomExtensionHost(options: LoomExtensionHostOptions = {}):
       return () => {
         if (bindings.get(input.sessionId)?.token === token) {
           bindings.delete(input.sessionId)
+          for (const key of policies.keys()) {
+            if (key.startsWith(`${input.sessionId}:`)) policies.delete(key)
+          }
           safeLog(logger, 'info', { event: 'session_unbound', sessionId: input.sessionId, taskId: input.taskId })
         }
       }
@@ -258,11 +262,23 @@ export function createLoomExtensionHost(options: LoomExtensionHostOptions = {}):
     resolvePolicy,
     visible(extensionId, sessionId) {
       ensureOpen()
+      if (bindings.get(sessionId) === undefined) return false
       return policies.get(`${sessionId}:${extensionId}`)?.enabled === true
     },
     filterCapabilities(sessionId, policy) {
       ensureOpen()
-      const effective = policy ?? [...policies.entries()].find(([key]) => key.startsWith(`${sessionId}:`))?.[1]
+      if (bindings.get(sessionId) === undefined) {
+        safeLog(logger, 'debug', { event: 'capabilities_filtered', sessionId, count: 0, errorCode: 'session_unbound' })
+        return []
+      }
+      const sessionPolicies = [...policies.entries()].filter(([key]) => key.startsWith(`${sessionId}:`))
+      const storedPolicy = sessionPolicies.length === 1 ? sessionPolicies[0]?.[1] : undefined
+      const effective = policy === undefined
+        ? storedPolicy
+        : sessionPolicies.find(([, stored]) => stored === policy)?.[1]
+      if (policy !== undefined && effective === undefined) {
+        throw new ExtensionHostError('identity_mismatch', `policy does not belong to session: ${sessionId}`)
+      }
       if (effective === undefined || !effective.enabled) {
         safeLog(logger, 'debug', { event: 'capabilities_filtered', sessionId, count: 0 })
         return []
@@ -301,7 +317,7 @@ export function createLoomExtensionHost(options: LoomExtensionHostOptions = {}):
       } catch (error) {
         if (error instanceof ExtensionHostError) throw error
         safeLog(logger, 'warn', { event: 'controlled_api_failed', sessionId: input.sessionId, taskId: binding.taskId, extensionId: input.extensionId, method: input.method, errorCode: 'invalid_input' })
-        throw new ExtensionHostError('invalid_input', error instanceof Error ? error.message : 'invalid API input')
+        throw new ExtensionHostError('invalid_input', 'invalid controlled API input')
       }
     },
     async dispose() {

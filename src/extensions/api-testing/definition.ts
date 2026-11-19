@@ -23,6 +23,11 @@ const extensionId = brandString<LoomExtensionId>('api-testing')
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value)
 
 const invalid = (message: string): Error => new Error(`api-testing: ${message}`)
+const MAX_CASE_NAME_LENGTH = 200
+const MAX_VARIABLES = 50
+const MAX_VARIABLE_KEY_LENGTH = 100
+const MAX_VARIABLE_VALUE_LENGTH = 1000
+
 
 export const validateApiTestingProfileConfig = (value: unknown): ApiTestingProfileConfig => {
   if (!isRecord(value)) throw invalid('profile config must be an object')
@@ -45,8 +50,12 @@ const parseObject = (value: unknown, label: string): Record<string, unknown> => 
 const parseVariables = (value: unknown): Readonly<Record<string, string>> => {
   const variables = parseObject(value, 'variables')
   const result: Record<string, string> = {}
-  for (const [key, entry] of Object.entries(variables)) {
-    if (typeof entry !== 'string') throw invalid('variables must contain only strings')
+  const entries = Object.entries(variables)
+  if (entries.length > MAX_VARIABLES) throw invalid('too many variables')
+  for (const [key, entry] of entries) {
+    if (key.length === 0 || key.length > MAX_VARIABLE_KEY_LENGTH || typeof entry !== 'string' || entry.length > MAX_VARIABLE_VALUE_LENGTH) {
+      throw invalid('variables are invalid')
+    }
     result[key] = entry
   }
   return result
@@ -57,7 +66,7 @@ const parseCreateRunInput = (value: unknown): CreateApiTestingRunInput => {
   if (Object.keys(input).some(key => key !== 'caseName' && key !== 'variables')) {
     throw invalid('create-run input has unknown fields')
   }
-  if (typeof input.caseName !== 'string') throw invalid('caseName must be a string')
+  if (typeof input.caseName !== 'string' || input.caseName.length === 0 || input.caseName.length > MAX_CASE_NAME_LENGTH) throw invalid('caseName is invalid')
   return {
     caseName: input.caseName,
     variables: input.variables === undefined ? undefined : parseVariables(input.variables),
@@ -67,7 +76,7 @@ const parseCreateRunInput = (value: unknown): CreateApiTestingRunInput => {
 const parseGetRunInput = (value: unknown): { readonly runId: ApiTestingRunId } => {
   const input = parseObject(value, 'get-run input')
   if (Object.keys(input).some(key => key !== 'runId')) throw invalid('get-run input has unknown fields')
-  if (typeof input.runId !== 'string') throw invalid('runId must be a string')
+  if (typeof input.runId !== 'string' || input.runId.length === 0 || input.runId.length > MAX_CASE_NAME_LENGTH) throw invalid('runId is invalid')
   return { runId: brandString<ApiTestingRunId>(input.runId) }
 }
 
