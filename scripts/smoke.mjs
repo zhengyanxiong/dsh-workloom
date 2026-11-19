@@ -8,7 +8,7 @@
 import { execFile, spawn } from 'node:child_process'
 import { createServer } from 'node:net'
 import { createWriteStream } from 'node:fs'
-import { cp, mkdir, readFile, rm, symlink } from 'node:fs/promises'
+import { cp, mkdir, readFile, rm, symlink, writeFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
@@ -24,7 +24,7 @@ const port = Number(process.env.SMOKE_PORT ?? 3090)
 const cdpPort = Number(process.env.SMOKE_CDP_PORT ?? 9225)
 const dist = resolve(root, 'dist-smoke')
 const logPath = resolve(root, '.smoke-3090.log')
-const chromePath = process.env.CHROME_PATH ?? '/home/bernie/.cache/ms-playwright/chromium-1228/chrome-linux64/chrome'
+const chromePath = process.env.CHROME_PATH ?? (process.platform === 'win32' ? 'chrome' : '/home/bernie/.cache/ms-playwright/chromium-1228/chrome-linux64/chrome')
 const pnpmCommand = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm'
 
 /** Run one command and inherit output. */
@@ -49,10 +49,22 @@ async function assertPortFree() {
 /** Prepare an isolated profile from the known verify profile. */
 async function prepareProfile() {
   await rm(smokeHome, { recursive: true, force: true })
-  await mkdir(join(smokeHome, 'profiles'), { recursive: true })
+  await mkdir(join(smokeHome, 'profiles', smokeProfile, 'node_modules'), { recursive: true })
   await mkdir(join(smokeHome, 'loom'), { recursive: true })
-  await cp(templateProfile, join(smokeHome, 'profiles', smokeProfile), { recursive: true })
   const profileDir = join(smokeHome, 'profiles', smokeProfile)
+  try {
+    await cp(templateProfile, profileDir, { recursive: true })
+  } catch (error) {
+    if (error?.code !== 'ENOENT') throw error
+    await writeFile(join(profileDir, 'package.json'), `${JSON.stringify({
+      name: `dsh-profile-${smokeProfile}`,
+      private: true,
+      dependencies: {},
+      dsh: { profile: { bundles: ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app'] } },
+    }, undefined, 2)}\n`)
+    await writeFile(join(profileDir, 'cordis.yml'), '[]\n')
+    await writeFile(join(profileDir, 'cordis.patch.yml'), '[]\n')
+  }
   const link = join(profileDir, 'node_modules', 'dsh-workloom')
   await rm(link, { recursive: true, force: true })
   await symlink(dist, link, process.platform === 'win32' ? 'junction' : 'dir')
@@ -147,15 +159,24 @@ class Cdp {
 async function checkBrowser(url) {
   let chrome
   try {
+    let launchError
     chrome = spawn(chromePath, [
       '--headless=new', '--no-sandbox', '--disable-gpu',
       `--remote-debugging-port=${String(cdpPort)}`,
       `--user-data-dir=${join(root, '.smoke-chrome')}`,
       '--window-size=1400,857', url,
     ], { stdio: 'ignore' })
+    chrome.once('error', error => { launchError = error })
     const deadline = Date.now() + 15_000
     let target
     while (Date.now() < deadline) {
+      if (launchError !== undefined) {
+        if (launchError.code === 'ENOENT') {
+          console.log('browser: skipped (set CHROME_PATH to enable UI smoke)')
+          return false
+        }
+        throw launchError
+      }
       try {
         const targets = await (await fetch(`http://127.0.0.1:${String(cdpPort)}/json/list`)).json()
         target = targets.find(entry => entry.type === 'page')
