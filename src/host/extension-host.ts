@@ -201,7 +201,14 @@ export function createLoomExtensionHost(options: LoomExtensionHostOptions = {}):
       event: 'extension_policy_resolved', extensionId: input.extensionId, sessionId: input.sessionId,
       taskId: binding.taskId, enabled,
     })
-    if (enabled) activate(input.extensionId, definition.validateProfileConfig(input.profile.config))
+     if (enabled) {
+       try {
+         activate(input.extensionId, definition.validateProfileConfig(input.profile.config))
+       } catch (error) {
+         if (error instanceof ExtensionHostError) throw error
+         throw new ExtensionHostError('invalid_config', error instanceof Error ? error.message : 'invalid profile config')
+       }
+     }
     const policy: TaskExtensionPolicy = {
       extensionId: input.extensionId,
       taskId: binding.taskId,
