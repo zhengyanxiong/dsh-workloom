@@ -32,11 +32,21 @@ it('accepts fake provider config and registers the business capability roster', 
   ]))
 })
 
-it('rejects unsupported provider config and unknown fields', () => {
+it('rejects unsupported provider config and unknown fields', async () => {
   const host = setup()
-  expect(() => host.resolvePolicy({ sessionId, extensionId, profile: { enabled: true, config: { provider: 'ouroboros' } } })).toThrowError(expect.objectContaining({ code: 'invalid_config' }))
+  expect(() => host.resolvePolicy({ sessionId, extensionId, profile: { enabled: false, config: { provider: 'ouroboros' } } })).toThrowError(expect.objectContaining({ code: 'invalid_config' }))
   expect(() => host.resolvePolicy({ sessionId, extensionId, profile: { enabled: true, config: { provider: 'fake', unexpected: true } } })).toThrowError(expect.objectContaining({ code: 'invalid_config' }))
+  const variables = Object.fromEntries(Array.from({ length: 51 }, (_, index) => [`key-${index}`, 'value']))
+  host.resolvePolicy({ sessionId, extensionId, profile: { enabled: true, config: { provider: 'fake' } } })
+  await expect(host.callControlledApi({
+    sessionId,
+    taskId,
+    extensionId,
+    method: 'api-testing.create-run',
+    input: { caseName: 'smoke', variables },
+  })).rejects.toMatchObject({ code: 'invalid_input' })
 })
+
 it('creates and reads fake runs through controlled APIs', async () => {
   const host = setup()
   host.resolvePolicy({ sessionId, extensionId, profile: { enabled: true, config: { provider: 'fake', autoComplete: false } } })
