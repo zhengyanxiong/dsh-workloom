@@ -39,7 +39,7 @@ await cp(join(import.meta.dirname, '..', 'src', 'types.ts'), join(target, 'src',
 for (const [name, path] of Object.entries(links)) {
   const destination = join(target, 'node_modules', ...name.split('/'))
   await mkdir(join(destination, '..'), { recursive: true })
-  await symlink(path, destination, 'dir')
+  await symlink(path, destination, process.platform === 'win32' ? 'junction' : 'dir')
 }
 const source = JSON.parse(await readFile(join(import.meta.dirname, '..', 'package.json'), 'utf8'))
 // Resolution comes from the staged node_modules links, so peers are empty here.

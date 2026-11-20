@@ -1,0 +1,46 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug current Vitest file",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["${workspaceFolder}/node_modules/vitest/vitest.mjs", "run", "${relativeFile}", "--no-file-parallelism"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"]
+    },
+    {
+      "name": "Debug api-testing tests",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "${workspaceFolder}/node_modules/vitest/vitest.mjs",
+        "run",
+        "tests/extensions/api-testing/fake-provider.spec.ts",
+        "tests/extensions/api-testing/bundle.spec.ts",
+        "--no-file-parallelism"
+      ],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"]
+    },
+    {
+      "name": "Debug api-testing bundle test",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "${workspaceFolder}/node_modules/vitest/vitest.mjs",
+        "run",
+        "tests/extensions/api-testing/bundle.spec.ts",
+        "--no-file-parallelism"
+      ],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"]
+    }
+  ]
+}
